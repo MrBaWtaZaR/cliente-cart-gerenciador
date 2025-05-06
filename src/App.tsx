@@ -14,59 +14,62 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { DashboardLayout } from "./components/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
+// Criando um cliente de consulta React Query
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<LoginPage />} />
-          
-          <Route path="/dashboard" element={
-            <DashboardLayout>
-              <DashboardPage />
-            </DashboardLayout>
-          } />
-          
-          <Route path="/dashboard/customers" element={
-            <DashboardLayout>
-              <CustomersPage />
-            </DashboardLayout>
-          } />
-          
-          <Route path="/dashboard/customers/:customerId" element={
-            <DashboardLayout>
-              <CustomerDetailPage />
-            </DashboardLayout>
-          } />
-          
-          <Route path="/dashboard/products" element={
-            <DashboardLayout>
-              <ProductsPage />
-            </DashboardLayout>
-          } />
-          
-          <Route path="/dashboard/orders" element={
-            <DashboardLayout>
-              <OrdersPage />
-            </DashboardLayout>
-          } />
-          
-          <Route path="/dashboard/settings" element={
-            <DashboardLayout>
-              <SettingsPage />
-            </DashboardLayout>
-          } />
-          
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <TooltipProvider>
+          <Routes>
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/login" element={<LoginPage />} />
+            
+            <Route path="/dashboard" element={
+              <DashboardLayout>
+                <DashboardPage />
+              </DashboardLayout>
+            } />
+            
+            <Route path="/dashboard/customers" element={
+              <DashboardLayout>
+                <CustomersPage />
+              </DashboardLayout>
+            } />
+            
+            <Route path="/dashboard/customers/:customerId" element={
+              <DashboardLayout>
+                <CustomerDetailPage />
+              </DashboardLayout>
+            } />
+            
+            <Route path="/dashboard/products" element={
+              <DashboardLayout>
+                <ProductsPage />
+              </DashboardLayout>
+            } />
+            
+            <Route path="/dashboard/orders" element={
+              <DashboardLayout>
+                <OrdersPage />
+              </DashboardLayout>
+            } />
+            
+            <Route path="/dashboard/settings" element={
+              <DashboardLayout>
+                <SettingsPage />
+              </DashboardLayout>
+            } />
+            
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <Toaster />
+          <Sonner />
+        </TooltipProvider>
       </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+    </QueryClientProvider>
+  );
+};
 
 export default App;

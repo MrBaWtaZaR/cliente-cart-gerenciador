@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,7 +13,7 @@ export interface Customer {
   orders: Order[];
   // Novos campos para informações de excursão
   tourName?: string;
-  tourSector?: 'azul' | 'vermelho' | 'amarelo' | 'laranja' | 'verde' | 'branco';
+  tourSector?: string; // Mudamos de union type para string simples para compatibilidade
   tourSeatNumber?: string;
   tourCity?: string;
   tourState?: string;
@@ -62,6 +63,11 @@ interface DataStore {
   addOrder: (order: Omit<Order, 'id' | 'createdAt'>) => void;
   updateOrderStatus: (customerId: string, orderId: string, status: Order['status']) => void;
 }
+
+// Função para gerar IDs únicos
+const generateId = () => {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+};
 
 // Função para gerar dados de exemplo
 const generateSampleData = () => {
@@ -314,7 +320,7 @@ export const useDataStore = create<DataStore>((set) => ({
       toast.error('Falha ao adicionar imagem');
       throw error;
     }
-  },
+  }),
   
   addOrder: (orderData) => set((state) => {
     const newOrder: Order = {
