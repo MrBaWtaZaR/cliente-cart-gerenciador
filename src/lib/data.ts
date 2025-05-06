@@ -11,9 +11,9 @@ export interface Customer {
   address?: string;
   createdAt: Date;
   orders: Order[];
-  // Novos campos para informações de excursão
+  // Campos para informações de excursão
   tourName?: string;
-  tourSector?: string; // Mudamos de union type para string simples para compatibilidade
+  tourSector?: string;
   tourSeatNumber?: string;
   tourCity?: string;
   tourState?: string;
@@ -320,7 +320,7 @@ export const useDataStore = create<DataStore>((set) => ({
       toast.error('Falha ao adicionar imagem');
       throw error;
     }
-  }),
+  },
   
   addOrder: (orderData) => set((state) => {
     const newOrder: Order = {
