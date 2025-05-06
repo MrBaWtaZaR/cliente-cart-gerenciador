@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDataStore, OrderProduct, Product } from '@/lib/data';
@@ -11,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, User, Phone, Mail, MapPin, ShoppingCart, Plus, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, MapPin, ShoppingCart, Plus, ShoppingBag, X } from 'lucide-react';
 
 export const CustomerDetailPage = () => {
   const { customerId } = useParams<{ customerId: string }>();
