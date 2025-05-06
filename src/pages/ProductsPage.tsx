@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useDataStore, Product } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,14 +8,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Package, Search, Plus, Edit, Trash, Image as ImageIcon } from 'lucide-react';
+import { Package, Search, Plus, Edit, Trash, Image as ImageIcon, Upload, Gallery } from 'lucide-react';
 
 export const ProductsPage = () => {
-  const { products, addProduct, updateProduct, deleteProduct } = useDataStore();
+  const { products, addProduct, updateProduct, deleteProduct, uploadProductImage } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [isEditingProduct, setIsEditingProduct] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -127,6 +128,42 @@ export const ProductsPage = () => {
       };
     });
   };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, productId: string) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    toast.loading(`Enviando ${files.length} imagem(s)...`);
+    
+    for (let i = 0; i < files.length; i++) {
+      try {
+        const file = files[i];
+        const url = await uploadProductImage(productId, file);
+        
+        if (isEditingProduct === productId) {
+          setNewProduct(prev => ({
+            ...prev,
+            images: [...prev.images.filter(img => img !== '/placeholder.svg'), url]
+          }));
+        }
+      } catch (error) {
+        console.error("Erro ao fazer upload:", error);
+        toast.error("Erro ao fazer upload da imagem");
+      }
+    }
+    
+    toast.dismiss();
+    toast.success("Imagens enviadas com sucesso");
+    
+    // Limpar o input de arquivo
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const openFileUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
   
   return (
     <div className="space-y-6">
@@ -166,6 +203,16 @@ export const ProductsPage = () => {
           </div>
         )}
       </div>
+      
+      {/* Input de arquivo oculto */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => isEditingProduct && handleFileUpload(e, isEditingProduct)}
+      />
       
       {/* Modal para adicionar produto */}
       <Dialog open={isAddingProduct} onOpenChange={setIsAddingProduct}>
@@ -343,31 +390,74 @@ export const ProductsPage = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Imagens</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addImageField}>
-                  <Plus className="h-4 w-4 mr-1" /> Adicionar Imagem
-                </Button>
+                <div className="flex space-x-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={openFileUpload}
+                  >
+                    <Upload className="h-4 w-4 mr-1" /> Enviar Imagens
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={addImageField}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Adicionar URL
+                  </Button>
+                </div>
               </div>
               
-              {newProduct.images.map((image, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    value={image}
-                    onChange={(e) => handleImageChange(index, e.target.value)}
-                    placeholder="URL da imagem"
-                  />
-                  {index > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 my-3">
+                {newProduct.images.map((image, index) => (
+                  <div 
+                    key={index} 
+                    className="relative aspect-square bg-muted rounded-md overflow-hidden border"
+                  >
+                    <img 
+                      src={image} 
+                      alt={`Imagem ${index + 1}`}
+                      className="object-cover w-full h-full"
+                    />
                     <Button 
                       type="button" 
-                      variant="ghost" 
+                      variant="destructive" 
                       size="icon" 
-                      className="flex-shrink-0"
+                      className="absolute top-1 right-1 h-6 w-6"
                       onClick={() => removeImageField(index)}
                     >
-                      <Trash className="h-4 w-4" />
+                      <Trash className="h-3 w-3" />
                     </Button>
-                  )}
-                </div>
-              ))}
+                  </div>
+                ))}
+              </div>
+              
+              {/* Barra para adicionar URLs manualmente */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Adicionar URL da imagem"
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setNewProduct(prev => ({
+                        ...prev,
+                        images: [...prev.images, e.target.value]
+                      }));
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="icon" 
+                  className="flex-shrink-0"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
           

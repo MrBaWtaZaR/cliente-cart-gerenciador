@@ -7,12 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Edit, ArrowLeft, Printer, Trash } from 'lucide-react';
+import { Edit, ArrowLeft, Printer, Trash, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReactToPrint } from 'react-to-print';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { AddOrderForm } from '@/components/AddOrderForm';
 
 export const CustomerDetailPage = () => {
   const { customerId } = useParams<{ customerId: string }>();
@@ -21,6 +22,7 @@ export const CustomerDetailPage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedCustomer, setEditedCustomer] = useState<Partial<Customer>>({});
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAddingOrder, setIsAddingOrder] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -170,31 +172,162 @@ export const CustomerDetailPage = () => {
             <Label>Data de Cadastro</Label>
             <p>{formatDate(customer.createdAt)}</p>
           </div>
-
-          {order && (
-            <div className="border-t pt-4">
-              <h3 className="text-lg font-semibold">Pedido Recente</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>ID do Pedido</Label>
-                  <p>{order.id}</p>
-                </div>
-                
-                <div>
-                  <Label>Data do Pedido</Label>
-                  <p>{formatDateTime(order.createdAt)}</p>
-                </div>
-                
-                <div>
-                  <Label>Status</Label>
-                  <Badge variant="secondary">{order.status}</Badge>
-                </div>
-                
-                <div>
-                  <Label>Total</Label>
-                  <p>R$ {order.total.toFixed(2)}</p>
-                </div>
+          
+          {/* Informações de Excursão */}
+          <div className="border-t pt-4 mt-4">
+            <h3 className="text-lg font-semibold mb-4">Informações de Excursão</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Nome da Excursão</Label>
+                {isEditing ? (
+                  <Input
+                    name="tourName"
+                    value={editedCustomer.tourName || ''}
+                    onChange={handleInputChange}
+                    placeholder="Nome da excursão"
+                  />
+                ) : (
+                  <p>{customer.tourName || 'Não informado'}</p>
+                )}
               </div>
+              
+              <div>
+                <Label>Setor</Label>
+                {isEditing ? (
+                  <Input
+                    name="tourSector"
+                    value={editedCustomer.tourSector || ''}
+                    onChange={handleInputChange}
+                    placeholder="Setor da excursão"
+                  />
+                ) : (
+                  <p>{customer.tourSector || 'Não informado'}</p>
+                )}
+              </div>
+              
+              <div>
+                <Label>Número do Assento</Label>
+                {isEditing ? (
+                  <Input
+                    name="tourSeatNumber"
+                    value={editedCustomer.tourSeatNumber || ''}
+                    onChange={handleInputChange}
+                    placeholder="Número do assento"
+                  />
+                ) : (
+                  <p>{customer.tourSeatNumber || 'Não informado'}</p>
+                )}
+              </div>
+              
+              <div>
+                <Label>Cidade</Label>
+                {isEditing ? (
+                  <Input
+                    name="tourCity"
+                    value={editedCustomer.tourCity || ''}
+                    onChange={handleInputChange}
+                    placeholder="Cidade da excursão"
+                  />
+                ) : (
+                  <p>{customer.tourCity || 'Não informado'}</p>
+                )}
+              </div>
+              
+              <div>
+                <Label>Estado</Label>
+                {isEditing ? (
+                  <Input
+                    name="tourState"
+                    value={editedCustomer.tourState || ''}
+                    onChange={handleInputChange}
+                    placeholder="Estado da excursão"
+                  />
+                ) : (
+                  <p>{customer.tourState || 'Não informado'}</p>
+                )}
+              </div>
+              
+              <div>
+                <Label>Horário de Partida</Label>
+                {isEditing ? (
+                  <Input
+                    name="tourDepartureTime"
+                    value={editedCustomer.tourDepartureTime || ''}
+                    onChange={handleInputChange}
+                    placeholder="Horário de partida"
+                  />
+                ) : (
+                  <p>{customer.tourDepartureTime || 'Não informado'}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {customer.orders.length > 0 && (
+            <div className="border-t pt-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Pedidos</h3>
+                <Button 
+                  size="sm" 
+                  onClick={() => setIsAddingOrder(true)} 
+                  className="ml-auto"
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Adicionar Pedido
+                </Button>
+              </div>
+              
+              {customer.orders.map(order => (
+                <div key={order.id} className="mb-4 p-4 border rounded-md">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>ID do Pedido</Label>
+                      <p>{order.id}</p>
+                    </div>
+                    
+                    <div>
+                      <Label>Data do Pedido</Label>
+                      <p>{formatDateTime(order.createdAt)}</p>
+                    </div>
+                    
+                    <div>
+                      <Label>Status</Label>
+                      <Badge variant="secondary">{order.status}</Badge>
+                    </div>
+                    
+                    <div>
+                      <Label>Total</Label>
+                      <p>R$ {order.total.toFixed(2)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3">
+                    <Label>Produtos</Label>
+                    <ul className="list-disc pl-5 mt-1">
+                      {order.products.map((product, idx) => (
+                        <li key={idx}>
+                          {product.productName} - {product.quantity} x R$ {product.price.toFixed(2)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {customer.orders.length === 0 && (
+            <div className="border-t pt-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Pedidos</h3>
+                <Button 
+                  size="sm" 
+                  onClick={() => setIsAddingOrder(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Adicionar Pedido
+                </Button>
+              </div>
+              <p className="text-muted-foreground mt-2">Nenhum pedido encontrado.</p>
             </div>
           )}
         </CardContent>
@@ -219,6 +352,24 @@ export const CustomerDetailPage = () => {
               Excluir Cliente
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isAddingOrder} onOpenChange={setIsAddingOrder}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Plus className="h-5 w-5 mr-2" /> Adicionar Pedido
+            </DialogTitle>
+            <DialogDescription>
+              Adicione um novo pedido para {customer.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <AddOrderForm 
+            customerId={customer.id} 
+            onSuccess={() => setIsAddingOrder(false)} 
+          />
         </DialogContent>
       </Dialog>
 

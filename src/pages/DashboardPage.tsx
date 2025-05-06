@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+
+import { useEffect, useState, useMemo } from 'react';
 import { useDataStore, Customer, Product, Order } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
@@ -23,7 +24,8 @@ export const DashboardPage = () => {
     recentOrders: [],
   });
 
-  useEffect(() => {
+  // Use useMemo para calcular as métricas sempre que os clientes ou produtos mudarem
+  const calculatedMetrics = useMemo(() => {
     // Calcular métricas
     const allOrders = customers.flatMap(customer => customer.orders);
     const totalRevenue = allOrders.reduce((sum, order) => sum + order.total, 0);
@@ -33,17 +35,21 @@ export const DashboardPage = () => {
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-    setMetrics({
+    return {
       totalCustomers: customers.length,
       totalProducts: products.length,
       totalOrders: allOrders.length,
       totalRevenue,
       recentOrders: sortedOrders.slice(0, 5)
-    });
+    };
   }, [customers, products]);
 
+  useEffect(() => {
+    setMetrics(calculatedMetrics);
+  }, [calculatedMetrics]);
+
   // Dados para o gráfico de receita
-  const revenueData = (() => {
+  const revenueData = useMemo(() => {
     const allOrders = customers.flatMap(customer => customer.orders);
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
@@ -66,12 +72,12 @@ export const DashboardPage = () => {
     
     return last7Days.map(day => ({
       date: day.formattedDate,
-      revenue: day.revenue.toFixed(2)
+      revenue: Number(day.revenue.toFixed(2))
     }));
-  })();
+  }, [customers]);
 
   // Dados para o gráfico de produtos mais vendidos
-  const topProductsData = (() => {
+  const topProductsData = useMemo(() => {
     const productSales: Record<string, { name: string, quantity: number }> = {};
     
     customers.forEach(customer => {
@@ -92,7 +98,7 @@ export const DashboardPage = () => {
     return Object.values(productSales)
       .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 5);
-  })();
+  }, [customers]);
 
   return (
     <div className="space-y-6">
@@ -171,7 +177,7 @@ export const DashboardPage = () => {
                 <XAxis dataKey="date" />
                 <YAxis />
                 <Tooltip 
-                  formatter={(value) => [`R$ ${value}`, 'Receita']}
+                  formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Receita']}
                 />
                 <Legend />
                 <Line 
