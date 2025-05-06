@@ -37,17 +37,18 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
       <div className="w-full max-w-md animate-fade-in">
-        <Card className="shadow-xl border-0">
-          <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-3xl font-bold">Gestão de Clientes</CardTitle>
+        <Card className="shadow-2xl border-0 overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 z-0"></div>
+          <CardHeader className="space-y-1 text-center relative z-10">
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">A&F Consultoria</CardTitle>
             <CardDescription>
               Digite suas credenciais para acessar o painel administrativo
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleLogin}>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 relative z-10">
               <div className="space-y-2">
                 <Label htmlFor="username">Usuário</Label>
                 <Input
@@ -56,6 +57,7 @@ export const LoginPage = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
+                  className="bg-white/70 backdrop-blur-sm"
                 />
               </div>
               <div className="space-y-2">
@@ -67,24 +69,20 @@ export const LoginPage = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className="bg-white/70 backdrop-blur-sm"
                 />
               </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="relative z-10">
               <Button 
                 type="submit" 
-                className="w-full bg-primary hover:bg-primary/90" 
+                className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 button-glow" 
                 disabled={isLoading}
               >
                 {isLoading ? 'Entrando...' : 'Entrar'}
               </Button>
             </CardFooter>
           </form>
-          <div className="p-4 pt-0 text-center text-sm text-muted-foreground">
-            <p>
-              Credenciais padrão: <strong>darlianaaf / 123456</strong>
-            </p>
-          </div>
         </Card>
       </div>
     </div>

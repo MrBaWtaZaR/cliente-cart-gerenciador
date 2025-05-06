@@ -1,12 +1,14 @@
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useDataStore, Order } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShoppingCart, Search, Filter, Eye } from 'lucide-react';
+import { ShoppingCart, Search, Filter, Eye, FileText, Printer } from 'lucide-react';
+import { useReactToPrint } from 'react-to-print';
+import { OrderPDF } from '@/components/OrderPDF';
 
 export const OrdersPage = () => {
   const { customers, updateOrderStatus } = useDataStore();
@@ -14,6 +16,8 @@ export const OrdersPage = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [customerName, setCustomerName] = useState<string>('');
+  const [customerInfo, setCustomerInfo] = useState<any>(null);
+  const [showPDFPreview, setShowPDFPreview] = useState<boolean>(false);
 
   // Obter todos os pedidos
   const allOrders = customers.flatMap(customer => 
@@ -45,9 +49,37 @@ export const OrdersPage = () => {
   };
 
   const handleViewOrder = (order: Order, customerName: string) => {
+    const customer = customers.find(c => c.id === order.customerId);
+    
     setViewingOrder(order);
     setCustomerName(customerName);
+    setCustomerInfo({
+      email: customer?.email || '',
+      phone: customer?.phone || '',
+      address: customer?.address,
+      tourName: customer?.tourName,
+      tourSector: customer?.tourSector,
+      tourSeatNumber: customer?.tourSeatNumber
+    });
   };
+  
+  const pdfRef = useRef<HTMLDivElement>(null);
+  
+  const handlePrintPDF = useReactToPrint({
+    documentTitle: `Pedido-${viewingOrder?.id || ''}`,
+    onBeforeGetContent: () => {
+      return new Promise<void>((resolve) => {
+        setShowPDFPreview(true);
+        setTimeout(() => {
+          resolve();
+        }, 100);
+      });
+    },
+    onAfterPrint: () => {
+      setShowPDFPreview(false);
+    },
+    contentRef: pdfRef,
+  });
 
   return (
     <div className="space-y-6">
@@ -58,7 +90,7 @@ export const OrdersPage = () => {
         
         <div className="flex items-center space-x-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-[160px] bg-white shadow-sm">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Filtrar por status" />
             </SelectTrigger>
@@ -79,13 +111,13 @@ export const OrdersPage = () => {
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Buscar pedidos..."
-          className="pl-8"
+          className="pl-8 bg-white shadow-sm"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      <Card>
+      <Card className="card-gradient">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div>Lista de Pedidos</div>
@@ -111,7 +143,7 @@ export const OrdersPage = () => {
               <tbody>
                 {filteredOrders.length > 0 ? (
                   filteredOrders.map((order) => (
-                    <tr key={order.id} className="border-b hover:bg-slate-50">
+                    <tr key={order.id} className="border-b hover:bg-white/50 transition-colors">
                       <td className="py-3 px-4 font-mono text-xs">{order.id}</td>
                       <td className="py-3 px-4">
                         {new Date(order.createdAt).toLocaleDateString('pt-BR')}
@@ -135,13 +167,29 @@ export const OrdersPage = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleViewOrder(order, order.customerName)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" /> Visualizar
-                        </Button>
+                        <div className="flex space-x-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleViewOrder(order, order.customerName)}
+                            className="text-primary"
+                          >
+                            <Eye className="h-4 w-4 mr-1" /> Ver
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              handleViewOrder(order, order.customerName);
+                              setTimeout(() => {
+                                handlePrintPDF();
+                              }, 100);
+                            }}
+                            className="text-gray-600"
+                          >
+                            <FileText className="h-4 w-4 mr-1" /> PDF
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -162,7 +210,7 @@ export const OrdersPage = () => {
       </Card>
 
       {/* Modal para ver detalhes do pedido */}
-      <Dialog open={!!viewingOrder} onOpenChange={(open) => !open && setViewingOrder(null)}>
+      <Dialog open={!!viewingOrder && !showPDFPreview} onOpenChange={(open) => !open && setViewingOrder(null)}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Detalhes do Pedido</DialogTitle>
@@ -246,7 +294,7 @@ export const OrdersPage = () => {
                           </td>
                         </tr>
                       ))}
-                      <tr className="border-t">
+                      <tr className="border-t bg-muted/30">
                         <td colSpan={3} className="p-2 text-right font-bold">
                           Total:
                         </td>
@@ -264,13 +312,32 @@ export const OrdersPage = () => {
             </>
           )}
           
-          <DialogFooter>
-            <Button onClick={() => setViewingOrder(null)}>
+          <DialogFooter className="flex justify-between items-center space-x-2">
+            <Button variant="outline" onClick={() => setViewingOrder(null)}>
               Fechar
+            </Button>
+            <Button 
+              variant="default"
+              onClick={handlePrintPDF}
+              className="flex items-center"
+            >
+              <Printer className="h-4 w-4 mr-2" /> Imprimir Pedido
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Container escondido para o PDF */}
+      {viewingOrder && customerInfo && (
+        <div style={{ display: showPDFPreview ? 'block' : 'none', position: 'absolute', left: '-9999px' }}>
+          <OrderPDF 
+            ref={pdfRef} 
+            order={viewingOrder} 
+            customerName={customerName} 
+            customerInfo={customerInfo} 
+          />
+        </div>
+      )}
     </div>
   );
 };

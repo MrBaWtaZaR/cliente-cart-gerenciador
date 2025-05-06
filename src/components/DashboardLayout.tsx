@@ -24,7 +24,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     <AuthGuard>
       <div className="min-h-screen flex">
         <DashboardSidebar />
-        <main className={`flex-1 ${isMobile ? 'pl-0' : 'md:pl-64'} pt-16 md:pt-4 transition-all duration-300 bg-gray-50`}>
+        <main className={`flex-1 ${isMobile ? 'pl-0' : 'md:pl-64'} pt-16 md:pt-4 transition-all duration-300 bg-background`}>
           <div className="container mx-auto p-4 md:p-6 animate-fade-in">
             {children}
           </div>

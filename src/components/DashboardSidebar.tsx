@@ -81,32 +81,32 @@ export const DashboardSidebar = () => {
       
       <aside
         className={cn(
-          "bg-sidebar h-full fixed left-0 top-0 bottom-0 w-64 shadow-lg transition-transform duration-300 ease-in-out z-40",
+          "bg-sidebar h-full fixed left-0 top-0 bottom-0 w-64 shadow-xl transition-transform duration-300 ease-in-out z-40",
           isMobile && !isOpen ? "-translate-x-full" : "translate-x-0"
         )}
       >
         <div className="flex flex-col h-full">
-          <div className="p-4 border-b border-sidebar-border">
-            <h1 className="text-2xl font-bold text-primary">Gestão Clientes</h1>
-            <p className="text-sm text-sidebar-foreground">
+          <div className="p-6 border-b border-sidebar-border">
+            <h1 className="text-2xl font-bold text-white">A&F Consultoria</h1>
+            <p className="text-sm text-sidebar-foreground/80 mt-1">
               Olá, {user?.username || 'Admin'}
             </p>
           </div>
 
           <nav className="flex-1 p-4">
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               {navItems.map((item) => (
                 <li key={item.path}>
                   <NavLink
                     to={item.path}
                     className={({ isActive }) => cn(
-                      "flex items-center p-3 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors",
-                      isActive && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+                      "flex items-center px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-white/10 transition-colors",
+                      isActive ? "bg-white/15 shadow-inner" : ""
                     )}
                     onClick={() => isMobile && setIsOpen(false)}
                   >
                     {item.icon}
-                    <span className="ml-3">{item.label}</span>
+                    <span className="ml-3 font-medium">{item.label}</span>
                   </NavLink>
                 </li>
               ))}
@@ -116,7 +116,7 @@ export const DashboardSidebar = () => {
           <div className="p-4 border-t border-sidebar-border mt-auto">
             <Button 
               variant="outline" 
-              className="w-full flex items-center justify-center"
+              className="w-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white border-0"
               onClick={logout}
             >
               <LogOut className="h-4 w-4 mr-2" />
