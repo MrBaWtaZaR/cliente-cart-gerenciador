@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDataStore, Customer, Order } from '@/lib/data';
@@ -67,7 +68,7 @@ export const CustomerDetailPage = () => {
   const handlePrint = useReactToPrint({
     documentTitle: `Pedido-${order?.id || 'Detalhes'}`,
     onPrintError: (error) => console.error('Erro ao imprimir', error),
-    content: () => printRef.current as any
+    contentRef: printRef
   });
 
   if (!customer) {
