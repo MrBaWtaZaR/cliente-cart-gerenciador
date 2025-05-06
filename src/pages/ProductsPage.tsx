@@ -1,4 +1,3 @@
-
 import { useState, useRef } from 'react';
 import { useDataStore, Product } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Package, Search, Plus, Edit, Trash, Image as ImageIcon, Upload, Gallery } from 'lucide-react';
+import { Package, Search, Plus, Edit, Trash, Image as ImageIcon, Upload, GalleryHorizontal } from 'lucide-react';
 
 export const ProductsPage = () => {
   const { products, addProduct, updateProduct, deleteProduct, uploadProductImage } = useDataStore();
