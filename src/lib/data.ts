@@ -1,6 +1,6 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Customer {
   id: string;
@@ -10,6 +10,13 @@ export interface Customer {
   address?: string;
   createdAt: Date;
   orders: Order[];
+  // Novos campos para informações de excursão
+  tourName?: string;
+  tourSector?: 'azul' | 'vermelho' | 'amarelo' | 'laranja' | 'verde' | 'branco';
+  tourSeatNumber?: string;
+  tourCity?: string;
+  tourState?: string;
+  tourDepartureTime?: string;
 }
 
 export interface Product {
@@ -50,12 +57,11 @@ interface DataStore {
   addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => void;
   updateProduct: (id: string, productData: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
+  uploadProductImage: (productId: string, file: File) => Promise<string>;
   
   addOrder: (order: Omit<Order, 'id' | 'createdAt'>) => void;
   updateOrderStatus: (customerId: string, orderId: string, status: Order['status']) => void;
 }
-
-const generateId = () => Math.random().toString(36).substring(2, 9);
 
 // Função para gerar dados de exemplo
 const generateSampleData = () => {
@@ -268,6 +274,47 @@ export const useDataStore = create<DataStore>((set) => ({
     toast.success('Produto removido com sucesso');
     return { products: updatedProducts };
   }),
+  
+  uploadProductImage: async (productId, file) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `${productId}/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file);
+        
+      if (uploadError) {
+        toast.error('Erro ao fazer upload da imagem');
+        throw uploadError;
+      }
+      
+      const { data } = supabase.storage.from('product-images').getPublicUrl(filePath);
+      
+      set((state) => {
+        const updatedProducts = state.products.map((product) => {
+          if (product.id === productId) {
+            return {
+              ...product,
+              images: [...product.images, data.publicUrl]
+            };
+          }
+          return product;
+        });
+        
+        localStorage.setItem('products', JSON.stringify(updatedProducts));
+        return { products: updatedProducts };
+      });
+      
+      toast.success('Imagem adicionada com sucesso');
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Erro ao fazer upload:', error);
+      toast.error('Falha ao adicionar imagem');
+      throw error;
+    }
+  },
   
   addOrder: (orderData) => set((state) => {
     const newOrder: Order = {

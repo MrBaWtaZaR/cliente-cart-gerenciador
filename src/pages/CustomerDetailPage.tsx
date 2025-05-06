@@ -1,5 +1,7 @@
-import { useState } from 'react';
+
+import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useReactToPrint } from 'react-to-print';
 import { useDataStore, OrderProduct, Product } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,12 +12,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, User, Phone, Mail, MapPin, ShoppingCart, Plus, ShoppingBag, X } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, MapPin, ShoppingCart, Plus, ShoppingBag, X, Printer, Download, Upload, Truck } from 'lucide-react';
 
 export const CustomerDetailPage = () => {
   const { customerId } = useParams<{ customerId: string }>();
   const navigate = useNavigate();
-  const { customers, products, updateCustomer, addOrder, updateOrderStatus } = useDataStore();
+  const { customers, products, updateCustomer, addOrder, updateOrderStatus, uploadProductImage } = useDataStore();
   const customer = customers.find(c => c.id === customerId);
   
   const [isEditing, setIsEditing] = useState(false);
@@ -24,7 +26,24 @@ export const CustomerDetailPage = () => {
     email: customer.email,
     phone: customer.phone,
     address: customer.address || '',
-  } : { name: '', email: '', phone: '', address: '' });
+    tourName: customer.tourName || '',
+    tourSector: customer.tourSector || '',
+    tourSeatNumber: customer.tourSeatNumber || '',
+    tourCity: customer.tourCity || '',
+    tourState: customer.tourState || '',
+    tourDepartureTime: customer.tourDepartureTime || '',
+  } : { 
+    name: '', 
+    email: '', 
+    phone: '', 
+    address: '',
+    tourName: '',
+    tourSector: '',
+    tourSeatNumber: '',
+    tourCity: '',
+    tourState: '',
+    tourDepartureTime: '',
+  });
   
   const [isAddingOrder, setIsAddingOrder] = useState(false);
   const [orderProducts, setOrderProducts] = useState<OrderProduct[]>([]);
@@ -32,6 +51,8 @@ export const CustomerDetailPage = () => {
   const [quantity, setQuantity] = useState<number>(1);
   
   const [viewingOrder, setViewingOrder] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('info');
+  const orderDetailsPrintRef = useRef<HTMLDivElement>(null);
   
   if (!customer) {
     return (
@@ -116,9 +137,28 @@ export const CustomerDetailPage = () => {
     toast.success('Status do pedido atualizado');
   };
 
+  const handleUploadImage = async (event: React.ChangeEvent<HTMLInputElement>, productId: string) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      try {
+        await uploadProductImage(productId, file);
+      } catch (error) {
+        console.error('Erro no upload de imagem:', error);
+      }
+    }
+  };
+
+  const handlePrint = useReactToPrint({
+    content: () => orderDetailsPrintRef.current,
+    documentTitle: `Pedido-${viewingOrder}`,
+    onAfterPrint: () => toast.success('Documento pronto para impressão'),
+  });
+
   const viewingOrderDetails = viewingOrder 
     ? customer.orders.find(order => order.id === viewingOrder) 
     : null;
+
+  const inputSelectRef = useRef<HTMLInputElement>(null);
   
   return (
     <div className="space-y-6">
@@ -145,79 +185,198 @@ export const CustomerDetailPage = () => {
           </CardHeader>
           <CardContent>
             {isEditing ? (
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Nome *</Label>
-                  <Input 
-                    id="name" 
-                    value={editedCustomer.name} 
-                    onChange={(e) => setEditedCustomer({...editedCustomer, name: e.target.value})} 
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="email">Email *</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    value={editedCustomer.email} 
-                    onChange={(e) => setEditedCustomer({...editedCustomer, email: e.target.value})} 
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Telefone *</Label>
-                  <Input 
-                    id="phone" 
-                    value={editedCustomer.phone} 
-                    onChange={(e) => setEditedCustomer({...editedCustomer, phone: e.target.value})} 
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="address">Endereço</Label>
-                  <Textarea 
-                    id="address" 
-                    value={editedCustomer.address} 
-                    onChange={(e) => setEditedCustomer({...editedCustomer, address: e.target.value})} 
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-start">
-                  <User className="h-4 w-4 mr-2 mt-1" />
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid grid-cols-2">
+                  <TabsTrigger value="info">Informações</TabsTrigger>
+                  <TabsTrigger value="excursao" className="flex items-center">
+                    <Truck className="h-4 w-4 mr-2" /> Excursão
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="info" className="space-y-4">
                   <div>
-                    <strong>Nome:</strong>
-                    <p>{customer.name}</p>
+                    <Label htmlFor="name">Nome *</Label>
+                    <Input 
+                      id="name" 
+                      value={editedCustomer.name} 
+                      onChange={(e) => setEditedCustomer({...editedCustomer, name: e.target.value})} 
+                    />
                   </div>
-                </div>
-                <div className="flex items-start">
-                  <Mail className="h-4 w-4 mr-2 mt-1" />
                   <div>
-                    <strong>Email:</strong>
-                    <p>{customer.email}</p>
+                    <Label htmlFor="email">Email *</Label>
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      value={editedCustomer.email} 
+                      onChange={(e) => setEditedCustomer({...editedCustomer, email: e.target.value})} 
+                    />
                   </div>
-                </div>
-                <div className="flex items-start">
-                  <Phone className="h-4 w-4 mr-2 mt-1" />
                   <div>
-                    <strong>Telefone:</strong>
-                    <p>{customer.phone}</p>
+                    <Label htmlFor="phone">Telefone *</Label>
+                    <Input 
+                      id="phone" 
+                      value={editedCustomer.phone} 
+                      onChange={(e) => setEditedCustomer({...editedCustomer, phone: e.target.value})} 
+                    />
                   </div>
-                </div>
-                {customer.address && (
-                  <div className="flex items-start">
-                    <MapPin className="h-4 w-4 mr-2 mt-1" />
+                  <div>
+                    <Label htmlFor="address">Endereço</Label>
+                    <Textarea 
+                      id="address" 
+                      value={editedCustomer.address} 
+                      onChange={(e) => setEditedCustomer({...editedCustomer, address: e.target.value})} 
+                    />
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="excursao" className="space-y-4">
+                  <div>
+                    <Label htmlFor="tourName">Nome da Excursão</Label>
+                    <Input 
+                      id="tourName" 
+                      value={editedCustomer.tourName} 
+                      onChange={(e) => setEditedCustomer({...editedCustomer, tourName: e.target.value})} 
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="tourSector">Setor da Excursão</Label>
+                    <Select 
+                      value={editedCustomer.tourSector}
+                      onValueChange={(value) => setEditedCustomer({...editedCustomer, tourSector: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um setor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="azul">Azul</SelectItem>
+                        <SelectItem value="vermelho">Vermelho</SelectItem>
+                        <SelectItem value="amarelo">Amarelo</SelectItem>
+                        <SelectItem value="laranja">Laranja</SelectItem>
+                        <SelectItem value="verde">Verde</SelectItem>
+                        <SelectItem value="branco">Branco</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="tourSeatNumber">Número da Vaga</Label>
+                    <Input 
+                      id="tourSeatNumber" 
+                      value={editedCustomer.tourSeatNumber} 
+                      onChange={(e) => setEditedCustomer({...editedCustomer, tourSeatNumber: e.target.value})} 
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <strong>Endereço:</strong>
-                      <p>{customer.address}</p>
+                      <Label htmlFor="tourCity">Cidade</Label>
+                      <Input 
+                        id="tourCity" 
+                        value={editedCustomer.tourCity} 
+                        onChange={(e) => setEditedCustomer({...editedCustomer, tourCity: e.target.value})} 
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="tourState">Estado</Label>
+                      <Input 
+                        id="tourState" 
+                        value={editedCustomer.tourState} 
+                        onChange={(e) => setEditedCustomer({...editedCustomer, tourState: e.target.value})} 
+                      />
                     </div>
                   </div>
-                )}
-                <div className="pt-2">
-                  <p className="text-sm text-muted-foreground">
-                    Cliente desde: {new Date(customer.createdAt).toLocaleDateString('pt-BR')}
-                  </p>
-                </div>
-              </div>
+                  <div>
+                    <Label htmlFor="tourDepartureTime">Horário de Saída</Label>
+                    <Input 
+                      id="tourDepartureTime" 
+                      value={editedCustomer.tourDepartureTime} 
+                      onChange={(e) => setEditedCustomer({...editedCustomer, tourDepartureTime: e.target.value})} 
+                    />
+                  </div>
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <Tabs defaultValue="info" className="w-full">
+                <TabsList className="grid grid-cols-2">
+                  <TabsTrigger value="info">Informações</TabsTrigger>
+                  <TabsTrigger value="excursao" className="flex items-center">
+                    <Truck className="h-4 w-4 mr-2" /> Excursão
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="info" className="space-y-3">
+                  <div className="flex items-start">
+                    <User className="h-4 w-4 mr-2 mt-1" />
+                    <div>
+                      <strong>Nome:</strong>
+                      <p>{customer.name}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start">
+                    <Mail className="h-4 w-4 mr-2 mt-1" />
+                    <div>
+                      <strong>Email:</strong>
+                      <p>{customer.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start">
+                    <Phone className="h-4 w-4 mr-2 mt-1" />
+                    <div>
+                      <strong>Telefone:</strong>
+                      <p>{customer.phone}</p>
+                    </div>
+                  </div>
+                  {customer.address && (
+                    <div className="flex items-start">
+                      <MapPin className="h-4 w-4 mr-2 mt-1" />
+                      <div>
+                        <strong>Endereço:</strong>
+                        <p>{customer.address}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="pt-2">
+                    <p className="text-sm text-muted-foreground">
+                      Cliente desde: {new Date(customer.createdAt).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="excursao" className="space-y-3">
+                  {customer.tourName ? (
+                    <>
+                      <div>
+                        <strong>Nome da Excursão:</strong>
+                        <p>{customer.tourName}</p>
+                      </div>
+                      {customer.tourSector && (
+                        <div>
+                          <strong>Setor:</strong>
+                          <p className="capitalize">{customer.tourSector}</p>
+                        </div>
+                      )}
+                      {customer.tourSeatNumber && (
+                        <div>
+                          <strong>Número da Vaga:</strong>
+                          <p>{customer.tourSeatNumber}</p>
+                        </div>
+                      )}
+                      {(customer.tourCity || customer.tourState) && (
+                        <div>
+                          <strong>Local:</strong>
+                          <p>{[customer.tourCity, customer.tourState].filter(Boolean).join(' - ')}</p>
+                        </div>
+                      )}
+                      {customer.tourDepartureTime && (
+                        <div>
+                          <strong>Horário de Saída:</strong>
+                          <p>{customer.tourDepartureTime}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-muted-foreground">Nenhuma informação de excursão cadastrada.</p>
+                  )}
+                </TabsContent>
+              </Tabs>
             )}
           </CardContent>
         </Card>
@@ -356,13 +515,14 @@ export const CustomerDetailPage = () => {
                     <th className="text-center p-2">Quantidade</th>
                     <th className="text-right p-2">Preço</th>
                     <th className="text-right p-2">Subtotal</th>
+                    <th className="p-2">Imagem</th>
                     <th className="p-2"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {orderProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                      <td colSpan={6} className="p-4 text-center text-muted-foreground">
                         Nenhum produto adicionado ao pedido
                       </td>
                     </tr>
@@ -382,6 +542,26 @@ export const CustomerDetailPage = () => {
                             style: 'currency',
                             currency: 'BRL'
                           }).format(item.price * item.quantity)}
+                        </td>
+                        <td className="p-2 text-center">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              if (inputSelectRef.current) {
+                                inputSelectRef.current.click();
+                              }
+                            }}
+                          >
+                            <Upload className="h-4 w-4 mr-1" /> Upload
+                          </Button>
+                          <Input
+                            ref={inputSelectRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleUploadImage(e, item.productId)}
+                          />
                         </td>
                         <td className="p-2 text-right">
                           <Button
@@ -406,7 +586,7 @@ export const CustomerDetailPage = () => {
                           currency: 'BRL'
                         }).format(calculateTotal())}
                       </td>
-                      <td></td>
+                      <td colSpan={2}></td>
                     </tr>
                   )}
                 </tbody>
@@ -442,28 +622,57 @@ export const CustomerDetailPage = () => {
                   <p className="font-medium">ID do Pedido:</p>
                   <p className="font-mono text-sm">{viewingOrderDetails.id}</p>
                 </div>
-                <div>
-                  <p className="font-medium">Status:</p>
-                  <Select
-                    value={viewingOrderDetails.status}
-                    onValueChange={(value) => handleUpdateOrderStatus(
-                      viewingOrderDetails.id, 
-                      value as 'pending' | 'completed' | 'cancelled'
-                    )}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pendente</SelectItem>
-                      <SelectItem value="completed">Concluído</SelectItem>
-                      <SelectItem value="cancelled">Cancelado</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center gap-2 mt-2 md:mt-0">
+                  <div>
+                    <p className="font-medium">Status:</p>
+                    <Select
+                      value={viewingOrderDetails.status}
+                      onValueChange={(value) => handleUpdateOrderStatus(
+                        viewingOrderDetails.id, 
+                        value as 'pending' | 'completed' | 'cancelled'
+                      )}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pendente</SelectItem>
+                        <SelectItem value="completed">Concluído</SelectItem>
+                        <SelectItem value="cancelled">Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center ml-4">
+                    <Button variant="outline" size="sm" onClick={handlePrint} className="mr-2">
+                      <Printer className="h-4 w-4 mr-2" /> Imprimir
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handlePrint}>
+                      <Download className="h-4 w-4 mr-2" /> PDF
+                    </Button>
+                  </div>
                 </div>
               </div>
               
-              <div className="space-y-4">
+              <div className="space-y-4" ref={orderDetailsPrintRef}>
+                <div className="print-header mb-6">
+                  <h2 className="text-xl font-bold">Comprovante de Compra</h2>
+                  <p>Cliente: {customer.name}</p>
+                  <p>Data: {new Date(viewingOrderDetails.createdAt).toLocaleDateString('pt-BR')}</p>
+                  <p>Pedido: #{viewingOrderDetails.id}</p>
+                  {customer.tourName && (
+                    <div className="mt-2 border-t pt-2">
+                      <h3 className="font-medium">Informações da Excursão:</h3>
+                      <p>Nome: {customer.tourName}</p>
+                      {customer.tourSector && <p>Setor: {customer.tourSector}</p>}
+                      {customer.tourSeatNumber && <p>Vaga: {customer.tourSeatNumber}</p>}
+                      {(customer.tourCity || customer.tourState) && (
+                        <p>Local: {[customer.tourCity, customer.tourState].filter(Boolean).join(' - ')}</p>
+                      )}
+                      {customer.tourDepartureTime && <p>Horário de saída: {customer.tourDepartureTime}</p>}
+                    </div>
+                  )}
+                </div>
+                
                 <h3 className="font-medium">Produtos no Pedido</h3>
                 <div className="border rounded-md overflow-hidden">
                   <table className="w-full">

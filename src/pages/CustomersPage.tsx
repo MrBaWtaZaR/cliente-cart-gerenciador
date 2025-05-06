@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDataStore, Customer } from '@/lib/data';
@@ -9,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Search, Plus, Users, X, UserPlus, Edit, Trash } from 'lucide-react';
+import { Search, Plus, Users, X, UserPlus, Edit, Trash, Truck } from 'lucide-react';
 
 export const CustomersPage = () => {
   const { customers, addCustomer, deleteCustomer } = useDataStore();
@@ -20,11 +19,22 @@ export const CustomersPage = () => {
     email: '',
     phone: '',
     address: '',
+    tourName: '',
+    tourSector: '',
+    tourSeatNumber: '',
+    tourCity: '',
+    tourState: '',
+    tourDepartureTime: '',
   });
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [activeTab, setActiveTab] = useState('info');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    setNewCustomer(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
     setNewCustomer(prev => ({ ...prev, [name]: value }));
   };
 
@@ -35,7 +45,18 @@ export const CustomersPage = () => {
     }
     
     addCustomer(newCustomer);
-    setNewCustomer({ name: '', email: '', phone: '', address: '' });
+    setNewCustomer({
+      name: '',
+      email: '',
+      phone: '',
+      address: '',
+      tourName: '',
+      tourSector: '',
+      tourSeatNumber: '',
+      tourCity: '',
+      tourState: '',
+      tourDepartureTime: '',
+    });
     setIsAddingCustomer(false);
   };
 
@@ -146,7 +167,7 @@ export const CustomersPage = () => {
 
       {/* Modal para adicionar cliente */}
       <Dialog open={isAddingCustomer} onOpenChange={setIsAddingCustomer}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <UserPlus className="h-5 w-5 mr-2" /> Adicionar Cliente
@@ -156,52 +177,140 @@ export const CustomersPage = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome *</Label>
-              <Input
-                id="name"
-                name="name"
-                placeholder="Nome do cliente"
-                value={newCustomer.name}
-                onChange={handleInputChange}
-              />
-            </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid grid-cols-2">
+              <TabsTrigger value="info">Informações Pessoais</TabsTrigger>
+              <TabsTrigger value="delivery" className="flex items-center">
+                <Truck className="h-4 w-4 mr-2" /> Entrega/Excursão
+              </TabsTrigger>
+            </TabsList>
             
-            <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="email@exemplo.com"
-                value={newCustomer.email}
-                onChange={handleInputChange}
-              />
-            </div>
+            <TabsContent value="info" className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome *</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  placeholder="Nome do cliente"
+                  value={newCustomer.name}
+                  onChange={handleInputChange}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="email@exemplo.com"
+                  value={newCustomer.email}
+                  onChange={handleInputChange}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="phone">Telefone *</Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  placeholder="(00) 00000-0000"
+                  value={newCustomer.phone}
+                  onChange={handleInputChange}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="address">Endereço</Label>
+                <Input
+                  id="address"
+                  name="address"
+                  placeholder="Endereço completo"
+                  value={newCustomer.address}
+                  onChange={handleInputChange}
+                />
+              </div>
+            </TabsContent>
             
-            <div className="space-y-2">
-              <Label htmlFor="phone">Telefone *</Label>
-              <Input
-                id="phone"
-                name="phone"
-                placeholder="(00) 00000-0000"
-                value={newCustomer.phone}
-                onChange={handleInputChange}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="address">Endereço</Label>
-              <Input
-                id="address"
-                name="address"
-                placeholder="Endereço completo"
-                value={newCustomer.address}
-                onChange={handleInputChange}
-              />
-            </div>
-          </div>
+            <TabsContent value="delivery" className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="tourName">Nome da Excursão</Label>
+                <Input
+                  id="tourName"
+                  name="tourName"
+                  placeholder="Nome da excursão"
+                  value={newCustomer.tourName}
+                  onChange={handleInputChange}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="tourSector">Setor da Excursão</Label>
+                <Select
+                  value={newCustomer.tourSector}
+                  onValueChange={(value) => handleSelectChange('tourSector', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um setor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="azul">Azul</SelectItem>
+                    <SelectItem value="vermelho">Vermelho</SelectItem>
+                    <SelectItem value="amarelo">Amarelo</SelectItem>
+                    <SelectItem value="laranja">Laranja</SelectItem>
+                    <SelectItem value="verde">Verde</SelectItem>
+                    <SelectItem value="branco">Branco</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="tourSeatNumber">Número da Vaga</Label>
+                <Input
+                  id="tourSeatNumber"
+                  name="tourSeatNumber"
+                  placeholder="Número da vaga"
+                  value={newCustomer.tourSeatNumber}
+                  onChange={handleInputChange}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tourCity">Cidade</Label>
+                  <Input
+                    id="tourCity"
+                    name="tourCity"
+                    placeholder="Cidade"
+                    value={newCustomer.tourCity}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="tourState">Estado</Label>
+                  <Input
+                    id="tourState"
+                    name="tourState"
+                    placeholder="Estado"
+                    value={newCustomer.tourState}
+                    onChange={handleInputChange}
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="tourDepartureTime">Horário de Saída</Label>
+                <Input
+                  id="tourDepartureTime"
+                  name="tourDepartureTime"
+                  placeholder="Ex: 08:30"
+                  value={newCustomer.tourDepartureTime}
+                  onChange={handleInputChange}
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddingCustomer(false)}>
