@@ -1,3 +1,4 @@
+
 import { useState, useRef } from 'react';
 import { useDataStore, Product } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Package, Search, Plus, Edit, Trash, Image as ImageIcon, Upload, GalleryHorizontal } from 'lucide-react';
+import { Package, Search, Plus, Edit, Trash, Image as ImageIcon, Upload } from 'lucide-react';
+import { ProductImageCarousel } from '@/components/ProductImageCarousel';
+import { formatPriceDisplay, handlePriceInput } from '@/components/PriceFormatter';
 
 export const ProductsPage = () => {
   const { products, addProduct, updateProduct, deleteProduct, uploadProductImage } = useDataStore();
@@ -15,6 +18,7 @@ export const ProductsPage = () => {
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [isEditingProduct, setIsEditingProduct] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [newProduct, setNewProduct] = useState({
@@ -38,8 +42,15 @@ export const ProductsPage = () => {
     const { name, value } = e.target;
     
     // Validar inputs numéricos
-    if (name === 'price' || name === 'stock') {
-      const numValue = parseFloat(value);
+    if (name === 'price') {
+      handlePriceInput(e as React.ChangeEvent<HTMLInputElement>, (numValue) => {
+        setNewProduct(prev => ({
+          ...prev,
+          price: numValue
+        }));
+      });
+    } else if (name === 'stock') {
+      const numValue = parseInt(value);
       setNewProduct(prev => ({
         ...prev,
         [name]: isNaN(numValue) ? 0 : numValue
@@ -103,31 +114,6 @@ export const ProductsPage = () => {
     }
   };
   
-  const addImageField = () => {
-    setNewProduct(prev => ({
-      ...prev,
-      images: [...prev.images, '/placeholder.svg']
-    }));
-  };
-  
-  const removeImageField = (index: number) => {
-    setNewProduct(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
-  };
-  
-  const handleImageChange = (index: number, value: string) => {
-    setNewProduct(prev => {
-      const newImages = [...prev.images];
-      newImages[index] = value;
-      return {
-        ...prev,
-        images: newImages
-      };
-    });
-  };
-
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, productId: string) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
@@ -193,7 +179,8 @@ export const ProductsPage = () => {
               key={product.id} 
               product={product} 
               onEdit={() => handleEditClick(product)} 
-              onDelete={() => setProductToDelete(product)} 
+              onDelete={() => setProductToDelete(product)}
+              onView={() => setSelectedProduct(product)}
             />
           ))
         ) : (
@@ -254,11 +241,7 @@ export const ProductsPage = () => {
                 <Input
                   id="price"
                   name="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={newProduct.price}
+                  placeholder="R$ 0,00"
                   onChange={handleInputChange}
                 />
               </div>
@@ -280,34 +263,16 @@ export const ProductsPage = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Imagens</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addImageField}>
-                  <Plus className="h-4 w-4 mr-1" /> Adicionar Imagem
-                </Button>
               </div>
               
-              {newProduct.images.map((image, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    value={image}
-                    onChange={(e) => handleImageChange(index, e.target.value)}
-                    placeholder="URL da imagem"
-                  />
-                  {index > 0 && (
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="icon" 
-                      className="flex-shrink-0"
-                      onClick={() => removeImageField(index)}
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-              <p className="text-sm text-muted-foreground">
-                Para adicionar imagens, informe as URLs de cada imagem
-              </p>
+              <div className="border border-dashed border-gray-300 rounded-md p-6 text-center cursor-pointer hover:bg-gray-50 transition-colors"
+                   onClick={openFileUpload}>
+                <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm font-medium">Clique para enviar imagens</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Suporta JPG, PNG, WEBP
+                </p>
+              </div>
             </div>
           </div>
           
@@ -363,11 +328,8 @@ export const ProductsPage = () => {
                 <Input
                   id="edit-price"
                   name="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={newProduct.price}
+                  placeholder="R$ 0,00"
+                  value={formatPriceDisplay(newProduct.price)}
                   onChange={handleInputChange}
                 />
               </div>
@@ -389,24 +351,14 @@ export const ProductsPage = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Imagens</Label>
-                <div className="flex space-x-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={openFileUpload}
-                  >
-                    <Upload className="h-4 w-4 mr-1" /> Enviar Imagens
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={addImageField}
-                  >
-                    <Plus className="h-4 w-4 mr-1" /> Adicionar URL
-                  </Button>
-                </div>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={openFileUpload}
+                >
+                  <Upload className="h-4 w-4 mr-1" /> Enviar Imagens
+                </Button>
               </div>
               
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 my-3">
@@ -425,37 +377,17 @@ export const ProductsPage = () => {
                       variant="destructive" 
                       size="icon" 
                       className="absolute top-1 right-1 h-6 w-6"
-                      onClick={() => removeImageField(index)}
+                      onClick={() => {
+                        setNewProduct(prev => ({
+                          ...prev,
+                          images: prev.images.filter((_, i) => i !== index)
+                        }));
+                      }}
                     >
                       <Trash className="h-3 w-3" />
                     </Button>
                   </div>
                 ))}
-              </div>
-              
-              {/* Barra para adicionar URLs manualmente */}
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Adicionar URL da imagem"
-                  value=""
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      setNewProduct(prev => ({
-                        ...prev,
-                        images: [...prev.images, e.target.value]
-                      }));
-                      e.target.value = '';
-                    }
-                  }}
-                />
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="icon" 
-                  className="flex-shrink-0"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
               </div>
             </div>
           </div>
@@ -486,10 +418,7 @@ export const ProductsPage = () => {
           {productToDelete && (
             <div className="py-4">
               <p><strong>Nome:</strong> {productToDelete.name}</p>
-              <p><strong>Preço:</strong> {new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL'
-              }).format(productToDelete.price)}</p>
+              <p><strong>Preço:</strong> {formatPriceDisplay(productToDelete.price)}</p>
             </div>
           )}
           
@@ -503,6 +432,44 @@ export const ProductsPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Modal para visualizar imagens do produto em tamanho completo */}
+      <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{selectedProduct?.name}</DialogTitle>
+            <DialogDescription>
+              {selectedProduct?.description || "Sem descrição disponível"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedProduct && (
+            <div className="space-y-4">
+              <div className="w-full max-w-2xl mx-auto">
+                <ProductImageCarousel 
+                  images={selectedProduct.images} 
+                  autoPlayInterval={3000}
+                />
+              </div>
+              
+              <div className="flex justify-between items-center mt-4 pt-4 border-t">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Estoque: <span className={selectedProduct.stock > 0 ? "text-green-600" : "text-red-600"}>
+                      {selectedProduct.stock} unidades
+                    </span>
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-primary">
+                    {formatPriceDisplay(selectedProduct.price)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -511,37 +478,23 @@ interface ProductCardProps {
   product: Product;
   onEdit: () => void;
   onDelete: () => void;
+  onView: () => void;
 }
 
-const ProductCard = ({ product, onEdit, onDelete }: ProductCardProps) => (
+const ProductCard = ({ product, onEdit, onDelete, onView }: ProductCardProps) => (
   <Card className="overflow-hidden flex flex-col">
-    <div className="relative aspect-video bg-muted">
-      {product.images && product.images[0] ? (
-        <img 
-          src={product.images[0]} 
-          alt={product.name}
-          className="object-cover w-full h-full"
-        />
-      ) : (
-        <div className="flex items-center justify-center h-full">
-          <ImageIcon className="h-8 w-8 text-muted-foreground/40" />
-        </div>
-      )}
-      {product.images && product.images.length > 1 && (
-        <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
-          +{product.images.length - 1} fotos
-        </div>
-      )}
+    <div 
+      className="relative aspect-video bg-muted cursor-pointer"
+      onClick={onView}
+    >
+      <ProductImageCarousel images={product.images} autoPlayInterval={5000} />
     </div>
     <CardHeader className="pb-2">
       <CardTitle className="text-lg">{product.name}</CardTitle>
     </CardHeader>
     <CardContent className="pb-2 flex-grow">
       <p className="text-xl font-bold text-primary">
-        {new Intl.NumberFormat('pt-BR', {
-          style: 'currency',
-          currency: 'BRL'
-        }).format(product.price)}
+        {formatPriceDisplay(product.price)}
       </p>
       <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
         {product.description || "Sem descrição disponível"}

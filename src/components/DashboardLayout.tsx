@@ -15,7 +15,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   useEffect(() => {
     toast({
-      title: 'Bem-vindo ao painel administrativo',
+      title: 'Bem-vindo à A&F Consultoria',
       description: 'Gerencie seus clientes, produtos e pedidos.',
     });
   }, []);

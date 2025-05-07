@@ -4,6 +4,7 @@ import { useDataStore, Customer, Product, Order } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Users, Package, ShoppingCart } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface DashboardMetric {
   totalCustomers: number;
@@ -14,6 +15,7 @@ interface DashboardMetric {
 }
 
 export const DashboardPage = () => {
+  const navigate = useNavigate();
   const customers = useDataStore((state) => state.customers);
   const products = useDataStore((state) => state.products);
   const [metrics, setMetrics] = useState<DashboardMetric>({
@@ -100,12 +102,21 @@ export const DashboardPage = () => {
       .slice(0, 5);
   }, [customers]);
 
+  // Funções para navegação
+  const navigateToCustomers = () => navigate('/dashboard/customers');
+  const navigateToProducts = () => navigate('/dashboard/products');
+  const navigateToOrders = () => navigate('/dashboard/orders');
+  const navigateToRevenue = () => navigate('/dashboard/orders'); // Redireciona para orders já que temos foco em receita
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
+        <Card 
+          className="bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-lg transition-all cursor-pointer"
+          onClick={navigateToCustomers}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-lg text-muted-foreground">Clientes</CardTitle>
           </CardHeader>
@@ -120,7 +131,10 @@ export const DashboardPage = () => {
           </CardContent>
         </Card>
         
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100">
+        <Card 
+          className="bg-gradient-to-br from-purple-50 to-purple-100 hover:shadow-lg transition-all cursor-pointer"
+          onClick={navigateToProducts}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-lg text-muted-foreground">Produtos</CardTitle>
           </CardHeader>
@@ -135,7 +149,10 @@ export const DashboardPage = () => {
           </CardContent>
         </Card>
         
-        <Card className="bg-gradient-to-br from-green-50 to-green-100">
+        <Card 
+          className="bg-gradient-to-br from-green-50 to-green-100 hover:shadow-lg transition-all cursor-pointer"
+          onClick={navigateToOrders}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-lg text-muted-foreground">Pedidos</CardTitle>
           </CardHeader>
@@ -150,7 +167,10 @@ export const DashboardPage = () => {
           </CardContent>
         </Card>
         
-        <Card className="bg-gradient-to-br from-amber-50 to-amber-100">
+        <Card 
+          className="bg-gradient-to-br from-amber-50 to-amber-100 hover:shadow-lg transition-all cursor-pointer"
+          onClick={navigateToRevenue}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-lg text-muted-foreground">Receita</CardTitle>
           </CardHeader>
@@ -167,7 +187,7 @@ export const DashboardPage = () => {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <Card className="hover:shadow-lg transition-all cursor-pointer" onClick={navigateToRevenue}>
           <CardHeader>
             <CardTitle>Receita dos últimos 7 dias</CardTitle>
           </CardHeader>
@@ -194,7 +214,7 @@ export const DashboardPage = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="hover:shadow-lg transition-all cursor-pointer" onClick={navigateToProducts}>
           <CardHeader>
             <CardTitle>Produtos mais vendidos</CardTitle>
           </CardHeader>
@@ -217,7 +237,7 @@ export const DashboardPage = () => {
         </Card>
       </div>
       
-      <Card>
+      <Card className="hover:shadow-lg transition-all cursor-pointer" onClick={navigateToOrders}>
         <CardHeader>
           <CardTitle>Pedidos Recentes</CardTitle>
         </CardHeader>

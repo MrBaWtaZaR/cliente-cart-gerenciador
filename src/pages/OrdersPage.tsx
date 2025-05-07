@@ -9,11 +9,16 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { ShoppingCart, Search, Filter, Eye, FileText, Printer } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { OrderPDF } from '@/components/OrderPDF';
+import { DateFilter } from '@/components/DateFilter';
+import { OrderCard } from '@/components/OrderCard';
+import { useSearchParams } from 'react-router-dom';
 
 export const OrdersPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { customers, updateOrderStatus } = useDataStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [customerName, setCustomerName] = useState<string>('');
   const [customerInfo, setCustomerInfo] = useState<any>(null);
@@ -28,6 +33,17 @@ export const OrdersPage = () => {
     }))
   );
 
+  // Check if we should open a specific order from URL parameters
+  useEffect(() => {
+    const viewOrderId = searchParams.get('view');
+    if (viewOrderId) {
+      const orderToView = allOrders.find(order => order.id === viewOrderId);
+      if (orderToView) {
+        handleViewOrder(orderToView, orderToView.customerName);
+      }
+    }
+  }, [searchParams, allOrders]);
+
   // Filtrar pedidos com base nos filtros
   const filteredOrders = allOrders.filter(order => {
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
@@ -36,7 +52,11 @@ export const OrdersPage = () => {
       order.id.toLowerCase().includes(searchLower) ||
       order.customerName.toLowerCase().includes(searchLower);
     
-    return matchesStatus && matchesSearch;
+    // Filter by date if date filter is applied
+    const matchesDate = !dateFilter || 
+      (new Date(order.createdAt).toDateString() === dateFilter.toDateString());
+    
+    return matchesStatus && matchesSearch && matchesDate;
   }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const handleUpdateOrderStatus = (customerId: string, orderId: string, newStatus: 'pending' | 'completed' | 'cancelled') => {
@@ -61,6 +81,9 @@ export const OrdersPage = () => {
       tourSector: customer?.tourSector,
       tourSeatNumber: customer?.tourSeatNumber
     });
+
+    // Update URL to include the order ID for direct linking
+    setSearchParams({ view: order.id });
   };
   
   const pdfRef = useRef<HTMLDivElement>(null);
@@ -93,6 +116,12 @@ export const OrdersPage = () => {
     }
   }, [viewingOrder]);
 
+  // Handle dialog close and URL cleanup
+  const handleDialogClose = () => {
+    setViewingOrder(null);
+    setSearchParams({});
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -119,14 +148,18 @@ export const OrdersPage = () => {
         </div>
       </div>
 
-      <div className="relative w-full md:max-w-sm">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar pedidos..."
-          className="pl-8 bg-white shadow-sm"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      <div className="flex flex-col md:flex-row gap-4 items-start justify-between">
+        <div className="relative w-full md:max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar pedidos..."
+            className="pl-8 bg-white shadow-sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <DateFilter onDateChange={setDateFilter} />
       </div>
 
       <Card className="card-gradient">
@@ -135,94 +168,34 @@ export const OrdersPage = () => {
             <div>Lista de Pedidos</div>
             <div className="text-sm font-normal text-muted-foreground">
               {filteredOrders.length} pedidos encontrados
+              {dateFilter && ` para ${dateFilter.toLocaleDateString('pt-BR')}`}
             </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="py-3 px-4 text-left">ID</th>
-                  <th className="py-3 px-4 text-left">Data</th>
-                  <th className="py-3 px-4 text-left">Cliente</th>
-                  <th className="py-3 px-4 text-left">Itens</th>
-                  <th className="py-3 px-4 text-left">Total</th>
-                  <th className="py-3 px-4 text-left">Status</th>
-                  <th className="py-3 px-4 text-left">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOrders.length > 0 ? (
-                  filteredOrders.map((order) => (
-                    <tr key={order.id} className="border-b hover:bg-white/50 transition-colors">
-                      <td className="py-3 px-4 font-mono text-xs">{order.id}</td>
-                      <td className="py-3 px-4">
-                        {new Date(order.createdAt).toLocaleDateString('pt-BR')}
-                      </td>
-                      <td className="py-3 px-4">{order.customerName}</td>
-                      <td className="py-3 px-4">{order.products.length} produtos</td>
-                      <td className="py-3 px-4">
-                        {new Intl.NumberFormat('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL'
-                        }).format(order.total)}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {order.status === 'completed' ? 'Concluído' :
-                           order.status === 'pending' ? 'Pendente' : 'Cancelado'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex space-x-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleViewOrder(order, order.customerName)}
-                            className="text-primary"
-                          >
-                            <Eye className="h-4 w-4 mr-1" /> Ver
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => {
-                              handleViewOrder(order, order.customerName);
-                              setTimeout(() => {
-                                handlePrintPDF();
-                              }, 100);
-                            }}
-                            className="text-gray-600"
-                          >
-                            <FileText className="h-4 w-4 mr-1" /> PDF
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={7} className="py-6 text-center text-muted-foreground">
-                      {searchTerm || statusFilter !== 'all' ? 
-                        "Nenhum pedido corresponde aos filtros aplicados." : 
-                        "Nenhum pedido registrado ainda."
-                      }
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          {filteredOrders.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredOrders.map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  customerName={order.customerName}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="py-6 text-center text-muted-foreground">
+              {searchTerm || statusFilter !== 'all' || dateFilter ? 
+                "Nenhum pedido corresponde aos filtros aplicados." : 
+                "Nenhum pedido registrado ainda."
+              }
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Modal para ver detalhes do pedido */}
-      <Dialog open={!!viewingOrder && !showPDFPreview} onOpenChange={(open) => !open && setViewingOrder(null)}>
+      <Dialog open={!!viewingOrder && !showPDFPreview} onOpenChange={(open) => !open && handleDialogClose()}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Detalhes do Pedido</DialogTitle>
@@ -325,7 +298,7 @@ export const OrdersPage = () => {
           )}
           
           <DialogFooter className="flex justify-between items-center space-x-2">
-            <Button variant="outline" onClick={() => setViewingOrder(null)}>
+            <Button variant="outline" onClick={handleDialogClose}>
               Fechar
             </Button>
             <Button 
