@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useDataStore, Order } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,11 +65,16 @@ export const OrdersPage = () => {
   
   const pdfRef = useRef<HTMLDivElement>(null);
   
-  // Fix the useReactToPrint hook by removing the unsupported onBeforeGetContent property
+  // Fix the useReactToPrint hook by returning a promise from onBeforePrint
   const handlePrintPDF = useReactToPrint({
     documentTitle: `Pedido-${viewingOrder?.id || ''}`,
     onBeforePrint: () => {
-      setShowPDFPreview(true);
+      return new Promise<void>((resolve) => {
+        setShowPDFPreview(true);
+        setTimeout(() => {
+          resolve();
+        }, 100);
+      });
     },
     onAfterPrint: () => {
       setShowPDFPreview(false);
@@ -78,7 +83,7 @@ export const OrdersPage = () => {
   });
 
   // Pre-render the PDF content when viewing order changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (viewingOrder && !showPDFPreview) {
       setShowPDFPreview(true);
       // Small timeout to ensure the content is rendered
