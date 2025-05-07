@@ -65,21 +65,28 @@ export const OrdersPage = () => {
   
   const pdfRef = useRef<HTMLDivElement>(null);
   
+  // Fix the useReactToPrint hook by removing the unsupported onBeforeGetContent property
   const handlePrintPDF = useReactToPrint({
     documentTitle: `Pedido-${viewingOrder?.id || ''}`,
-    onBeforeGetContent: () => {
-      return new Promise<void>((resolve) => {
-        setShowPDFPreview(true);
-        setTimeout(() => {
-          resolve();
-        }, 100);
-      });
+    onBeforePrint: () => {
+      setShowPDFPreview(true);
     },
     onAfterPrint: () => {
       setShowPDFPreview(false);
     },
     contentRef: pdfRef,
   });
+
+  // Pre-render the PDF content when viewing order changes
+  React.useEffect(() => {
+    if (viewingOrder && !showPDFPreview) {
+      setShowPDFPreview(true);
+      // Small timeout to ensure the content is rendered
+      setTimeout(() => {
+        setShowPDFPreview(false);
+      }, 100);
+    }
+  }, [viewingOrder]);
 
   return (
     <div className="space-y-6">
