@@ -25,6 +25,22 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
     const currentDate = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
     const hasTourInfo = customerInfo.tourName || customerInfo.tourCity || customerInfo.tourState;
     
+    // Calculate service fee (10% of total)
+    const serviceFee = Math.max(60, order.total * 0.1);
+    const isMinimumFee = serviceFee === 60 && order.total <= 600;
+    
+    // Format phone with parentheses around DDD
+    const formatPhone = (phone: string) => {
+      if (!phone) return '';
+      const numbers = phone.replace(/\D/g, '');
+      
+      if (numbers.length <= 10) {
+        return numbers.replace(/(\d{2})(\d{0,4})(\d{0,4})/, '($1) $2-$3');
+      } else {
+        return numbers.replace(/(\d{2})(\d{0,5})(\d{0,4})/, '($1) $2-$3');
+      }
+    };
+    
     return (
       <div ref={ref} className="bg-white p-8 max-w-4xl mx-auto text-black">
         {/* Cabeçalho */}
@@ -44,38 +60,39 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
           </div>
         </div>
 
-        {/* Informações da excursão (se disponíveis) */}
-        {hasTourInfo && (
-          <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
-            <h2 className="text-lg font-bold mb-3">Dados da Excursão</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {customerInfo.tourName && (
-                <p><strong>Nome da Excursão:</strong> {customerInfo.tourName}</p>
-              )}
-              {(customerInfo.tourCity || customerInfo.tourState) && (
-                <p><strong>Destino:</strong> {[customerInfo.tourCity, customerInfo.tourState].filter(Boolean).join(' - ')}</p>
-              )}
-              {customerInfo.tourDepartureTime && (
-                <p><strong>Horário de Saída:</strong> {customerInfo.tourDepartureTime}</p>
-              )}
-              {customerInfo.tourSector && (
-                <p><strong>Setor:</strong> {customerInfo.tourSector}</p>
-              )}
-              {customerInfo.tourSeatNumber && (
-                <p><strong>Vaga:</strong> {customerInfo.tourSeatNumber}</p>
-              )}
+        {/* Layout com 2 colunas para informações do cliente e da excursão */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* Informações da excursão (se disponíveis) */}
+          {hasTourInfo && (
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+              <h2 className="text-lg font-bold mb-3">Dados da Excursão</h2>
+              <div className="space-y-2">
+                {customerInfo.tourName && (
+                  <p><strong>Nome da Excursão:</strong> {customerInfo.tourName}</p>
+                )}
+                {(customerInfo.tourCity || customerInfo.tourState) && (
+                  <p><strong>Destino:</strong> {[customerInfo.tourCity, customerInfo.tourState].filter(Boolean).join(' - ')}</p>
+                )}
+                {customerInfo.tourDepartureTime && (
+                  <p><strong>Horário de Saída:</strong> {customerInfo.tourDepartureTime}</p>
+                )}
+                {customerInfo.tourSector && (
+                  <p><strong>Setor:</strong> {customerInfo.tourSector}</p>
+                )}
+                {customerInfo.tourSeatNumber && (
+                  <p><strong>Vaga:</strong> {customerInfo.tourSeatNumber}</p>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Informações do cliente */}
-        <div className="mb-6">
-          <h2 className="text-lg font-bold mb-3">Informações do Cliente</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+          {/* Informações do cliente */}
+          <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+            <h2 className="text-lg font-bold mb-3">Informações do Cliente</h2>
+            <div className="space-y-2">
               <p><strong>Nome:</strong> {customerName}</p>
               <p><strong>Email:</strong> {customerInfo.email}</p>
-              <p><strong>Telefone:</strong> {customerInfo.phone}</p>
+              <p><strong>Telefone:</strong> {formatPhone(customerInfo.phone)}</p>
               {customerInfo.address && (
                 <p><strong>Endereço:</strong> {customerInfo.address}</p>
               )}
@@ -125,6 +142,24 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
                   }).format(order.total)}
                 </td>
               </tr>
+              <tr>
+                <td colSpan={3} className="py-3 px-3 text-right">Serviço 10%:</td>
+                <td className="py-3 px-3 text-right">
+                  {new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                  }).format(serviceFee)}
+                </td>
+              </tr>
+              <tr className="font-bold bg-gray-100">
+                <td colSpan={3} className="py-3 px-3 text-right">Total com Serviço:</td>
+                <td className="py-3 px-3 text-right">
+                  {new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                  }).format(order.total + serviceFee)}
+                </td>
+              </tr>
             </tfoot>
           </table>
         </div>
@@ -148,6 +183,7 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
         <div className="mt-12 pt-4 border-t border-gray-300 text-center text-sm text-gray-500">
           <p>A&F Consultoria - Documento gerado em {currentDate}</p>
           <p>Este documento não possui valor fiscal</p>
+          <p className="text-xs mt-2">* Taxa mínima de serviço é R$ 60,00 para pedidos até R$ 600,00.</p>
         </div>
       </div>
     );

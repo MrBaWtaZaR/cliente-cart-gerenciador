@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { useDataStore, Order } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,8 @@ import { OrderPDF } from '@/components/OrderPDF';
 import { DateFilter } from '@/components/DateFilter';
 import { OrderCard } from '@/components/OrderCard';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { TimeFormatter } from '@/components/TimeFormatter';
+import { PhoneFormatter } from '@/components/PhoneFormatter';
 
 export const OrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -25,7 +26,6 @@ export const OrdersPage = () => {
   const [customerInfo, setCustomerInfo] = useState<any>(null);
   const [showPDFPreview, setShowPDFPreview] = useState<boolean>(false);
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
-  const [isClosing, setIsClosing] = useState<boolean>(false);
 
   // Obter todos os pedidos
   const allOrders = customers.flatMap(customer => 
@@ -39,18 +39,14 @@ export const OrdersPage = () => {
   // Check if we should open a specific order from URL parameters
   useEffect(() => {
     const viewOrderId = searchParams.get('view');
-    if (viewOrderId && !isClosing) {
+    if (viewOrderId && !dialogOpen) {
       const orderToView = allOrders.find(order => order.id === viewOrderId);
       if (orderToView) {
         handleViewOrder(orderToView, orderToView.customerName);
         setDialogOpen(true);
       }
-    } else if (isClosing) {
-      // If we're in the closing state, make sure the dialog is closed
-      setDialogOpen(false);
-      setIsClosing(false);
     }
-  }, [searchParams, allOrders, isClosing]);
+  }, [searchParams, allOrders, dialogOpen]);
 
   // Filtrar pedidos com base nos filtros
   const filteredOrders = allOrders.filter(order => {
@@ -94,9 +90,7 @@ export const OrdersPage = () => {
     });
 
     // Update URL to include the order ID for direct linking
-    if (!isClosing) {
-      setSearchParams({ view: order.id });
-    }
+    setSearchParams({ view: order.id });
   };
   
   const pdfRef = useRef<HTMLDivElement>(null);
@@ -129,13 +123,14 @@ export const OrdersPage = () => {
     }
   }, [viewingOrder]);
 
-  // Handle dialog close and URL cleanup
+  // Handle dialog close - completely rewritten for simplicity and reliability
   const handleDialogClose = () => {
-    setIsClosing(true);
+    // First close the dialog UI
     setDialogOpen(false);
-    setViewingOrder(null);
-    // Use setTimeout to allow the dialog to finish closing animation
+    
+    // Then clean up the URL and state after a short delay
     setTimeout(() => {
+      setViewingOrder(null);
       setSearchParams({});
     }, 300);
   };
@@ -212,14 +207,15 @@ export const OrdersPage = () => {
         </CardContent>
       </Card>
 
-      {/* Modal para ver detalhes do pedido */}
-      <Dialog open={dialogOpen} onOpenChange={(open) => {
-        if (!open) {
-          handleDialogClose();
-        } else {
-          setDialogOpen(true);
-        }
-      }}>
+      {/* Modal para ver detalhes do pedido - completely rewritten for reliability */}
+      <Dialog 
+        open={dialogOpen} 
+        onOpenChange={(open) => {
+          if (!open) {
+            handleDialogClose();
+          }
+        }}
+      >
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Detalhes do Pedido</DialogTitle>
