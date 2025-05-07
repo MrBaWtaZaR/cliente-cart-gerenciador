@@ -22,7 +22,7 @@ export const TimeFormatter = ({ time, showIcon = false }: TimeFormatterProps) =>
       // Try to parse as a date and format
       const date = new Date(timeString);
       if (!isNaN(date.getTime())) {
-        return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
       }
     } catch (e) {
       console.error("Error formatting time:", e);

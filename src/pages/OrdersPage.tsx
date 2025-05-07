@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShoppingCart, Search, Filter, Eye, FileText, Printer } from 'lucide-react';
+import { ShoppingCart, Search, Filter, Printer } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { OrderPDF } from '@/components/OrderPDF';
 import { DateFilter } from '@/components/DateFilter';
@@ -25,6 +25,7 @@ export const OrdersPage = () => {
   const [customerInfo, setCustomerInfo] = useState<any>(null);
   const [showPDFPreview, setShowPDFPreview] = useState<boolean>(false);
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+  const [isClosing, setIsClosing] = useState<boolean>(false);
 
   // Obter todos os pedidos
   const allOrders = customers.flatMap(customer => 
@@ -38,18 +39,18 @@ export const OrdersPage = () => {
   // Check if we should open a specific order from URL parameters
   useEffect(() => {
     const viewOrderId = searchParams.get('view');
-    if (viewOrderId) {
+    if (viewOrderId && !isClosing) {
       const orderToView = allOrders.find(order => order.id === viewOrderId);
       if (orderToView) {
         handleViewOrder(orderToView, orderToView.customerName);
         setDialogOpen(true);
       }
-    } else {
-      // Only reset if there's no view parameter
-      setViewingOrder(null);
+    } else if (isClosing) {
+      // If we're in the closing state, make sure the dialog is closed
       setDialogOpen(false);
+      setIsClosing(false);
     }
-  }, [searchParams, allOrders]);
+  }, [searchParams, allOrders, isClosing]);
 
   // Filtrar pedidos com base nos filtros
   const filteredOrders = allOrders.filter(order => {
@@ -86,11 +87,16 @@ export const OrdersPage = () => {
       address: customer?.address,
       tourName: customer?.tourName,
       tourSector: customer?.tourSector,
-      tourSeatNumber: customer?.tourSeatNumber
+      tourSeatNumber: customer?.tourSeatNumber,
+      tourCity: customer?.tourCity,
+      tourState: customer?.tourState,
+      tourDepartureTime: customer?.tourDepartureTime
     });
 
     // Update URL to include the order ID for direct linking
-    setSearchParams({ view: order.id });
+    if (!isClosing) {
+      setSearchParams({ view: order.id });
+    }
   };
   
   const pdfRef = useRef<HTMLDivElement>(null);
@@ -125,9 +131,13 @@ export const OrdersPage = () => {
 
   // Handle dialog close and URL cleanup
   const handleDialogClose = () => {
+    setIsClosing(true);
     setDialogOpen(false);
     setViewingOrder(null);
-    setSearchParams({});
+    // Use setTimeout to allow the dialog to finish closing animation
+    setTimeout(() => {
+      setSearchParams({});
+    }, 300);
   };
 
   return (
@@ -203,7 +213,13 @@ export const OrdersPage = () => {
       </Card>
 
       {/* Modal para ver detalhes do pedido */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          handleDialogClose();
+        } else {
+          setDialogOpen(true);
+        }
+      }}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Detalhes do Pedido</DialogTitle>

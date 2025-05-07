@@ -14,12 +14,16 @@ interface OrderPDFProps {
     tourName?: string;
     tourSector?: string;
     tourSeatNumber?: string;
+    tourCity?: string;
+    tourState?: string;
+    tourDepartureTime?: string;
   };
 }
 
 export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
   ({ order, customerName, customerInfo }, ref) => {
     const currentDate = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+    const hasTourInfo = customerInfo.tourName || customerInfo.tourCity || customerInfo.tourState;
     
     return (
       <div ref={ref} className="bg-white p-8 max-w-4xl mx-auto text-black">
@@ -40,6 +44,30 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
           </div>
         </div>
 
+        {/* Informações da excursão (se disponíveis) */}
+        {hasTourInfo && (
+          <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
+            <h2 className="text-lg font-bold mb-3">Dados da Excursão</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {customerInfo.tourName && (
+                <p><strong>Nome da Excursão:</strong> {customerInfo.tourName}</p>
+              )}
+              {(customerInfo.tourCity || customerInfo.tourState) && (
+                <p><strong>Destino:</strong> {[customerInfo.tourCity, customerInfo.tourState].filter(Boolean).join(' - ')}</p>
+              )}
+              {customerInfo.tourDepartureTime && (
+                <p><strong>Horário de Saída:</strong> {customerInfo.tourDepartureTime}</p>
+              )}
+              {customerInfo.tourSector && (
+                <p><strong>Setor:</strong> {customerInfo.tourSector}</p>
+              )}
+              {customerInfo.tourSeatNumber && (
+                <p><strong>Vaga:</strong> {customerInfo.tourSeatNumber}</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Informações do cliente */}
         <div className="mb-6">
           <h2 className="text-lg font-bold mb-3">Informações do Cliente</h2>
@@ -50,17 +78,6 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
               <p><strong>Telefone:</strong> {customerInfo.phone}</p>
               {customerInfo.address && (
                 <p><strong>Endereço:</strong> {customerInfo.address}</p>
-              )}
-            </div>
-            <div>
-              {customerInfo.tourName && (
-                <p><strong>Excursão:</strong> {customerInfo.tourName}</p>
-              )}
-              {customerInfo.tourSector && (
-                <p><strong>Setor:</strong> {customerInfo.tourSector}</p>
-              )}
-              {customerInfo.tourSeatNumber && (
-                <p><strong>Assento:</strong> {customerInfo.tourSeatNumber}</p>
               )}
             </div>
           </div>

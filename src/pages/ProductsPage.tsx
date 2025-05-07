@@ -20,6 +20,7 @@ export const ProductsPage = () => {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const addFileInputRef = useRef<HTMLInputElement>(null);
   
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -142,12 +143,39 @@ export const ProductsPage = () => {
     
     // Limpar o input de arquivo
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (addFileInputRef.current) addFileInputRef.current.value = '';
   };
 
-  const openFileUpload = () => {
-    if (fileInputRef.current) {
+  const openFileUpload = (isAdding = false) => {
+    if (isAdding && addFileInputRef.current) {
+      addFileInputRef.current.click();
+    } else if (fileInputRef.current) {
       fileInputRef.current.click();
     }
+  };
+  
+  const handleAddProductFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    const newImages = [...newProduct.images.filter(img => img !== '/placeholder.svg')];
+    
+    // Generate temporary URLs for preview
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const tempUrl = URL.createObjectURL(file);
+      newImages.push(tempUrl);
+      
+      // Store the File object for later upload
+      (window as any)[`tempFile_${tempUrl}`] = file;
+    }
+    
+    setNewProduct(prev => ({
+      ...prev,
+      images: newImages.length ? newImages : ['/placeholder.svg']
+    }));
+    
+    if (addFileInputRef.current) addFileInputRef.current.value = '';
   };
   
   return (
@@ -190,7 +218,7 @@ export const ProductsPage = () => {
         )}
       </div>
       
-      {/* Input de arquivo oculto */}
+      {/* Input de arquivo oculto para edição */}
       <input
         ref={fileInputRef}
         type="file"
@@ -198,6 +226,16 @@ export const ProductsPage = () => {
         accept="image/*"
         className="hidden"
         onChange={(e) => isEditingProduct && handleFileUpload(e, isEditingProduct)}
+      />
+      
+      {/* Input de arquivo oculto para adição */}
+      <input
+        ref={addFileInputRef}
+        type="file"
+        multiple
+        accept="image/*"
+        className="hidden"
+        onChange={handleAddProductFileUpload}
       />
       
       {/* Modal para adicionar produto */}
@@ -242,6 +280,7 @@ export const ProductsPage = () => {
                   id="price"
                   name="price"
                   placeholder="R$ 0,00"
+                  value={formatPriceDisplay(newProduct.price)}
                   onChange={handleInputChange}
                 />
               </div>
@@ -263,21 +302,72 @@ export const ProductsPage = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Imagens</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => openFileUpload(true)}
+                >
+                  <Upload className="h-4 w-4 mr-1" /> Enviar Imagens
+                </Button>
               </div>
               
-              <div className="border border-dashed border-gray-300 rounded-md p-6 text-center cursor-pointer hover:bg-gray-50 transition-colors"
-                   onClick={openFileUpload}>
-                <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm font-medium">Clique para enviar imagens</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Suporta JPG, PNG, WEBP
-                </p>
-              </div>
+              {newProduct.images[0] === '/placeholder.svg' ? (
+                <div className="border border-dashed border-gray-300 rounded-md p-6 text-center cursor-pointer hover:bg-gray-50 transition-colors"
+                     onClick={() => openFileUpload(true)}>
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm font-medium">Clique para enviar imagens</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Suporta JPG, PNG, WEBP
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 my-3">
+                  {newProduct.images.map((image, index) => (
+                    <div 
+                      key={index} 
+                      className="relative aspect-square bg-muted rounded-md overflow-hidden border"
+                    >
+                      <img 
+                        src={image} 
+                        alt={`Imagem ${index + 1}`}
+                        className="object-cover w-full h-full"
+                      />
+                      <Button 
+                        type="button" 
+                        variant="destructive" 
+                        size="icon" 
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNewProduct(prev => ({
+                            ...prev,
+                            images: prev.images.filter((_, i) => i !== index).length ? 
+                              prev.images.filter((_, i) => i !== index) : 
+                              ['/placeholder.svg']
+                          }));
+                        }}
+                      >
+                        <Trash className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddingProduct(false)}>
+            <Button variant="outline" onClick={() => {
+              setIsAddingProduct(false);
+              setNewProduct({
+                name: '',
+                description: '',
+                price: 0,
+                stock: 0,
+                images: ['/placeholder.svg']
+              });
+            }}>
               Cancelar
             </Button>
             <Button onClick={handleAddProduct}>
@@ -288,7 +378,18 @@ export const ProductsPage = () => {
       </Dialog>
       
       {/* Modal para editar produto */}
-      <Dialog open={!!isEditingProduct} onOpenChange={() => setIsEditingProduct(null)}>
+      <Dialog open={!!isEditingProduct} onOpenChange={(open) => {
+        if (!open) {
+          setIsEditingProduct(null);
+          setNewProduct({
+            name: '',
+            description: '',
+            price: 0,
+            stock: 0,
+            images: ['/placeholder.svg']
+          });
+        }
+      }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center">
@@ -355,7 +456,7 @@ export const ProductsPage = () => {
                   type="button" 
                   variant="outline" 
                   size="sm" 
-                  onClick={openFileUpload}
+                  onClick={() => openFileUpload()}
                 >
                   <Upload className="h-4 w-4 mr-1" /> Enviar Imagens
                 </Button>
@@ -380,7 +481,9 @@ export const ProductsPage = () => {
                       onClick={() => {
                         setNewProduct(prev => ({
                           ...prev,
-                          images: prev.images.filter((_, i) => i !== index)
+                          images: prev.images.filter((_, i) => i !== index).length ? 
+                            prev.images.filter((_, i) => i !== index) : 
+                            ['/placeholder.svg']
                         }));
                       }}
                     >
@@ -434,7 +537,11 @@ export const ProductsPage = () => {
       </Dialog>
       
       {/* Modal para visualizar imagens do produto em tamanho completo */}
-      <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
+      <Dialog open={!!selectedProduct} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedProduct(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{selectedProduct?.name}</DialogTitle>
