@@ -11,11 +11,12 @@ import { useReactToPrint } from 'react-to-print';
 import { OrderPDF } from '@/components/OrderPDF';
 import { DateFilter } from '@/components/DateFilter';
 import { OrderCard } from '@/components/OrderCard';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 export const OrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { customers, updateOrderStatus } = useDataStore();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
@@ -23,6 +24,7 @@ export const OrdersPage = () => {
   const [customerName, setCustomerName] = useState<string>('');
   const [customerInfo, setCustomerInfo] = useState<any>(null);
   const [showPDFPreview, setShowPDFPreview] = useState<boolean>(false);
+  const [dialogOpen, setDialogOpen] = useState<boolean>(false);
 
   // Obter todos os pedidos
   const allOrders = customers.flatMap(customer => 
@@ -40,7 +42,12 @@ export const OrdersPage = () => {
       const orderToView = allOrders.find(order => order.id === viewOrderId);
       if (orderToView) {
         handleViewOrder(orderToView, orderToView.customerName);
+        setDialogOpen(true);
       }
+    } else {
+      // Only reset if there's no view parameter
+      setViewingOrder(null);
+      setDialogOpen(false);
     }
   }, [searchParams, allOrders]);
 
@@ -88,7 +95,7 @@ export const OrdersPage = () => {
   
   const pdfRef = useRef<HTMLDivElement>(null);
   
-  // Fix the useReactToPrint hook by returning a promise from onBeforePrint
+  // Fix the useReactToPrint hook
   const handlePrintPDF = useReactToPrint({
     documentTitle: `Pedido-${viewingOrder?.id || ''}`,
     onBeforePrint: () => {
@@ -118,6 +125,7 @@ export const OrdersPage = () => {
 
   // Handle dialog close and URL cleanup
   const handleDialogClose = () => {
+    setDialogOpen(false);
     setViewingOrder(null);
     setSearchParams({});
   };
@@ -195,7 +203,7 @@ export const OrdersPage = () => {
       </Card>
 
       {/* Modal para ver detalhes do pedido */}
-      <Dialog open={!!viewingOrder && !showPDFPreview} onOpenChange={(open) => !open && handleDialogClose()}>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Detalhes do Pedido</DialogTitle>

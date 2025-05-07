@@ -1,19 +1,22 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useDataStore, Customer, Order } from '@/lib/data';
+import { useDataStore, Customer } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Edit, ArrowLeft, Printer, Trash, Plus } from 'lucide-react';
+import { Edit, ArrowLeft, Trash, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { useReactToPrint } from 'react-to-print';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { AddOrderForm } from '@/components/AddOrderForm';
+import { OrderCard } from '@/components/OrderCard';
+import { PhoneFormatter } from '@/components/PhoneFormatter';
+import { TimeFormatter } from '@/components/TimeFormatter';
+import { BrazilStateSelector } from '@/components/BrazilStateSelector';
 
 export const CustomerDetailPage = () => {
   const { customerId } = useParams<{ customerId: string }>();
@@ -33,11 +36,13 @@ export const CustomerDetailPage = () => {
     }
   }, [customerId, customers]);
 
-  const order = customer?.orders[0];
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setEditedCustomer(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleStateChange = (value: string) => {
+    setEditedCustomer(prev => ({ ...prev, tourState: value }));
   };
 
   const handleSaveChanges = () => {
@@ -61,18 +66,6 @@ export const CustomerDetailPage = () => {
     return format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
   };
 
-  const formatDateTime = (date: Date) => {
-    return format(date, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
-  };
-
-  const printRef = useRef<HTMLDivElement>(null);
-
-  const handlePrint = useReactToPrint({
-    documentTitle: `Pedido-${order?.id || 'Detalhes'}`,
-    onPrintError: (error) => console.error('Erro ao imprimir', error),
-    contentRef: printRef
-  });
-
   if (!customer) {
     return <div>Cliente não encontrado.</div>;
   }
@@ -87,10 +80,6 @@ export const CustomerDetailPage = () => {
         </Button>
         
         <div>
-          <Button variant="outline" className="mr-2" onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-2" /> Imprimir
-          </Button>
-          
           {isEditing ? (
             <>
               <Button variant="secondary" className="mr-2" onClick={() => setIsEditing(false)}>
@@ -106,7 +95,7 @@ export const CustomerDetailPage = () => {
         </div>
       </div>
 
-      <Card ref={printRef} className="overflow-visible">
+      <Card className="overflow-visible">
         <CardHeader>
           <CardTitle>
             {isEditing ? (
@@ -149,7 +138,7 @@ export const CustomerDetailPage = () => {
                   placeholder="Telefone do cliente"
                 />
               ) : (
-                <p>{customer.phone}</p>
+                <PhoneFormatter phone={customer.phone} />
               )}
             </div>
           </div>
@@ -237,11 +226,9 @@ export const CustomerDetailPage = () => {
               <div>
                 <Label>Estado</Label>
                 {isEditing ? (
-                  <Input
-                    name="tourState"
-                    value={editedCustomer.tourState || ''}
-                    onChange={handleInputChange}
-                    placeholder="Estado da excursão"
+                  <BrazilStateSelector 
+                    value={editedCustomer.tourState || ''} 
+                    onChange={handleStateChange}
                   />
                 ) : (
                   <p>{customer.tourState || 'Não informado'}</p>
@@ -258,7 +245,7 @@ export const CustomerDetailPage = () => {
                     placeholder="Horário de partida"
                   />
                 ) : (
-                  <p>{customer.tourDepartureTime || 'Não informado'}</p>
+                  <TimeFormatter time={customer.tourDepartureTime || ''} />
                 )}
               </div>
             </div>
@@ -277,42 +264,22 @@ export const CustomerDetailPage = () => {
                 </Button>
               </div>
               
-              {customer.orders.map(order => (
-                <div key={order.id} className="mb-4 p-4 border rounded-md">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>ID do Pedido</Label>
-                      <p>{order.id}</p>
-                    </div>
-                    
-                    <div>
-                      <Label>Data do Pedido</Label>
-                      <p>{formatDateTime(order.createdAt)}</p>
-                    </div>
-                    
-                    <div>
-                      <Label>Status</Label>
-                      <Badge variant="secondary">{order.status}</Badge>
-                    </div>
-                    
-                    <div>
-                      <Label>Total</Label>
-                      <p>R$ {order.total.toFixed(2)}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-3">
-                    <Label>Produtos</Label>
-                    <ul className="list-disc pl-5 mt-1">
-                      {order.products.map((product, idx) => (
-                        <li key={idx}>
-                          {product.productName} - {product.quantity} x R$ {product.price.toFixed(2)}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {customer.orders.map(order => {
+                  // Prepare order with customer information for OrderCard
+                  const orderWithCustomer = {
+                    ...order,
+                    customerName: customer.name
+                  };
+                  return (
+                    <OrderCard 
+                      key={order.id} 
+                      order={orderWithCustomer} 
+                      customerName={customer.name} 
+                    />
+                  );
+                })}
+              </div>
             </div>
           )}
           

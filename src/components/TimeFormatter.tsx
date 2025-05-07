@@ -13,7 +13,9 @@ export const TimeFormatter = ({ time, showIcon = false }: TimeFormatterProps) =>
     
     // If it's already in HH:MM format, return as is
     if (/^\d{1,2}:\d{2}$/.test(timeString)) {
-      return timeString;
+      // Ensure two digit hours if needed
+      const [hours, minutes] = timeString.split(':');
+      return `${hours.padStart(2, '0')}:${minutes}`;
     }
     
     try {
@@ -23,7 +25,6 @@ export const TimeFormatter = ({ time, showIcon = false }: TimeFormatterProps) =>
         return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       }
     } catch (e) {
-      // Fall back to the original string if parsing fails
       console.error("Error formatting time:", e);
     }
     

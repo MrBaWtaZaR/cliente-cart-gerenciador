@@ -11,12 +11,26 @@ export const PhoneFormatter = ({ phone, showIcon = false }: PhoneFormatterProps)
     // Remove non-numeric characters
     const numbers = phoneNumber.replace(/\D/g, '');
     
+    if (numbers.length === 0) return '';
+    
     if (numbers.length <= 10) {
-      // Format as (XX) XXXX-XXXX
-      return numbers.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+      // Format as (XX) XXXX-XXXX for landline numbers
+      return numbers.replace(/(\d{2})(\d{0,4})(\d{0,4})/, (_, p1, p2, p3) => {
+        let result = '';
+        if (p1) result += `(${p1})`;
+        if (p2) result += ` ${p2}`;
+        if (p3) result += `-${p3}`;
+        return result;
+      }).trim();
     } else {
       // Format as (XX) XXXXX-XXXX for mobile numbers
-      return numbers.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+      return numbers.replace(/(\d{2})(\d{0,5})(\d{0,4})/, (_, p1, p2, p3) => {
+        let result = '';
+        if (p1) result += `(${p1})`;
+        if (p2) result += ` ${p2}`;
+        if (p3) result += `-${p3}`;
+        return result;
+      }).trim();
     }
   };
 

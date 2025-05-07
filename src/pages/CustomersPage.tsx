@@ -1,11 +1,11 @@
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useDataStore, Customer } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
@@ -16,10 +16,13 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Search, Plus, Users, X, UserPlus, Edit, Trash, Truck } from 'lucide-react';
+import { Search, Plus, Users, X, UserPlus, Edit, Trash, Truck, Eye } from 'lucide-react';
+import { PhoneFormatter } from '@/components/PhoneFormatter';
+import { BrazilStateSelector } from '@/components/BrazilStateSelector';
 
 export const CustomersPage = () => {
   const { customers, addCustomer, deleteCustomer } = useDataStore();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({
@@ -75,6 +78,10 @@ export const CustomersPage = () => {
     }
   };
 
+  const handleCustomerCardClick = (customerId: string) => {
+    navigate(`/dashboard/customers/${customerId}`);
+  };
+
   // Filtrar clientes de acordo com a pesquisa
   const filteredCustomers = customers.filter(customer => {
     const searchLower = searchTerm.toLowerCase();
@@ -121,6 +128,7 @@ export const CustomersPage = () => {
                 <CustomerCard 
                   key={customer.id} 
                   customer={customer} 
+                  onClick={() => handleCustomerCardClick(customer.id)}
                   onDelete={() => setCustomerToDelete(customer)} 
                 />
               ))
@@ -141,6 +149,7 @@ export const CustomersPage = () => {
                   <CustomerCard 
                     key={customer.id} 
                     customer={customer} 
+                    onClick={() => handleCustomerCardClick(customer.id)}
                     onDelete={() => setCustomerToDelete(customer)} 
                   />
                 ))
@@ -161,6 +170,7 @@ export const CustomersPage = () => {
                   <CustomerCard 
                     key={customer.id} 
                     customer={customer} 
+                    onClick={() => handleCustomerCardClick(customer.id)}
                     onDelete={() => setCustomerToDelete(customer)} 
                   />
                 ))
@@ -297,12 +307,9 @@ export const CustomersPage = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="tourState">Estado</Label>
-                  <Input
-                    id="tourState"
-                    name="tourState"
-                    placeholder="Estado"
+                  <BrazilStateSelector
                     value={newCustomer.tourState}
-                    onChange={handleInputChange}
+                    onChange={(value) => handleSelectChange('tourState', value)}
                   />
                 </div>
               </div>
@@ -371,17 +378,25 @@ export const CustomersPage = () => {
 
 interface CustomerCardProps {
   customer: Customer;
+  onClick: () => void;
   onDelete: () => void;
 }
 
-const CustomerCard = ({ customer, onDelete }: CustomerCardProps) => (
-  <Card className="overflow-hidden">
+const CustomerCard = ({ customer, onClick, onDelete }: CustomerCardProps) => (
+  <Card className="overflow-hidden hover:shadow-md transition-all cursor-pointer" onClick={(e) => {
+    // Prevent card click when clicking on delete button
+    if ((e.target as HTMLElement).closest('button')) {
+      e.stopPropagation();
+      return;
+    }
+    onClick();
+  }}>
     <CardHeader className="pb-2">
       <CardTitle>{customer.name}</CardTitle>
       <CardDescription>{customer.email}</CardDescription>
     </CardHeader>
     <CardContent className="pb-2">
-      <p className="text-sm"><strong>Telefone:</strong> {customer.phone}</p>
+      <p className="text-sm"><strong>Telefone:</strong> <PhoneFormatter phone={customer.phone} /></p>
       {customer.address && (
         <p className="text-sm"><strong>Endereço:</strong> {customer.address}</p>
       )}
@@ -393,13 +408,18 @@ const CustomerCard = ({ customer, onDelete }: CustomerCardProps) => (
       </p>
     </CardContent>
     <CardFooter className="flex justify-between">
-      <Button variant="outline" size="sm" onClick={onDelete}>
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+      >
         <Trash className="h-4 w-4 mr-2" /> Excluir
       </Button>
-      <Button asChild size="sm">
-        <Link to={`/dashboard/customers/${customer.id}`}>
-          <Edit className="h-4 w-4 mr-2" /> Detalhes
-        </Link>
+      <Button size="sm">
+        <Eye className="h-4 w-4 mr-2" /> Detalhes
       </Button>
     </CardFooter>
   </Card>

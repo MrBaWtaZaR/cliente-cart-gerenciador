@@ -1,9 +1,8 @@
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode } from 'react';
 import { DashboardSidebar } from './DashboardSidebar';
 import { AuthGuard } from './AuthGuard';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useToast } from '@/components/ui/use-toast';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -11,14 +10,6 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const isMobile = useIsMobile();
-  const { toast } = useToast();
-
-  useEffect(() => {
-    toast({
-      title: 'Bem-vindo à A&F Consultoria',
-      description: 'Gerencie seus clientes, produtos e pedidos.',
-    });
-  }, []);
 
   return (
     <AuthGuard>
