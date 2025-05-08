@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { generateId } from '../utils/idGenerator';
 import { loadInitialData } from '../utils/sampleData';
-import { Customer } from '../types/customers';
+import { Customer, Order, OrderProduct } from '../types/customers';
 import { Product } from '../types/products';
 import { Shipment } from '../types/shipments';
 import { useCustomerStore } from './useCustomerStore';
@@ -64,7 +64,7 @@ interface DataStore {
   
   initializeData: () => Promise<void>;
   refreshAll: () => Promise<void>;
-  syncOrders: () => Promise<boolean>; // New function to synchronize orders
+  syncOrders: () => Promise<void>; // Change return type to Promise<void>
   
   // Customer store functions
   addCustomer: typeof customerStore.addCustomer;
@@ -109,14 +109,14 @@ export const useDataStore = create<DataStore>((set, get) => {
     syncOrders: async () => {
       try {
         set({ isLoading: true });
-        const result = await useCustomerStore.getState().syncOrdersWithSupabase();
+        await useCustomerStore.getState().syncOrdersWithSupabase();
         set({ isLoading: false });
-        return result;
+        return;
       } catch (error) {
         console.error('Error synchronizing orders:', error);
         set({ isLoading: false });
         toast.error('Erro ao sincronizar pedidos');
-        return false;
+        return;
       }
     },
     

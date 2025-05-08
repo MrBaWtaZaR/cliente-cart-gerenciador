@@ -1,3 +1,4 @@
+
 import * as React from "react"
 
 const MOBILE_BREAKPOINT = 768
@@ -16,4 +17,11 @@ export function useIsMobile() {
   }, [])
 
   return !!isMobile
+}
+
+// Export MobileCheck component for compatibility
+export const MobileCheck: React.FC = () => {
+  const isMobile = useIsMobile()
+  // This is a utility component that just checks mobile status but doesn't render anything visible
+  return null
 }

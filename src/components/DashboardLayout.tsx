@@ -3,7 +3,7 @@ import React, { useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DashboardSidebar } from "./DashboardSidebar";
-import { MobileCheck } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Toaster } from "sonner";
 import { useDataStore } from "@/stores";
 
@@ -43,7 +43,8 @@ export function DashboardLayout() {
 
   return (
     <div>
-      <MobileCheck />
+      {/* Use useIsMobile instead of MobileCheck */}
+      <div className="hidden">{useIsMobile() ? 'mobile' : 'desktop'}</div>
       <div className="flex">
         <DashboardSidebar />
         <div className="flex-1 overflow-auto p-6 bg-slate-50 min-h-screen">

@@ -183,7 +183,7 @@ const deleteOrderFromSupabase = async (orderId: string) => {
     console.log(`Order ${orderId} deleted successfully from Supabase`);
     return true;
   } catch (error) {
-    console.error('Error in deleteOrderFromSupabase:', error);
+    console.error('Error in deleteOrderFromSupababase:', error);
     return false;
   }
 };
@@ -379,11 +379,13 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
         toast.warning('Alguns pedidos não foram sincronizados corretamente.');
       }
       
-      return syncSuccess;
+      // Make sure to return void to match the interface
+      return;
     } catch (error) {
       console.error('Error syncing orders with Supabase:', error);
       toast.error('Erro ao sincronizar pedidos');
-      return false;
+      // Make sure to return void
+      return;
     }
   },
   

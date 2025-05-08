@@ -33,7 +33,7 @@ const queryClient = new QueryClient({
 });
 
 // Componente aprimorado para lidar com limpeza em mudanças de rota
-const RouteChangeHandler = ({ children }) => {
+const RouteChangeHandler = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isNavigating, setIsNavigating] = useState(false);
@@ -219,47 +219,15 @@ const AppContent = () => {
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<LoginPage />} />
           
-          <Route path="/dashboard" element={
-            <DashboardLayout>
-              <DashboardPage />
-            </DashboardLayout>
-          } />
-          
-          <Route path="/dashboard/customers" element={
-            <DashboardLayout>
-              <CustomersPage />
-            </DashboardLayout>
-          } />
-          
-          <Route path="/dashboard/customers/:customerId" element={
-            <DashboardLayout>
-              <CustomerDetailPage />
-            </DashboardLayout>
-          } />
-          
-          <Route path="/dashboard/products" element={
-            <DashboardLayout>
-              <ProductsPage />
-            </DashboardLayout>
-          } />
-          
-          <Route path="/dashboard/orders" element={
-            <DashboardLayout>
-              <OrdersPage />
-            </DashboardLayout>
-          } />
-          
-          <Route path="/dashboard/shipments" element={
-            <DashboardLayout>
-              <ShipmentPage key="shipments" />
-            </DashboardLayout>
-          } />
-          
-          <Route path="/dashboard/settings" element={
-            <DashboardLayout>
-              <SettingsPage />
-            </DashboardLayout>
-          } />
+          <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route index element={<DashboardPage />} />
+            <Route path="customers" element={<CustomersPage />} />
+            <Route path="customers/:customerId" element={<CustomerDetailPage />} />
+            <Route path="products" element={<ProductsPage />} />
+            <Route path="orders" element={<OrdersPage />} />
+            <Route path="shipments" element={<ShipmentPage key="shipments" />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
           
           <Route path="*" element={<NotFound />} />
         </Routes>
