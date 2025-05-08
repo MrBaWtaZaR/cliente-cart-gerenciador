@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useDataStore, Customer, Shipment } from '@/lib/data';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -206,11 +207,15 @@ export const ShipmentPage = () => {
       // Explicitly refresh
       await getShipments();
       
+      // Reset state after successful deletion
+      if (isMountedRef.current) {
+        setIsDeletingShipment(false);
+      }
+      
       console.log("Processo de exclusão concluído com sucesso");
     } catch (error) {
       console.error('Erro ao excluir envio:', error);
       toast.error('Erro ao excluir envio');
-    } finally {
       if (isMountedRef.current) {
         setIsDeletingShipment(false);
       }
@@ -305,6 +310,10 @@ export const ShipmentPage = () => {
     console.log("Current shipments in state:", shipments?.length || 0);
   }, [shipments]);
 
+  // Calculate if "new shipment" button should be disabled
+  // Changed to only check isLoading, not isUpdatingRef.current
+  const isNewShipmentButtonDisabled = isLoading;
+
   return (
     <div className="container space-y-6">
       <div className="flex justify-between items-center">
@@ -315,7 +324,7 @@ export const ShipmentPage = () => {
             setSelectedCustomers([]);
             setIsSelectingCustomers(true);
           }}
-          disabled={isLoading || isUpdatingRef.current}
+          disabled={isNewShipmentButtonDisabled}
         >
           <Plus className="mr-2 h-4 w-4" /> Fazer um novo envio
         </Button>
@@ -328,7 +337,7 @@ export const ShipmentPage = () => {
           <Button 
             variant="outline" 
             size="sm"
-            disabled={isLoading || isUpdatingRef.current}
+            disabled={isLoading}
             onClick={handleManualRefresh}
           >
             {isLoading ? 'Atualizando...' : 'Atualizar dados'}

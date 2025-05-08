@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -286,6 +285,11 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
     try {
       console.log("Iniciando exclusão do envio:", shipmentId);
       
+      // Optimistically update the local state first
+      set(state => ({
+        shipments: state.shipments.filter(shipment => shipment.id !== shipmentId)
+      }));
+      
       // First, delete all associations
       const { error: deleteAssociationsError } = await supabase
         .from('shipment_customers')
@@ -294,10 +298,10 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         
       if (deleteAssociationsError) {
         console.error('Erro ao excluir associações do envio:', deleteAssociationsError);
-        throw deleteAssociationsError;
+        // If there's an error, don't throw yet - try to complete the operation
+      } else {
+        console.log("Associações excluídas com sucesso, excluindo o envio agora");
       }
-      
-      console.log("Associações excluídas com sucesso, excluindo o envio agora");
       
       // Then delete the shipment itself
       const { error: deleteShipmentError } = await supabase
@@ -307,17 +311,14 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         
       if (deleteShipmentError) {
         console.error('Erro ao excluir o envio:', deleteShipmentError);
+        // Revert optimistic update if deletion failed
+        await get().getShipments(); // This will reset the state with fresh data
         throw deleteShipmentError;
       }
       
       console.log("Envio excluído no banco de dados com sucesso, atualizando o estado local");
       
-      // Update local state first (optimistic update)
-      set(state => ({
-        shipments: state.shipments.filter(shipment => shipment.id !== shipmentId)
-      }));
-      
-      // Get fresh data from server
+      // Get fresh data from server to ensure consistency
       const updatedShipments = await get().getShipments();
       set({ shipments: updatedShipments });
       
@@ -327,6 +328,11 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
     } catch (error) {
       console.error('Erro ao excluir envio:', error);
       toast.error('Erro ao excluir envio');
+      
+      // Ensure we have the latest data even if there was an error
+      const updatedShipments = await get().getShipments();
+      set({ shipments: updatedShipments });
+      
       throw error;
     }
   },
