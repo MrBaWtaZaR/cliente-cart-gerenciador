@@ -10,6 +10,7 @@ import { Shipment } from '../types/shipments';
 import { useCustomerStore } from './useCustomerStore';
 import { useProductStore } from './useProductStore';
 import { useShipmentStore } from './useShipmentStore';
+import { syncAllCustomerOrders } from './orderSync';
 
 // Load initial data
 const { customers: initialCustomers, products: initialProducts } = loadInitialData();
@@ -64,6 +65,7 @@ interface DataStore {
   
   initializeData: () => Promise<void>;
   refreshAll: () => Promise<void>; // Function to refresh all data
+  syncAllOrders: () => Promise<void>; // Function to sync orders with Supabase
   
   // Customer store functions
   addCustomer: typeof customerStore.addCustomer;
@@ -73,6 +75,8 @@ interface DataStore {
   updateOrderStatus: typeof customerStore.updateOrderStatus;
   updateOrder: typeof customerStore.updateOrder;
   deleteOrder: typeof customerStore.deleteOrder;
+  syncOrdersWithSupabase: typeof customerStore.syncOrdersWithSupabase;
+  syncAllCustomerOrders: typeof customerStore.syncAllCustomerOrders;
   
   // Product store functions  
   addProduct: typeof productStore.addProduct;
@@ -103,6 +107,28 @@ export const useDataStore = create<DataStore>((set, get) => {
     shipments: [],
     isInitialized: false,
     isLoading: false,
+    
+    // Function to sync orders with Supabase
+    syncAllOrders: async () => {
+      try {
+        console.log("Iniciando sincronização de todos os pedidos");
+        set({ isLoading: true });
+        
+        const customerStore = useCustomerStore.getState();
+        await customerStore.syncAllCustomerOrders();
+        
+        // Update the main store with fresh customer data including synced orders
+        const customers = useCustomerStore.getState().customers;
+        set({ customers, isLoading: false });
+        
+        toast.success('Todos os pedidos sincronizados com o servidor');
+        console.log("Sincronização de pedidos concluída");
+      } catch (error) {
+        console.error('Error syncing orders:', error);
+        set({ isLoading: false });
+        toast.error('Erro ao sincronizar pedidos');
+      }
+    },
     
     // Improved refreshAll function with better debouncing
     refreshAll: async () => {
@@ -154,6 +180,10 @@ export const useDataStore = create<DataStore>((set, get) => {
         // Reload shipments
         console.log("Recarregando dados de envios");
         const updatedShipments = await shipmentStore.getShipments();
+        
+        // Sync orders with Supabase
+        console.log("Sincronizando pedidos com o servidor");
+        await customerStore.syncAllCustomerOrders();
         
         // Update the main store with new data - Use getState() to get the latest data
         const customers = useCustomerStore.getState().customers;
@@ -249,15 +279,31 @@ export const useDataStore = create<DataStore>((set, get) => {
           // Continue with empty shipments array
         }
         
-        set({
-          customers,
-          products: get().products, // Keep current products
-          shipments,
-          isInitialized: true,
-          isLoading: false
-        });
+        // Try to sync orders from Supabase
+        try {
+          await customerStore.syncAllCustomerOrders();
+          // Get updated customers after sync
+          const updatedCustomers = useCustomerStore.getState().customers;
+          set({
+            customers: updatedCustomers,
+            products: get().products,
+            shipments,
+            isInitialized: true,
+            isLoading: false
+          });
+        } catch (error) {
+          console.error('Error syncing orders:', error);
+          // Continue with local data
+          set({
+            customers,
+            products: get().products,
+            shipments,
+            isInitialized: true,
+            isLoading: false
+          });
+        }
         
-        console.log('Data initialized from Supabase', { customers, shipments });
+        console.log('Data initialized from Supabase');
       } catch (error) {
         console.error('Error initializing data:', error);
         set({ isLoading: false });
