@@ -23,71 +23,19 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       refreshAll();
     }
     
-    // Função para limpar elementos órfãos no DOM
+    // Função para limpar elementos órfãos no DOM de forma segura
     const cleanupOrphanedElements = () => {
       // Prevent concurrent cleanups
       if (cleanupInProgressRef.current) return;
       cleanupInProgressRef.current = true;
       
       try {
-        // Limpar tooltips
-        document.querySelectorAll('[role="tooltip"]').forEach(el => {
-          if (el && el.parentNode) {
-            try {
-              // Double-check that the parent actually contains this child before removing
-              if (el.parentNode.contains(el)) {
-                el.parentNode.removeChild(el);
-              }
-            } catch (e) {
-              // Ignore errors if element was already removed
-            }
-          }
-        });
-        
-        // Limpar dialogs
-        document.querySelectorAll('[role="dialog"]').forEach(el => {
-          if (el && el.parentNode) {
-            try {
-              // Double-check that the parent actually contains this child before removing
-              if (el.parentNode.contains(el)) {
-                el.parentNode.removeChild(el);
-              }
-            } catch (e) {
-              // Ignore errors if element was already removed
-            }
-          }
-        });
-        
-        // Limpar portals
-        document.querySelectorAll('[data-portal]').forEach(el => {
-          if (el && el.parentNode) {
-            try {
-              // Double-check that the parent actually contains this child before removing
-              if (el.parentNode.contains(el)) {
-                el.parentNode.removeChild(el);
-              }
-            } catch (e) {
-              // Ignore errors if element was already removed
-            }
-          }
-        });
-        
-        // Limpar popups e menus flutuantes
-        document.querySelectorAll('.radix-popup').forEach(el => {
-          if (el && el.parentNode) {
-            try {
-              // Double-check that the parent actually contains this child before removing
-              if (el.parentNode.contains(el)) {
-                el.parentNode.removeChild(el);
-              }
-            } catch (e) {
-              // Ignore errors if element was already removed
-            }
-          }
-        });
-        
-        // Limpar outros elementos que podem causar problemas
-        [
+        // Lista de seletores para elementos que podem causar problemas
+        const selectors = [
+          '[role="tooltip"]',
+          '[role="dialog"]',
+          '[data-portal]',
+          '.radix-popup',
           '[data-floating]', 
           '[data-state="open"]', 
           '.popover-content', 
@@ -97,24 +45,28 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           '.react-flow__edge',
           '[aria-live="polite"]',
           '[aria-live="assertive"]'
-        ].forEach(selector => {
+        ];
+        
+        // Limpar cada tipo de elemento de forma segura
+        selectors.forEach(selector => {
           document.querySelectorAll(selector).forEach(el => {
-            if (el && el.parentNode && unmountingRef.current) {
-              try {
-                // Double-check that the parent actually contains this child before removing
-                if (el.parentNode.contains(el)) {
-                  el.parentNode.removeChild(el);
-                }
-              } catch (e) {
-                // Ignore errors if element was already removed
+            if (!el || !el.parentNode) return;
+            
+            try {
+              // Verificação dupla para garantir que o elemento ainda existe e é filho do pai
+              if (el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
+                el.parentNode.removeChild(el);
               }
+            } catch (e) {
+              // Ignorar erros se o elemento já foi removido
+              console.log(`Erro ao tentar remover ${selector}:`, e);
             }
           });
         });
       } catch (error) {
         console.error('Error cleaning up DOM elements:', error);
       } finally {
-        // Release the cleanup lock after a small delay
+        // Liberar o lock de limpeza após um pequeno delay
         setTimeout(() => {
           cleanupInProgressRef.current = false;
         }, 100);
@@ -122,25 +74,29 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     };
   
     // Registrar evento global para limpeza quando necessário
-    window.addEventListener('app-cleanup', cleanupOrphanedElements);
+    const handleCleanup = () => {
+      console.log("Evento de limpeza disparado");
+      cleanupOrphanedElements();
+    };
+    
+    window.addEventListener('app-cleanup', handleCleanup);
   
     return () => {
       console.log("App desmontado, limpando recursos...");
       unmountingRef.current = true;
       
-      // Disparar evento de limpeza global
-      window.dispatchEvent(new CustomEvent('app-cleanup'));
-      window.removeEventListener('app-cleanup', cleanupOrphanedElements);
+      // Remover listener do evento
+      window.removeEventListener('app-cleanup', handleCleanup);
       
       // Executar limpeza imediatamente
       cleanupOrphanedElements();
       
-      // Executar limpeza novamente após um pequeno delay para garantir que elementos assíncronos sejam limpos
+      // Executar limpeza novamente após um pequeno delay
       setTimeout(() => {
         cleanupOrphanedElements();
       }, 0);
       
-      // E mais uma vez após um delay maior para garantir que tudo seja limpo
+      // E mais uma vez após um delay maior
       setTimeout(() => {
         cleanupOrphanedElements();
         unmountingRef.current = false;

@@ -1,6 +1,5 @@
-
 import { useState } from 'react';
-import { useDataStore } from '@/lib/data';
+import { useDataStore } from '@/stores';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +19,7 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
     quantity: number;
   }>>([{ productId: '', quantity: 1 }]);
   const [status, setStatus] = useState<'pending' | 'completed' | 'cancelled'>('pending');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleProductChange = (index: number, productId: string) => {
     const newItems = [...orderItems];
@@ -59,6 +59,11 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prevenir múltiplos envios
+    if (isSubmitting) {
+      return;
+    }
+    
     // Validar se todos os itens têm produtos selecionados
     if (orderItems.some(item => !item.productId)) {
       toast.error('Selecione um produto para todos os itens');
@@ -66,6 +71,8 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
     }
 
     try {
+      setIsSubmitting(true);
+      
       const orderProducts = orderItems.map(item => {
         const product = products.find(p => p.id === item.productId);
         if (!product) {
@@ -90,10 +97,18 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
       });
 
       toast.success('Pedido adicionado com sucesso!');
+      
+      // Reset form
+      setOrderItems([{ productId: '', quantity: 1 }]);
+      setStatus('pending');
+      
+      // Notify parent component
       onSuccess();
     } catch (error) {
       console.error("Erro ao adicionar pedido:", error);
       toast.error("Erro ao adicionar pedido. Por favor, tente novamente.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
