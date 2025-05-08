@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { useReactToPrint } from 'react-to-print';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useShipmentSafeUnmount } from '@/components/ShipmentSafeUnmount';
 
 export const ShipmentPage = () => {
   const { customers, shipments, addShipment, getShipments, deleteShipment, updateShipment } = useDataStore();
@@ -24,7 +25,9 @@ export const ShipmentPage = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingShipment, setIsDeletingShipment] = useState(false);
   const isUpdatingRef = useRef(false);
-  const isMountedRef = useRef(true);
+  
+  // Use our safe unmount utility
+  const { isMounted, setPrintRefsExist } = useShipmentSafeUnmount();
 
   const tableRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
@@ -36,36 +39,32 @@ export const ShipmentPage = () => {
       return customer.orders && customer.orders.some(order => order.status === 'pending');
     });
   }, [customers]);
-
-  // Set up component unmount
+  
+  // Update the print refs status
   useEffect(() => {
-    console.log("Component mounting...");
-    return () => {
-      console.log("App desmontado, limpando recursos...");
-      isMountedRef.current = false;
-    };
-  }, []);
+    setPrintRefsExist(tableRef.current !== null || cardsRef.current !== null);
+  }, [tableRef.current, cardsRef.current, setPrintRefsExist]);
 
   // Fetch shipments when component mounts or when dependencies change
   useEffect(() => {
     const fetchShipments = async () => {
       // If we're already updating or component has unmounted, don't proceed
-      if (isUpdatingRef.current || !isMountedRef.current) return;
+      if (isUpdatingRef.current || !isMounted()) return;
       
       isUpdatingRef.current = true;
-      setIsLoading(true);
+      if (isMounted()) setIsLoading(true);
       
       try {
         console.log("Fetching shipments on mount...");
         const fetchedShipments = await getShipments();
-        console.log("Retrieved", fetchedShipments.length, "shipments");
+        console.log("Retrieved", fetchedShipments?.length || 0, "shipments");
       } catch (error) {
         console.error("Error fetching shipments:", error);
-        if (isMountedRef.current) {
+        if (isMounted()) {
           toast.error("Falha ao carregar envios. Por favor, recarregue a página.");
         }
       } finally {
-        if (isMountedRef.current) {
+        if (isMounted()) {
           setIsLoading(false);
         }
         // Add a small delay before allowing updates again
@@ -76,7 +75,7 @@ export const ShipmentPage = () => {
     };
     
     fetchShipments();
-  }, [getShipments]);
+  }, [getShipments, isMounted]);
 
   // Set up separate listener effect, with debounce
   useEffect(() => {
@@ -87,21 +86,21 @@ export const ShipmentPage = () => {
       clearTimeout(updateTimer);
       
       // If we're already updating or the component has unmounted, don't proceed
-      if (isUpdatingRef.current || !isMountedRef.current) return;
+      if (isUpdatingRef.current || !isMounted()) return;
       
       // Debounce the updates with a timeout
       updateTimer = setTimeout(async () => {
         console.log("Handling data update event...");
         
         isUpdatingRef.current = true;
-        if (isMountedRef.current) setIsLoading(true);
+        if (isMounted()) setIsLoading(true);
         
         try {
           await getShipments();
         } catch (error) {
           console.error("Error refreshing shipments on update:", error);
         } finally {
-          if (isMountedRef.current) {
+          if (isMounted()) {
             setIsLoading(false);
           }
           
@@ -121,7 +120,7 @@ export const ShipmentPage = () => {
       window.removeEventListener('order-updated', handleOrderUpdate);
       window.removeEventListener('data-updated', handleOrderUpdate);
     };
-  }, [getShipments]);
+  }, [getShipments, isMounted]);
 
   const handlePrintTable = useReactToPrint({
     documentTitle: `Tabela_de_Envio_${format(new Date(), 'dd-MM-yyyy')}`,
@@ -131,7 +130,9 @@ export const ShipmentPage = () => {
       });
     },
     onAfterPrint: () => {
-      toast.success('PDF da tabela gerado com sucesso');
+      if (isMounted()) {
+        toast.success('PDF da tabela gerado com sucesso');
+      }
     },
     contentRef: tableRef,
   });
@@ -144,7 +145,9 @@ export const ShipmentPage = () => {
       });
     },
     onAfterPrint: () => {
-      toast.success('PDF dos cards gerado com sucesso');
+      if (isMounted()) {
+        toast.success('PDF dos cards gerado com sucesso');
+      }
     },
     contentRef: cardsRef,
   });
@@ -155,60 +158,73 @@ export const ShipmentPage = () => {
       return;
     }
 
-    setIsLoading(true);
+    if (isMounted()) setIsLoading(true);
+    
     try {
       const shipment = await addShipment(selectedCustomers);
       if (!shipment) {
         throw new Error("Falha ao criar envio");
       }
       
-      setSelectedShipment(shipment);
-      setIsSelectingCustomers(false);
-      setIsCreatingShipment(true);
-      
-      // Reset selection
-      setSelectedCustomers([]);
+      if (isMounted()) {
+        setSelectedShipment(shipment);
+        setIsSelectingCustomers(false);
+        setIsCreatingShipment(true);
+        
+        // Reset selection
+        setSelectedCustomers([]);
+      }
       
       // Explicitly fetch updated shipments to ensure UI is up to date
       await getShipments();
       console.log("Shipment created and shipments refreshed");
-      toast.success('Envio criado com sucesso!');
+      
+      if (isMounted()) {
+        toast.success('Envio criado com sucesso!');
+      }
     } catch (error) {
       console.error('Erro ao criar envio:', error);
-      toast.error('Erro ao criar envio. Por favor, tente novamente.');
+      
+      if (isMounted()) {
+        toast.error('Erro ao criar envio. Por favor, tente novamente.');
+      }
     } finally {
-      if (isMountedRef.current) {
+      if (isMounted()) {
         setIsLoading(false);
       }
     }
   };
 
   const handleShowShipmentDetails = (shipment: Shipment) => {
-    setSelectedShipment(shipment);
-    setShowShipmentDetails(true);
+    if (isMounted()) {
+      setSelectedShipment(shipment);
+      setShowShipmentDetails(true);
+    }
   };
 
   const handleGeneratePDFs = (shipment: Shipment) => {
-    setSelectedShipment(shipment);
-    setIsCreatingShipment(true);
+    if (isMounted()) {
+      setSelectedShipment(shipment);
+      setIsCreatingShipment(true);
+    }
   };
 
   const handleDeleteShipment = async () => {
     if (!selectedShipment) return;
     
-    setIsDeletingShipment(true);
+    if (isMounted()) {
+      setIsDeletingShipment(true);
+      setShowDeleteConfirm(false);
+    }
     
     try {
       console.log("Iniciando processo de exclusão do envio:", selectedShipment.id);
       
-      // Atualizar UI imediatamente para feedback
-      setShowDeleteConfirm(false);
-      
-      // Esperar pela conclusão da exclusão
+      // Wait for the deletion to complete
       await deleteShipment(selectedShipment.id);
       
-      // Fechar o modal de detalhes apenas se a exclusão foi bem-sucedida
-      if (isMountedRef.current) {
+      // Close the details modal only if deletion was successful
+      if (isMounted()) {
         setShowShipmentDetails(false);
         setSelectedShipment(null);
       }
@@ -217,25 +233,28 @@ export const ShipmentPage = () => {
       await getShipments();
       
       // Reset state after successful deletion
-      if (isMountedRef.current) {
+      if (isMounted()) {
         setIsDeletingShipment(false);
+        toast.success('Envio excluído com sucesso');
       }
       
       console.log("Processo de exclusão concluído com sucesso");
     } catch (error) {
       console.error('Erro ao excluir envio:', error);
-      toast.error('Erro ao excluir envio');
-      if (isMountedRef.current) {
+      
+      if (isMounted()) {
+        toast.error('Erro ao excluir envio');
         setIsDeletingShipment(false);
       }
     }
   };
 
   const handleEditShipment = () => {
-    if (!selectedShipment) return;
+    if (!selectedShipment || !isMounted()) return;
     
     // Pre-select customers
     const customerIds = selectedShipment.customers.map(customer => customer.id);
+    
     setSelectedCustomers(customerIds);
     setIsEditing(true);
     setShowShipmentDetails(false);
@@ -248,11 +267,12 @@ export const ShipmentPage = () => {
       return;
     }
 
-    setIsLoading(true);
+    if (isMounted()) setIsLoading(true);
+    
     try {
       await updateShipment(selectedShipment.id, selectedCustomers);
       
-      if (isMountedRef.current) {
+      if (isMounted()) {
         setIsSelectingCustomers(false);
         setIsEditing(false);
         setSelectedCustomers([]);
@@ -261,50 +281,66 @@ export const ShipmentPage = () => {
       // Explicitly refresh
       await getShipments();
       console.log("Shipment updated and shipments refreshed");
-      toast.success('Envio atualizado com sucesso!');
+      
+      if (isMounted()) {
+        toast.success('Envio atualizado com sucesso!');
+      }
     } catch (error) {
       console.error('Erro ao atualizar envio:', error);
-      toast.error('Erro ao atualizar envio. Por favor, tente novamente.');
+      
+      if (isMounted()) {
+        toast.error('Erro ao atualizar envio. Por favor, tente novamente.');
+      }
     } finally {
-      if (isMountedRef.current) {
+      if (isMounted()) {
         setIsLoading(false);
       }
     }
   };
 
   const handleToggleCustomer = (customerId: string) => {
-    setSelectedCustomers(prev => 
-      prev.includes(customerId)
-        ? prev.filter(id => id !== customerId)
-        : [...prev, customerId]
-    );
+    if (isMounted()) {
+      setSelectedCustomers(prev => 
+        prev.includes(customerId)
+          ? prev.filter(id => id !== customerId)
+          : [...prev, customerId]
+      );
+    }
   };
 
   const handleCloseAll = () => {
-    setIsCreatingShipment(false);
-    setShowShipmentDetails(false);
-    setIsSelectingCustomers(false);
-    setIsEditing(false);
-    setSelectedShipment(null);
+    if (isMounted()) {
+      setIsCreatingShipment(false);
+      setShowShipmentDetails(false);
+      setIsSelectingCustomers(false);
+      setIsEditing(false);
+      setSelectedShipment(null);
+    }
   };
 
   const handleManualRefresh = async () => {
     // If we're already updating, don't proceed
-    if (isUpdatingRef.current || !isMountedRef.current) return;
+    if (isUpdatingRef.current || !isMounted()) return;
     
     isUpdatingRef.current = true;
-    setIsLoading(true);
+    if (isMounted()) setIsLoading(true);
     
     try {
       console.log("Manual refresh requested...");
       const fetchedShipments = await getShipments();
-      console.log("Manual refresh completed, found", fetchedShipments.length, "shipments");
-      toast.success('Dados atualizados com sucesso');
+      console.log("Manual refresh completed, found", fetchedShipments?.length || 0, "shipments");
+      
+      if (isMounted()) {
+        toast.success('Dados atualizados com sucesso');
+      }
     } catch (error) {
       console.error("Error during manual refresh:", error);
-      toast.error("Falha ao atualizar dados");
+      
+      if (isMounted()) {
+        toast.error("Falha ao atualizar dados");
+      }
     } finally {
-      if (isMountedRef.current) {
+      if (isMounted()) {
         setIsLoading(false);
       }
       
@@ -320,7 +356,6 @@ export const ShipmentPage = () => {
   }, [shipments]);
 
   // Calculate if "new shipment" button should be disabled
-  // Changed to only check isLoading, not isUpdatingRef.current
   const isNewShipmentButtonDisabled = isLoading;
 
   return (
@@ -396,7 +431,7 @@ export const ShipmentPage = () => {
 
       {/* Dialog para seleção de clientes */}
       <Dialog open={isSelectingCustomers} onOpenChange={(open) => {
-        if (!open) {
+        if (!open && isMounted()) {
           setIsSelectingCustomers(false);
           if (isEditing) {
             setIsEditing(false);
@@ -492,9 +527,11 @@ export const ShipmentPage = () => {
           
           <DialogFooter>
             <Button variant="outline" onClick={() => {
-              setIsSelectingCustomers(false);
-              if (isEditing) {
-                setIsEditing(false);
+              if (isMounted()) {
+                setIsSelectingCustomers(false);
+                if (isEditing) {
+                  setIsEditing(false);
+                }
               }
             }}>
               Cancelar
@@ -515,7 +552,7 @@ export const ShipmentPage = () => {
 
       {/* Dialog para visualizar detalhes do envio */}
       <Dialog open={showShipmentDetails} onOpenChange={(open) => {
-        if (!isDeletingShipment) {
+        if (!isDeletingShipment && isMounted()) {
           setShowShipmentDetails(open);
         }
       }}>
@@ -602,8 +639,10 @@ export const ShipmentPage = () => {
                 </Button>
                 <Button 
                   onClick={() => {
-                    handleGeneratePDFs(selectedShipment);
-                    setShowShipmentDetails(false);
+                    if (isMounted()) {
+                      handleGeneratePDFs(selectedShipment);
+                      setShowShipmentDetails(false);
+                    }
                   }}
                   disabled={isDeletingShipment}
                 >

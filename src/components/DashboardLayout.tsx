@@ -1,5 +1,5 @@
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { DashboardSidebar } from './DashboardSidebar';
 import { AuthGuard } from './AuthGuard';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -10,6 +10,23 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const isMobile = useIsMobile();
+  
+  // Add cleanup effect when layout unmounts
+  useEffect(() => {
+    return () => {
+      // Clean any portal elements that might be orphaned
+      const portals = document.querySelectorAll('[data-portal]');
+      portals.forEach(portal => {
+        if (portal && portal.parentNode) {
+          try {
+            portal.parentNode.removeChild(portal);
+          } catch (e) {
+            // Ignore errors if element was already removed
+          }
+        }
+      });
+    };
+  }, []);
 
   return (
     <AuthGuard>
