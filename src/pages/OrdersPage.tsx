@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useCustomerStore } from '@/stores';
 import { Button } from '@/components/ui/button';
@@ -6,17 +5,27 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShoppingCart, Search, Filter, Printer, Edit } from 'lucide-react';
+import { ShoppingCart, Search, Filter, Printer, Edit, Trash2 } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { OrderPDF } from '@/components/OrderPDF';
 import { DateFilter } from '@/components/DateFilter';
 import { OrderCard } from '@/components/OrderCard';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { EditOrderForm } from '@/components/EditOrderForm';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const OrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { customers, updateOrderStatus } = useCustomerStore();
+  const { customers, updateOrderStatus, deleteOrder } = useCustomerStore();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -27,6 +36,7 @@ export const OrdersPage = () => {
   const [showPDFPreview, setShowPDFPreview] = useState<boolean>(false);
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
   
   // Prevent state updates after component unmounts
   const isMounted = useRef(true);
@@ -215,6 +225,14 @@ export const OrdersPage = () => {
     }
   };
 
+  const handleDeleteOrder = () => {
+    if (viewingOrder && viewingOrder.customerId) {
+      deleteOrder(viewingOrder.customerId, viewingOrder.id);
+      setDeleteDialogOpen(false);
+      handleDialogClose();
+    }
+  };
+
   const handleStartEditing = () => {
     if (isMounted.current) {
       setIsEditing(true);
@@ -287,6 +305,7 @@ export const OrdersPage = () => {
         </div>
       </div>
 
+      {/* Search and filter section */}
       <div className="flex flex-col md:flex-row gap-4 items-start justify-between">
         <div className="relative w-full md:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -497,30 +516,61 @@ export const OrdersPage = () => {
               )}
               
               <DialogFooter className="flex justify-between items-center sm:space-x-2 flex-col sm:flex-row gap-2 sm:gap-0">
-                <Button variant="outline" onClick={handleDialogClose}>
-                  Fechar
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setDeleteDialogOpen(true)}
+                  className="flex items-center"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" /> Excluir Pedido
                 </Button>
                 <div className="flex space-x-2">
                   <Button 
-                    variant="secondary"
-                    onClick={handleStartEditing}
-                    className="flex items-center"
+                    variant="outline" 
+                    onClick={handleDialogClose}
                   >
-                    <Edit className="h-4 w-4 mr-2" /> Editar
+                    Fechar
                   </Button>
-                  <Button 
-                    variant="default"
-                    onClick={handlePrintPDF}
-                    className="flex items-center"
-                  >
-                    <Printer className="h-4 w-4 mr-2" /> Imprimir
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="secondary"
+                      onClick={handleStartEditing}
+                      className="flex items-center"
+                    >
+                      <Edit className="h-4 w-4 mr-2" /> Editar
+                    </Button>
+                    <Button 
+                      variant="default"
+                      onClick={handlePrintPDF}
+                      className="flex items-center"
+                    >
+                      <Printer className="h-4 w-4 mr-2" /> Imprimir
+                    </Button>
+                  </div>
                 </div>
               </DialogFooter>
             </>
           )}
         </DialogContent>
       </Dialog>
+      
+      {/* Alert Dialog for delete confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Pedido</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente o pedido
+              {viewingOrder && ` de ${customerName}`}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteOrder} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       
       {/* Improved PDF container */}
       {viewingOrder && customerInfo && (
