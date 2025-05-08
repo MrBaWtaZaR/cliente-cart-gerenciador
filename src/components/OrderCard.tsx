@@ -1,4 +1,3 @@
-
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,13 +7,18 @@ import { ShoppingCart, Calendar, Clock } from 'lucide-react';
 interface OrderCardProps {
   order: Order;
   customerName: string;
+  onClick?: () => void; // Make onClick optional
 }
 
-export const OrderCard = ({ order, customerName }: OrderCardProps) => {
+export const OrderCard = ({ order, customerName, onClick }: OrderCardProps) => {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/dashboard/orders?view=${order.id}`);
+    if (onClick) {
+      onClick();
+    } else {
+      navigate(`/dashboard/orders?view=${order.id}`);
+    }
   };
 
   const formatDate = (date: Date) => {
