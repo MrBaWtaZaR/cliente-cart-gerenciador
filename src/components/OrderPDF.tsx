@@ -48,7 +48,7 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
           <div className="flex justify-between items-start">
             <div className="flex items-center">
               <img 
-                src="/public/lovable-uploads/918a2f2c-f5f0-4ea6-8676-f08b6d93bb99.png" 
+                src="/lovable-uploads/918a2f2c-f5f0-4ea6-8676-f08b6d93bb99.png" 
                 alt="AF Consultoria" 
                 className="h-16 mr-4"
               />
@@ -204,4 +204,3 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
 );
 
 OrderPDF.displayName = 'OrderPDF';
-

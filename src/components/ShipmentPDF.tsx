@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -32,7 +33,7 @@ export const ShipmentTablePDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
           <div className="flex justify-between items-center">
             <div className="flex items-center">
               <img 
-                src="/public/lovable-uploads/918a2f2c-f5f0-4ea6-8676-f08b6d93bb99.png" 
+                src="/lovable-uploads/918a2f2c-f5f0-4ea6-8676-f08b6d93bb99.png" 
                 alt="AF Consultoria" 
                 className="h-16 mr-4"
               />
@@ -187,7 +188,7 @@ export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
                 {/* Logo no topo do cartão */}
                 <div className="bg-blue-50 p-2 flex justify-center border-b border-blue-200">
                   <img 
-                    src="/public/lovable-uploads/918a2f2c-f5f0-4ea6-8676-f08b6d93bb99.png" 
+                    src="/lovable-uploads/918a2f2c-f5f0-4ea6-8676-f08b6d93bb99.png" 
                     alt="AF Consultoria" 
                     className="h-14"
                   />
