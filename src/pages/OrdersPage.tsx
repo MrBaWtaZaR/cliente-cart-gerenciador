@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useCustomerStore } from '@/stores';
 import { Button } from '@/components/ui/button';
@@ -77,10 +78,10 @@ export const OrdersPage = () => {
         console.log("Tentando abrir pedido do URL:", viewOrderId);
         const orderToView = allOrders.find(order => order.id === viewOrderId);
         if (orderToView) {
-          handleViewOrder(orderToView, orderToView.customerName);
-          if (isMounted.current) {
-            setDialogOpen(true);
-          }
+          handleViewOrder(orderToView, orderToView.customerName || '');
+        } else {
+          console.log(`Pedido ${viewOrderId} não encontrado`);
+          toast.error("Pedido não encontrado");
         }
       }
     } catch (error) {
@@ -116,13 +117,19 @@ export const OrdersPage = () => {
   const handleViewOrder = (order: any, customerName: string) => {
     try {
       console.log("Visualizando pedido:", order.id);
+      if (!order || !order.customerId) {
+        console.error('Dados do pedido inválidos:', order);
+        toast.error("Dados do pedido inválidos");
+        return;
+      }
+
       const customer = customers.find(c => c.id === order.customerId);
       
       if (!isMounted.current) return;
       
       if (!customer) {
         console.error(`Cliente não encontrado para o ID: ${order.customerId}`);
-        toast.error("Cliente não encontrado para este pedido.");
+        toast.error("Cliente não encontrado para este pedido");
         return;
       }
       
@@ -168,6 +175,7 @@ export const OrdersPage = () => {
         setViewingOrder(null);
         setCustomerName('');
         setCustomerInfo(null);
+        toast.error("Erro ao carregar detalhes do pedido");
       }
     }
   };
@@ -377,16 +385,13 @@ export const OrdersPage = () => {
         <CardContent>
           {filteredOrders.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredOrders.map((order) => (
+              {filteredOrders.map((order, index) => (
                 <OrderCard
-                  key={order.id}
+                  key={`${order.id}-${index}`} // Using index to ensure uniqueness
                   order={order}
                   customerName={order.customerName || ''}
                   onClick={() => {
                     handleViewOrder(order, order.customerName || '');
-                    if (isMounted.current) {
-                      setDialogOpen(true);
-                    }
                   }}
                 />
               ))}
@@ -511,7 +516,7 @@ export const OrdersPage = () => {
                         </thead>
                         <tbody>
                           {viewingOrder.products && viewingOrder.products.map((item: any, index: number) => (
-                            <tr key={`${item.productId}-${index}`} className="border-t">
+                            <tr key={`${item.productId || 'unknown'}-${index}`} className="border-t">
                               <td className="p-2">
                                 <div className="flex items-center">
                                   {item.images && item.images[0] && (

@@ -95,6 +95,22 @@ export const saveOrderToSupabase = async (order: Order, customerId: string): Pro
       }
     }
     
+    // Check if this order already exists in the database to avoid duplication
+    const { data: existingOrder, error: existingOrderError } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('id', dbOrderId)
+      .maybeSingle();
+      
+    if (existingOrderError) {
+      console.error('Error checking for existing order:', existingOrderError);
+    }
+    
+    if (existingOrder) {
+      console.log('Order already exists in database, skipping creation');
+      return true; // Return true since the order exists
+    }
+    
     // Save the order to Supabase using the newly created orders table
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
@@ -383,8 +399,27 @@ export const deleteOrderFromSupabase = async (orderId: string): Promise<boolean>
   }
 };
 
+// Maintain a flag to prevent multiple simultaneous syncs
+let isSyncingAll = false;
+
 // Function for syncing all customer orders
 export const syncAllCustomerOrders = async () => {
-  console.log("Synchronizing all customer orders with Supabase");
-  return;
+  // Prevent multiple simultaneous syncs
+  if (isSyncingAll) {
+    console.log("Sync already in progress, skipping");
+    return;
+  }
+  
+  try {
+    isSyncingAll = true;
+    console.log("Starting synchronization of all customer orders with Supabase");
+    
+    // Continue with sync logic
+    // (the rest of the sync implementation would be done by the customer store)
+  } catch (error) {
+    console.error("Error in syncAllCustomerOrders:", error);
+  } finally {
+    // Always reset the flag when done
+    isSyncingAll = false;
+  }
 };
