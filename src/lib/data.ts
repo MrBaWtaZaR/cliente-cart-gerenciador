@@ -450,7 +450,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
     return { products: updatedProducts };
   }),
   
-  uploadProductImage: async (productId, file) => {
+  uploadProductImage: async (productId: string, file: File | string) => {
     try {
       // Se o arquivo for um blob URL, precisamos primeiro convertê-lo em um arquivo
       let fileToUpload = file;
@@ -479,22 +479,18 @@ export const useDataStore = create<DataStore>((set, get) => ({
         fileName = `image_${Date.now()}.jpg`;
       }
       
-      // Continua com o upload normal
-      const fileExt = fileName.split('.').pop();
-      const finalFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const filePath = `${productId}/${finalFileName}`;
+      // Importa a função de upload de produto do arquivo storage.ts
+      const { uploadProductImage } = await import('@/integrations/supabase/storage');
       
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(filePath, fileToUpload);
-        
-      if (uploadError) {
-        console.error('Erro ao fazer upload da imagem:', uploadError);
-        toast.error('Erro ao fazer upload da imagem');
-        throw uploadError;
+      // Usa a função especializada para fazer o upload
+      let publicUrl = '';
+      
+      if (fileToUpload instanceof File) {
+        publicUrl = await uploadProductImage(productId, fileToUpload);
+      } else {
+        // Se por algum motivo ainda temos uma string, retornamos ela como URL
+        publicUrl = fileToUpload;
       }
-      
-      const publicUrl = getStorageUrl('product-images', filePath);
       
       set((state) => {
         const updatedProducts = state.products.map((product) => {
