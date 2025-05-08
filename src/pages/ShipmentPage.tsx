@@ -91,6 +91,7 @@ export const ShipmentPage = () => {
       await deleteShipment(selectedShipment.id);
       setShowDeleteConfirm(false);
       setShowShipmentDetails(false);
+      await getShipments(); // Refresh the shipments list after deletion
       toast.success('Envio excluído com sucesso');
     } catch (error) {
       console.error('Erro ao excluir envio:', error);

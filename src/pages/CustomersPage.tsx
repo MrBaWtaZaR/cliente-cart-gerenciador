@@ -384,7 +384,7 @@ interface CustomerCardProps {
 
 const CustomerCard = ({ customer, onClick, onDelete }: CustomerCardProps) => (
   <Card className="overflow-hidden hover:shadow-md transition-all cursor-pointer" onClick={(e) => {
-    // Prevent card click when clicking on delete button
+    // Prevent card click when clicking on buttons
     if ((e.target as HTMLElement).closest('button')) {
       e.stopPropagation();
       return;
@@ -396,7 +396,7 @@ const CustomerCard = ({ customer, onClick, onDelete }: CustomerCardProps) => (
       <CardDescription>{customer.email}</CardDescription>
     </CardHeader>
     <CardContent className="pb-2">
-      <p className="text-sm"><strong>Telefone:</strong> <PhoneFormatter phone={customer.phone} /></p>
+      <p className="text-sm"><strong>Telefone:</strong> <span>{customer.phone}</span></p>
       {customer.address && (
         <p className="text-sm"><strong>Endereço:</strong> {customer.address}</p>
       )}
@@ -418,7 +418,13 @@ const CustomerCard = ({ customer, onClick, onDelete }: CustomerCardProps) => (
       >
         <Trash className="h-4 w-4 mr-2" /> Excluir
       </Button>
-      <Button size="sm">
+      <Button 
+        size="sm" 
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+      >
         <Eye className="h-4 w-4 mr-2" /> Detalhes
       </Button>
     </CardFooter>

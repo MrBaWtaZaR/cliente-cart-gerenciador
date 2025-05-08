@@ -431,26 +431,36 @@ export const useDataStore = create<DataStore>((set, get) => ({
         throw shipmentError;
       }
       
-      // Find database UUIDs for each customer - this is the key fix
-      const { data: dbCustomers, error: customersError } = await supabase
-        .from('customers')
-        .select('id, name')
-        .in('name', get().customers.filter(c => customerIds.includes(c.id)).map(c => c.name));
-        
-      if (customersError) {
-        throw customersError;
-      }
+      // Map local customer names to database customer IDs
+      const localCustomers = get().customers.filter(c => customerIds.includes(c.id));
       
-      if (!dbCustomers || dbCustomers.length === 0) {
+      // Find database UUIDs for each customer by name
+      const customerPromises = localCustomers.map(async (localCustomer) => {
+        const { data: dbCustomer, error } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('name', localCustomer.name)
+          .single();
+          
+        if (error || !dbCustomer) {
+          console.error(`No customer found in DB with name: ${localCustomer.name}`);
+          return null;
+        }
+        
+        return {
+          shipment_id: shipmentData.id,
+          customer_id: dbCustomer.id
+        };
+      });
+      
+      // Wait for all the customer lookups to complete
+      const shipmentCustomers = (await Promise.all(customerPromises)).filter(Boolean);
+      
+      if (shipmentCustomers.length === 0) {
         throw new Error("No matching customers found in database");
       }
       
-      // Create shipment-customer associations with database UUIDs
-      const shipmentCustomers = dbCustomers.map(dbCustomer => ({
-        shipment_id: shipmentData.id,
-        customer_id: dbCustomer.id
-      }));
-      
+      // Create shipment-customer associations
       const { error: associationError } = await supabase
         .from('shipment_customers')
         .insert(shipmentCustomers);
@@ -494,26 +504,36 @@ export const useDataStore = create<DataStore>((set, get) => ({
         throw deleteError;
       }
       
-      // Find database UUIDs for each customer
-      const { data: dbCustomers, error: customersError } = await supabase
-        .from('customers')
-        .select('id, name')
-        .in('name', get().customers.filter(c => customerIds.includes(c.id)).map(c => c.name));
-        
-      if (customersError) {
-        throw customersError;
-      }
+      // Map local customer names to database customer IDs
+      const localCustomers = get().customers.filter(c => customerIds.includes(c.id));
       
-      if (!dbCustomers || dbCustomers.length === 0) {
+      // Find database UUIDs for each customer by name
+      const customerPromises = localCustomers.map(async (localCustomer) => {
+        const { data: dbCustomer, error } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('name', localCustomer.name)
+          .single();
+          
+        if (error || !dbCustomer) {
+          console.error(`No customer found in DB with name: ${localCustomer.name}`);
+          return null;
+        }
+        
+        return {
+          shipment_id: shipmentId,
+          customer_id: dbCustomer.id
+        };
+      });
+      
+      // Wait for all the customer lookups to complete
+      const shipmentCustomers = (await Promise.all(customerPromises)).filter(Boolean);
+      
+      if (shipmentCustomers.length === 0) {
         throw new Error("No matching customers found in database");
       }
       
       // Create new shipment-customer associations
-      const shipmentCustomers = dbCustomers.map(dbCustomer => ({
-        shipment_id: shipmentId,
-        customer_id: dbCustomer.id
-      }));
-      
       const { error: associationError } = await supabase
         .from('shipment_customers')
         .insert(shipmentCustomers);
@@ -645,11 +665,12 @@ export const useDataStore = create<DataStore>((set, get) => ({
 
       // Map the customers with their orders from local store
       const customers: Customer[] = customerData.map(customer => {
-        // Try to find matching customer in local store to get orders
-        const localCustomer = get().customers.find(c => c.id === customer.id);
+        const localCustomer = get().customers.find(c => 
+          c.name.toLowerCase() === customer.name.toLowerCase()
+        );
         
         return {
-          id: customer.id,
+          id: localCustomer?.id || customer.id,
           name: customer.name,
           email: customer.email,
           phone: customer.phone,
