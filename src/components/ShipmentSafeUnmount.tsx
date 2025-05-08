@@ -8,7 +8,7 @@ export const useShipmentSafeUnmount = () => {
   const unmountingRef = useRef(false);
   const cleanupInProgressRef = useRef(false);
   
-  // Função de limpeza aprimorada para elementos do DOM
+  // Função de limpeza aprimorada para elementos do DOM com segurança adicional
   const cleanupDomElements = useCallback(() => {
     // Prevent concurrent cleanups
     if (cleanupInProgressRef.current) return;
@@ -31,52 +31,61 @@ export const useShipmentSafeUnmount = () => {
         '[aria-live="assertive"]'
       ];
       
-      // Limpar todos os seletores especificados
+      // Aplicar técnica de clone para evitar problemas de referência DOM
+      // Isso ajuda a evitar o erro "insertBefore" removendo todos os listeners de eventos
       selectorsToClean.forEach(selector => {
         try {
           const elements = document.querySelectorAll(selector);
           
-          // For debugging
           if (elements.length > 0) {
             console.log(`Encontrados ${elements.length} elementos ${selector} para limpar`);
           }
           
           elements.forEach(el => {
-            if (el && el.parentNode) {
-              try {
-                // Critical check: Make sure the element is still in the document
-                // AND that the parent node still contains the element before removing
-                if (document.body.contains(el) && 
-                    el.parentNode.contains(el) && 
-                    document.contains(el.parentNode as Node)) {
-                  // Set display none before removing to avoid animation issues
-                  try {
-                    (el as HTMLElement).style.display = 'none';
-                    // Small delay before actual removal to avoid race conditions
+            if (!el || !el.parentNode) return;
+            
+            try {
+              // Verificar se o elemento ainda está no DOM antes de tentar manipulá-lo
+              if (document.body.contains(el)) {
+                // Técnica 1: Esconder primeiro (mais segura)
+                try {
+                  (el as HTMLElement).style.display = 'none';
+                } catch (styleErr) {
+                  console.log(`Erro ao esconder elemento ${selector}:`, styleErr);
+                }
+                
+                // Técnica 2: Substituir por clone sem eventos
+                try {
+                  const parent = el.parentNode;
+                  const clone = el.cloneNode(false); // shallow clone, sem eventos
+                  
+                  // Verificar novamente que o parent existe e contém o elemento
+                  if (parent && parent.contains(el)) {
+                    parent.replaceChild(clone, el);
+                    
+                    // Remover o clone em seguida com pequeno delay
                     setTimeout(() => {
-                      try {
-                        if (document.body.contains(el) && 
-                            el.parentNode && 
-                            el.parentNode.contains(el)) {
-                          el.parentNode.removeChild(el);
-                        }
-                      } catch (e) {
-                        // Log but don't throw
-                        console.log(`Erro na remoção tardia: ${e}`);
+                      if (clone.parentNode) {
+                        clone.parentNode.removeChild(clone);
                       }
                     }, 0);
-                  } catch (styleError) {
-                    // If setting style fails, try direct removal
-                    if (document.body.contains(el) && 
-                        el.parentNode.contains(el)) {
+                  }
+                } catch (replaceErr) {
+                  // Fallback: Remover diretamente se substituição falhar
+                  try {
+                    if (el.parentNode && el.parentNode.contains(el)) {
                       el.parentNode.removeChild(el);
                     }
+                  } catch (removeErr) {
+                    console.log(`Erro na remoção direta: ${removeErr}`);
                   }
                 }
-              } catch (e) {
-                // Ignorar erros se o elemento já foi removido
-                console.log(`Tentativa de remover elemento ${selector} falhou, provavelmente já removido`);
+              } else {
+                console.log(`Elemento ${selector} não está mais no DOM`);
               }
+            } catch (e) {
+              // Ignorar erros se o elemento já foi removido
+              console.log(`Tentativa de remover elemento ${selector} falhou, provavelmente já removido`);
             }
           });
         } catch (err) {
@@ -94,37 +103,80 @@ export const useShipmentSafeUnmount = () => {
           }
           
           printElements.forEach(el => {
-            if (el && el.parentNode) {
-              try {
-                // Check if parent node exists and contains the element
-                if (document.body.contains(el) && 
-                    el.parentNode.contains(el) && 
-                    document.contains(el.parentNode as Node)) {
-                  // Definir display none antes de remover pode ajudar
-                  (el as HTMLElement).style.display = 'none';
-                  // Add a small delay before removing
-                  setTimeout(() => {
-                    try {
-                      if (document.body.contains(el) && 
-                          el.parentNode && 
-                          el.parentNode.contains(el)) {
-                        el.parentNode.removeChild(el);
+            if (!el || !el.parentNode) return;
+            
+            try {
+              // Check if the element is still in the DOM
+              if (document.body.contains(el)) {
+                // Esconder primeiro
+                (el as HTMLElement).style.display = 'none';
+                
+                // Substituir por clone e remover
+                try {
+                  const parent = el.parentNode;
+                  if (parent && parent.contains(el)) {
+                    const clone = el.cloneNode(false);
+                    parent.replaceChild(clone, el);
+                    
+                    // Remover o clone em seguida
+                    setTimeout(() => {
+                      if (clone.parentNode) {
+                        clone.parentNode.removeChild(clone);
                       }
-                    } catch (e) {
-                      console.log(`Erro na remoção tardia de impressão: ${e}`);
-                    }
-                  }, 0);
+                    }, 0);
+                  }
+                } catch (replaceErr) {
+                  // Fallback: remover diretamente
+                  if (el.parentNode && el.parentNode.contains(el)) {
+                    el.parentNode.removeChild(el);
+                  }
                 }
-              } catch (e) {
-                // Ignorar erros
-                console.error('Erro ao remover elemento de impressão:', e);
               }
+            } catch (e) {
+              // Ignorar erros
+              console.error('Erro ao remover elemento de impressão:', e);
             }
           });
         } catch (err) {
           console.error('Erro ao limpar elementos de impressão:', err);
         }
       }
+      
+      // Cleanup para portais React/Radix que podem estar pendurados no body
+      try {
+        const bodyChildren = document.body.children;
+        const portalSelectors = ['[role="presentation"]', '[role="menu"]', '[data-radix-portal]'];
+        
+        Array.from(bodyChildren).forEach(child => {
+          try {
+            const el = child as HTMLElement;
+            // Verifica se é um elemento portal
+            const isPortal = portalSelectors.some(selector => 
+              el.matches(selector) || el.getAttribute('role') === 'dialog'
+            );
+            
+            if (isPortal) {
+              console.log('Encontrado possível portal React para limpar');
+              el.style.display = 'none';
+              
+              setTimeout(() => {
+                try {
+                  if (document.body.contains(el)) {
+                    document.body.removeChild(el);
+                  }
+                } catch (e) {
+                  console.log(`Erro ao remover portal: ${e}`);
+                }
+              }, 0);
+            }
+          } catch (e) {
+            console.log(`Erro ao processar filho do body: ${e}`);
+          }
+        });
+      } catch (e) {
+        console.error('Erro ao limpar portais:', e);
+      }
+      
     } catch (error) {
       console.error('Erro ao limpar elementos do DOM:', error);
     } finally {
@@ -157,6 +209,9 @@ export const useShipmentSafeUnmount = () => {
       window.removeEventListener('component-unmount', cleanupHandler);
       
       try {
+        // Fazer limpeza preventiva antes de disparar evento
+        cleanupDomElements();
+        
         // Disparar evento de limpeza global
         window.dispatchEvent(new CustomEvent('component-unmount'));
       } catch (e) {
@@ -232,109 +287,93 @@ export const safeCleanupDOM = () => {
       '[aria-live="assertive"]'
     ];
     
-    // Limpar todos os seletores especificados com verificação extra
+    // Função auxiliar para remover elementos com segurança usando várias técnicas
+    const safeRemoveElement = (el: Element) => {
+      if (!el || !el.parentNode) return;
+      
+      try {
+        // Verificar se o elemento ainda está no DOM
+        if (!document.body.contains(el)) return;
+        
+        // Técnica 1: Esconder primeiro
+        try {
+          (el as HTMLElement).style.display = 'none';
+        } catch (styleErr) {}
+        
+        // Técnica 2: Clone & Replace
+        try {
+          const parent = el.parentNode;
+          if (parent && parent.contains(el)) {
+            const clone = el.cloneNode(false);
+            parent.replaceChild(clone, el);
+            
+            // Remover o clone depois
+            setTimeout(() => {
+              if (clone.parentNode) {
+                clone.parentNode.removeChild(clone);
+              }
+            }, 0);
+          }
+        } catch (replaceErr) {
+          // Técnica 3: Remover diretamente se o replace falhar
+          try {
+            if (el.parentNode && el.parentNode.contains(el)) {
+              el.parentNode.removeChild(el);
+            }
+          } catch (removeErr) {}
+        }
+      } catch (e) {}
+    };
+    
+    // Limpar todos os elementos correspondentes aos seletores
     selectorsToClean.forEach(selector => {
       try {
         const elements = document.querySelectorAll(selector);
-        
-        if (elements.length > 0) {
-          console.log(`Encontrados ${elements.length} elementos ${selector} para limpar`);
-        }
-        
-        elements.forEach(el => {
-          if (el && el.parentNode) {
-            try {
-              // Additional check to ensure parent exists and contains child
-              // and that both are still in the document
-              if (document.body.contains(el) && 
-                  el.parentNode.contains(el) && 
-                  document.contains(el.parentNode as Node)) {
-                // Hide first to avoid animation issues
-                try {
-                  (el as HTMLElement).style.display = 'none';
-                  
-                  // Use a small delay to avoid race conditions
-                  setTimeout(() => {
-                    try {
-                      // Recheck that everything is still valid
-                      if (document.body.contains(el) && 
-                          el.parentNode && 
-                          el.parentNode.contains(el)) {
-                        el.parentNode.removeChild(el);
-                      }
-                    } catch (e) {
-                      console.log(`Erro na remoção tardia global: ${e}`);
-                    }
-                  }, 0);
-                } catch (styleError) {
-                  // If setting style fails, try direct removal with checks
-                  if (document.body.contains(el) && 
-                      el.parentNode.contains(el)) {
-                    el.parentNode.removeChild(el);
-                  }
-                }
-              }
-            } catch (e) {
-              // Ignorar erros
-              console.error(`Erro ao remover elemento ${selector}:`, e);
-            }
-          }
-        });
-      } catch (err) {
-        console.error(`Erro ao processar seletor ${selector}:`, err);
-      }
+        elements.forEach(safeRemoveElement);
+      } catch (err) {}
     });
+    
+    // Limpeza especial para portais React no body
+    try {
+      Array.from(document.body.children).forEach(child => {
+        const el = child as HTMLElement;
+        if (el.getAttribute('role') === 'presentation' || 
+            el.getAttribute('role') === 'dialog' ||
+            el.hasAttribute('data-radix-portal')) {
+          safeRemoveElement(el);
+        }
+      });
+    } catch (err) {}
+    
   } catch (error) {
     console.error('Erro na limpeza segura do DOM:', error);
   }
   
   // Definir timeout para limpeza adicional após pequeno delay
   globalCleanupTimeout = setTimeout(() => {
-    // Repetir processo para garantir limpeza completa
     try {
+      // Fazer outra passagem para elementos que podem ter aparecido após a primeira limpeza
       const elements = document.querySelectorAll('[role="tooltip"], [role="dialog"], [data-portal]');
-      
-      if (elements.length > 0) {
-        console.log(`Limpeza secundária: encontrados ${elements.length} elementos restantes`);
-      }
-      
       elements.forEach(el => {
-        if (el && el.parentNode) {
+        if (el && el.parentNode && document.body.contains(el)) {
           try {
-            // Additional check to ensure parent exists and contains child
-            if (document.body.contains(el) && 
-                el.parentNode.contains(el) && 
-                document.contains(el.parentNode as Node)) {
-              // Try to hide first
+            (el as HTMLElement).style.display = 'none';
+            
+            setTimeout(() => {
               try {
-                (el as HTMLElement).style.display = 'none';
-                setTimeout(() => {
-                  try {
-                    if (document.body.contains(el) && 
-                        el.parentNode && 
-                        el.parentNode.contains(el)) {
-                      el.parentNode.removeChild(el);
-                    }
-                  } catch (e) {
-                    // Silence this error
-                  }
-                }, 0);
-              } catch (styleError) {
-                // If that fails, try direct removal
-                if (document.body.contains(el) && 
-                    el.parentNode.contains(el)) {
+                if (document.body.contains(el) && el.parentNode) {
                   el.parentNode.removeChild(el);
                 }
-              }
-            }
+              } catch (e) {}
+            }, 0);
           } catch (e) {
-            // Ignorar erros
-            console.error('Erro na limpeza secundária:', e);
+            if (el.parentNode.contains(el)) {
+              el.parentNode.removeChild(el);
+            }
           }
         }
       });
     } catch (error) {
-      console.error('Erro na limpeza segura do DOM (timeout):', error);
     } finally {
       // Release the cleanup lock
       cleanupInProgress = false;
