@@ -162,6 +162,7 @@ export const OrdersPage = () => {
     setIsEditing(false);
   };
 
+  // Fix the handleOrderUpdated function to correctly set the viewingOrder state
   const handleOrderUpdated = () => {
     setIsEditing(false);
     // Update the view with the latest order data
@@ -407,13 +408,22 @@ export const OrdersPage = () => {
                 <Button variant="outline" onClick={handleDialogClose}>
                   Fechar
                 </Button>
-                <Button 
-                  variant="default"
-                  onClick={handlePrintPDF}
-                  className="flex items-center"
-                >
-                  <Printer className="h-4 w-4 mr-2" /> Imprimir Pedido
-                </Button>
+                <div className="flex space-x-2">
+                  <Button 
+                    variant="secondary"
+                    onClick={handleStartEditing}
+                    className="flex items-center"
+                  >
+                    <Edit className="h-4 w-4 mr-2" /> Editar
+                  </Button>
+                  <Button 
+                    variant="default"
+                    onClick={handlePrintPDF}
+                    className="flex items-center"
+                  >
+                    <Printer className="h-4 w-4 mr-2" /> Imprimir
+                  </Button>
+                </div>
               </DialogFooter>
             </>
           )}
