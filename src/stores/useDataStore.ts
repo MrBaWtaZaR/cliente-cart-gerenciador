@@ -88,6 +88,11 @@ interface DataStore {
   getShipmentCustomers: typeof shipmentStore.getShipmentCustomers;
 }
 
+// Add a variable to track if a refresh is in progress
+let isRefreshInProgress = false;
+// Track the last refresh time to prevent too frequent updates
+let lastRefreshTime = 0;
+
 export const useDataStore = create<DataStore>((set, get) => {
   // Create base store
   const dataStore = {
@@ -97,18 +102,26 @@ export const useDataStore = create<DataStore>((set, get) => {
     isInitialized: false,
     isLoading: false,
     
-    // Fixed refreshAll function
+    // Improved refreshAll function to prevent infinite loops
     refreshAll: async () => {
+      const now = Date.now();
+      // If a refresh is already in progress or we refreshed less than 1 second ago, skip
+      if (isRefreshInProgress || now - lastRefreshTime < 1000) {
+        console.log("Refresh skipped - already in progress or too soon");
+        return;
+      }
+      
       try {
         console.log("Iniciando atualização de todos os dados");
+        isRefreshInProgress = true;
+        lastRefreshTime = now;
         set({ isLoading: true });
         
         // Reload customer data
         console.log("Recarregando dados de clientes");
         await customerStore.reloadCustomers();
         
-        // Reload product data - FIX: Don't check the return value directly 
-        // since loadProducts() might return void in its implementation
+        // Reload product data
         console.log("Recarregando dados de produtos");
         await productStore.loadProducts();
         
@@ -116,7 +129,7 @@ export const useDataStore = create<DataStore>((set, get) => {
         console.log("Recarregando dados de envios");
         const updatedShipments = await shipmentStore.getShipments();
         
-        // Update the main store with new data - Use getState() to get the latest products instead
+        // Update the main store with new data - Use getState() to get the latest products
         set({ 
           customers: useCustomerStore.getState().customers,
           products: useProductStore.getState().products,
@@ -124,7 +137,7 @@ export const useDataStore = create<DataStore>((set, get) => {
           isLoading: false 
         });
         
-        // Trigger UI updates
+        // Trigger UI updates - but only once
         console.log("Disparando evento de atualização de dados");
         window.dispatchEvent(new CustomEvent('data-updated'));
         
@@ -134,6 +147,9 @@ export const useDataStore = create<DataStore>((set, get) => {
         console.error('Error refreshing all data:', error);
         set({ isLoading: false });
         toast.error('Erro ao atualizar dados');
+      } finally {
+        // Ensure isRefreshInProgress is reset even if an error occurs
+        isRefreshInProgress = false;
       }
     },
     
