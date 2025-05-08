@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -129,10 +128,13 @@ export const useDataStore = create<DataStore>((set, get) => {
         console.log("Recarregando dados de envios");
         const updatedShipments = await shipmentStore.getShipments();
         
-        // Update the main store with new data - Use getState() to get the latest products
+        // Update the main store with new data - Use getState() to get the latest data
+        const customers = useCustomerStore.getState().customers;
+        const products = useProductStore.getState().products;
+        
         set({ 
-          customers: useCustomerStore.getState().customers,
-          products: useProductStore.getState().products,
+          customers,
+          products,
           shipments: updatedShipments,
           isLoading: false 
         });

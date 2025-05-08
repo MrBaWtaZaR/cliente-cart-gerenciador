@@ -143,12 +143,14 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
       
       console.log('Created new shipment with data:', newShipment);
       
+      // Update local state with the new shipment
       set(state => ({
         shipments: [...state.shipments, newShipment]
       }));
       
-      // Se o upload for bem-sucedido, realiza consulta imediata para atualizar a lista
-      await get().getShipments();
+      // Always fetch fresh data after creating
+      const updatedShipments = await get().getShipments();
+      set({ shipments: updatedShipments });
       
       toast.success('Envio criado com sucesso');
       return newShipment;
@@ -260,15 +262,16 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         customers: selectedCustomers
       };
       
+      // Optimistically update the local state first
       set(state => ({
         shipments: state.shipments.map(shipment => 
           shipment.id === shipmentId ? updatedShipment : shipment
         )
       }));
       
-      // Atualiza a lista completa após modificação
-      const shipments = await get().getShipments();
-      set({ shipments });
+      // Then get fresh data from the server
+      const updatedShipments = await get().getShipments();
+      set({ shipments: updatedShipments });
       
       toast.success('Envio atualizado com sucesso');
       return updatedShipment;
@@ -309,10 +312,14 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
       
       console.log("Envio excluído no banco de dados com sucesso, atualizando o estado local");
       
-      // Update local state first (otimistic update)
+      // Update local state first (optimistic update)
       set(state => ({
         shipments: state.shipments.filter(shipment => shipment.id !== shipmentId)
       }));
+      
+      // Get fresh data from server
+      const updatedShipments = await get().getShipments();
+      set({ shipments: updatedShipments });
       
       console.log("Estado local atualizado, concluindo operação de exclusão");
       
@@ -326,6 +333,7 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
   
   getShipments: async () => {
     try {
+      console.log("Buscando envios do servidor...");
       const { data: shipmentData, error: shipmentError } = await supabase
         .from('shipments')
         .select('*')
@@ -358,6 +366,7 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         }
       }));
       
+      console.log("Encontrados", shipments.length, "envios");
       set({ shipments });
       
       return shipments;

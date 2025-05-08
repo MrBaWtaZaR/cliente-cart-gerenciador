@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 export const ShipmentPage = () => {
-  const { customers, shipments, addShipment, getShipments, deleteShipment, updateShipment, refreshAll } = useDataStore();
+  const { customers, shipments, addShipment, getShipments, deleteShipment, updateShipment } = useDataStore();
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [isCreatingShipment, setIsCreatingShipment] = useState(false);
   const [isSelectingCustomers, setIsSelectingCustomers] = useState(false);
@@ -47,7 +47,8 @@ export const ShipmentPage = () => {
       
       try {
         console.log("Fetching shipments on mount...");
-        await getShipments();
+        const fetchedShipments = await getShipments();
+        console.log("Retrieved", fetchedShipments.length, "shipments");
       } catch (error) {
         console.error("Error fetching shipments:", error);
         if (isMountedRef.current) {
@@ -158,8 +159,9 @@ export const ShipmentPage = () => {
       // Reset selection
       setSelectedCustomers([]);
       
-      // Fetch updated shipments - use getShipments instead of refreshAll to avoid loops
+      // Fetch updated shipments
       await getShipments();
+      console.log("Shipment created and shipments refreshed");
       toast.success('Envio criado com sucesso!');
     } catch (error) {
       console.error('Erro ao criar envio:', error);
@@ -201,7 +203,7 @@ export const ShipmentPage = () => {
         setSelectedShipment(null);
       }
       
-      // Use getShipments instead of refreshAll to avoid loops
+      // Explicitly refresh
       await getShipments();
       
       console.log("Processo de exclusão concluído com sucesso");
@@ -242,8 +244,9 @@ export const ShipmentPage = () => {
         setSelectedCustomers([]);
       }
       
-      // Use getShipments instead of refreshAll to avoid loops
+      // Explicitly refresh
       await getShipments();
+      console.log("Shipment updated and shipments refreshed");
       toast.success('Envio atualizado com sucesso!');
     } catch (error) {
       console.error('Erro ao atualizar envio:', error);
@@ -280,8 +283,8 @@ export const ShipmentPage = () => {
     
     try {
       console.log("Manual refresh requested...");
-      // Use getShipments directly to avoid the event emission loop
-      await getShipments();
+      const fetchedShipments = await getShipments();
+      console.log("Manual refresh completed, found", fetchedShipments.length, "shipments");
       toast.success('Dados atualizados com sucesso');
     } catch (error) {
       console.error("Error during manual refresh:", error);
@@ -297,6 +300,10 @@ export const ShipmentPage = () => {
       }, 300);
     }
   };
+
+  useEffect(() => {
+    console.log("Current shipments in state:", shipments?.length || 0);
+  }, [shipments]);
 
   return (
     <div className="container space-y-6">
