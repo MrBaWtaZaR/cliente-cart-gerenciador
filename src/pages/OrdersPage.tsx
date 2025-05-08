@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { useDataStore, Order } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -75,13 +76,23 @@ export const OrdersPage = () => {
   };
 
   // Fix the handleViewOrder function to correctly set the viewingOrder state
-  const handleViewOrder = (order: Order, customerName: string) => {
+  const handleViewOrder = (order: Order & { customerName?: string }, customerName: string) => {
     const customer = customers.find(c => c.id === order.customerId);
     
-    // Fix: Set viewingOrder first with the correct Order type
-    setViewingOrder(order);
+    // Create a new order object without the customerName property
+    const orderForState: Order = {
+      id: order.id,
+      customerId: order.customerId,
+      products: order.products,
+      status: order.status,
+      total: order.total,
+      createdAt: order.createdAt
+    };
     
-    // Then separately set the customer name state
+    // Set viewingOrder with the correct Order type
+    setViewingOrder(orderForState);
+    
+    // Separately set the customer name state
     setCustomerName(customerName);
     
     setCustomerInfo({
