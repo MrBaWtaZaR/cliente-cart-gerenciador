@@ -100,7 +100,7 @@ export const useSafeUnmount = () => {
             child.getAttribute('role') === 'presentation' ||
             child.getAttribute('role') === 'dialog' ||
             child.hasAttribute('data-radix-portal') ||
-            child.hasAttribute('aria-modal') === 'true';
+            child.getAttribute('aria-modal') === 'true';
           
           if (isLikelyPortal && document.body.contains(child)) {
             child.style.visibility = 'hidden';

@@ -27,7 +27,7 @@ export const ShipmentPage = () => {
   const isUpdatingRef = useRef(false);
   
   // Use our safe unmount utility
-  const { isMounted, setPrintRefsExist } = useShipmentSafeUnmount();
+  const { isMounted, setPrintableContent } = useShipmentSafeUnmount();
 
   const tableRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
@@ -46,8 +46,8 @@ export const ShipmentPage = () => {
 
   // Update the print refs status
   useEffect(() => {
-    setPrintRefsExist(tableRef.current !== null || cardsRef.current !== null);
-  }, [tableRef.current, cardsRef.current, setPrintRefsExist]);
+    setPrintableContent(tableRef.current !== null || cardsRef.current !== null);
+  }, [tableRef.current, cardsRef.current, setPrintableContent]);
 
   // Fetch shipments when component mounts or when dependencies change
   useEffect(() => {
