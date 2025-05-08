@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useDataStore, Customer, Shipment } from '@/lib/data';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -22,6 +23,7 @@ export const ShipmentPage = () => {
   const [showShipmentDetails, setShowShipmentDetails] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingShipment, setIsDeletingShipment] = useState(false);
 
   const tableRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
@@ -49,9 +51,11 @@ export const ShipmentPage = () => {
     };
     
     window.addEventListener('order-updated', handleOrderUpdate);
+    window.addEventListener('data-updated', handleOrderUpdate);
     
     return () => {
       window.removeEventListener('order-updated', handleOrderUpdate);
+      window.removeEventListener('data-updated', handleOrderUpdate);
     };
   }, [getShipments, refreshAll]);
 
@@ -125,20 +129,30 @@ export const ShipmentPage = () => {
   const handleDeleteShipment = async () => {
     if (!selectedShipment) return;
     
-    setIsLoading(true);
+    setIsDeletingShipment(true);
+    
     try {
-      await deleteShipment(selectedShipment.id);
+      console.log("Iniciando processo de exclusão do envio:", selectedShipment.id);
+      
+      // Atualizar UI imediatamente para feedback
       setShowDeleteConfirm(false);
+      
+      // Esperar pela conclusão da exclusão
+      await deleteShipment(selectedShipment.id);
+      
+      // Fechar o modal de detalhes apenas se a exclusão foi bem-sucedida
       setShowShipmentDetails(false);
+      setSelectedShipment(null);
       
       // Refresh all data after deletion
       await refreshAll();
-      toast.success('Envio excluído com sucesso');
+      
+      console.log("Processo de exclusão concluído com sucesso");
     } catch (error) {
       console.error('Erro ao excluir envio:', error);
       toast.error('Erro ao excluir envio');
     } finally {
-      setIsLoading(false);
+      setIsDeletingShipment(false);
     }
   };
 
@@ -198,11 +212,14 @@ export const ShipmentPage = () => {
     <div className="container space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Preparando Envio</h1>
-        <Button onClick={() => {
-          setIsEditing(false);
-          setSelectedCustomers([]);
-          setIsSelectingCustomers(true);
-        }}>
+        <Button 
+          onClick={() => {
+            setIsEditing(false);
+            setSelectedCustomers([]);
+            setIsSelectingCustomers(true);
+          }}
+          disabled={isLoading}
+        >
           <Plus className="mr-2 h-4 w-4" /> Fazer um novo envio
         </Button>
       </div>
@@ -351,7 +368,11 @@ export const ShipmentPage = () => {
       </Dialog>
 
       {/* Dialog para visualizar detalhes do envio */}
-      <Dialog open={showShipmentDetails} onOpenChange={setShowShipmentDetails}>
+      <Dialog open={showShipmentDetails} onOpenChange={(open) => {
+        if (!isDeletingShipment) {
+          setShowShipmentDetails(open);
+        }
+      }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -413,23 +434,33 @@ export const ShipmentPage = () => {
                   variant="destructive" 
                   size="sm"
                   onClick={() => setShowDeleteConfirm(true)}
+                  disabled={isDeletingShipment}
                 >
-                  <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                  <Trash2 className="mr-2 h-4 w-4" /> 
+                  {isDeletingShipment ? 'Excluindo...' : 'Excluir'}
                 </Button>
                 <Button 
                   variant="outline" 
                   size="sm"
                   onClick={handleEditShipment}
+                  disabled={isDeletingShipment}
                 >
                   <Edit className="mr-2 h-4 w-4" /> Editar
                 </Button>
-                <Button variant="outline" onClick={() => setShowShipmentDetails(false)}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowShipmentDetails(false)}
+                  disabled={isDeletingShipment}
+                >
                   Fechar
                 </Button>
-                <Button onClick={() => {
-                  handleGeneratePDFs(selectedShipment);
-                  setShowShipmentDetails(false);
-                }}>
+                <Button 
+                  onClick={() => {
+                    handleGeneratePDFs(selectedShipment);
+                    setShowShipmentDetails(false);
+                  }}
+                  disabled={isDeletingShipment}
+                >
                   <Download className="mr-2 h-4 w-4" /> Gerar PDFs
                 </Button>
               </DialogFooter>
@@ -492,9 +523,13 @@ export const ShipmentPage = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteShipment} className="bg-destructive text-destructive-foreground">
-              {isLoading ? 'Excluindo...' : 'Excluir'}
+            <AlertDialogCancel disabled={isDeletingShipment}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteShipment} 
+              className="bg-destructive text-destructive-foreground"
+              disabled={isDeletingShipment}
+            >
+              {isDeletingShipment ? 'Excluindo...' : 'Excluir'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

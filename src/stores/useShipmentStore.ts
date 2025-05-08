@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -280,6 +281,8 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
   
   deleteShipment: async (shipmentId) => {
     try {
+      console.log("Iniciando exclusão do envio:", shipmentId);
+      
       // First, delete all associations
       const { error: deleteAssociationsError } = await supabase
         .from('shipment_customers')
@@ -287,8 +290,11 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         .eq('shipment_id', shipmentId);
         
       if (deleteAssociationsError) {
+        console.error('Erro ao excluir associações do envio:', deleteAssociationsError);
         throw deleteAssociationsError;
       }
+      
+      console.log("Associações excluídas com sucesso, excluindo o envio agora");
       
       // Then delete the shipment itself
       const { error: deleteShipmentError } = await supabase
@@ -297,17 +303,18 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         .eq('id', shipmentId);
         
       if (deleteShipmentError) {
+        console.error('Erro ao excluir o envio:', deleteShipmentError);
         throw deleteShipmentError;
       }
       
-      // Update local state
+      console.log("Envio excluído no banco de dados com sucesso, atualizando o estado local");
+      
+      // Update local state first (otimistic update)
       set(state => ({
         shipments: state.shipments.filter(shipment => shipment.id !== shipmentId)
       }));
       
-      // Atualiza a lista completa após exclusão
-      const shipments = await get().getShipments();
-      set({ shipments });
+      console.log("Estado local atualizado, concluindo operação de exclusão");
       
       toast.success('Envio excluído com sucesso');
     } catch (error) {

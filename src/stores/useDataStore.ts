@@ -100,16 +100,20 @@ export const useDataStore = create<DataStore>((set, get) => {
     // Fixed refreshAll function
     refreshAll: async () => {
       try {
+        console.log("Iniciando atualização de todos os dados");
         set({ isLoading: true });
         
         // Reload customer data
+        console.log("Recarregando dados de clientes");
         await customerStore.reloadCustomers();
         
         // Reload product data - FIX: Don't check the return value directly 
         // since loadProducts() might return void in its implementation
+        console.log("Recarregando dados de produtos");
         await productStore.loadProducts();
         
         // Reload shipments
+        console.log("Recarregando dados de envios");
         const updatedShipments = await shipmentStore.getShipments();
         
         // Update the main store with new data - Use getState() to get the latest products instead
@@ -121,8 +125,10 @@ export const useDataStore = create<DataStore>((set, get) => {
         });
         
         // Trigger UI updates
+        console.log("Disparando evento de atualização de dados");
         window.dispatchEvent(new CustomEvent('data-updated'));
         
+        console.log("Dados atualizados com sucesso");
         toast.success('Dados atualizados com sucesso');
       } catch (error) {
         console.error('Error refreshing all data:', error);
