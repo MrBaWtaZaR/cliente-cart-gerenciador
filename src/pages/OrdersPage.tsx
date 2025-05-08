@@ -1,5 +1,6 @@
-import React from 'react';
-import { useDataStore, Customer, Order } from '@/lib/data';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { useDataStore, Customer, Order } from '@/stores';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

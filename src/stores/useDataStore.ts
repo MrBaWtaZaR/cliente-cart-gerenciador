@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +14,11 @@ import { useShipmentStore } from './useShipmentStore';
 // Load initial data
 const { customers: initialCustomers, products: initialProducts } = loadInitialData();
 
+// Get initial store states to access function types correctly
+const customerStore = useCustomerStore.getState();
+const productStore = useProductStore.getState();
+const shipmentStore = useShipmentStore.getState();
+
 interface DataStore {
   customers: Customer[];
   products: Product[];
@@ -23,26 +29,26 @@ interface DataStore {
   initializeData: () => Promise<void>;
   
   // Add customer store functions
-  addCustomer: ReturnType<typeof useCustomerStore>['addCustomer'];
-  updateCustomer: ReturnType<typeof useCustomerStore>['updateCustomer'];
-  deleteCustomer: ReturnType<typeof useCustomerStore>['deleteCustomer'];
-  addOrder: ReturnType<typeof useCustomerStore>['addOrder'];
-  updateOrderStatus: ReturnType<typeof useCustomerStore>['updateOrderStatus'];
-  updateOrder: ReturnType<typeof useCustomerStore>['updateOrder'];
-  deleteOrder: ReturnType<typeof useCustomerStore>['deleteOrder'];
+  addCustomer: typeof customerStore.addCustomer;
+  updateCustomer: typeof customerStore.updateCustomer;
+  deleteCustomer: typeof customerStore.deleteCustomer;
+  addOrder: typeof customerStore.addOrder;
+  updateOrderStatus: typeof customerStore.updateOrderStatus;
+  updateOrder: typeof customerStore.updateOrder;
+  deleteOrder: typeof customerStore.deleteOrder;
   
   // Add product store functions
-  addProduct: ReturnType<typeof useProductStore>['addProduct'];
-  updateProduct: ReturnType<typeof useProductStore>['updateProduct'];
-  deleteProduct: ReturnType<typeof useProductStore>['deleteProduct'];
-  uploadProductImage: ReturnType<typeof useProductStore>['uploadProductImage'];
+  addProduct: typeof productStore.addProduct;
+  updateProduct: typeof productStore.updateProduct;
+  deleteProduct: typeof productStore.deleteProduct;
+  uploadProductImage: typeof productStore.uploadProductImage;
   
   // Add shipment store functions
-  addShipment: ReturnType<typeof useShipmentStore>['addShipment'];
-  updateShipment: ReturnType<typeof useShipmentStore>['updateShipment'];
-  deleteShipment: ReturnType<typeof useShipmentStore>['deleteShipment'];
-  getShipments: ReturnType<typeof useShipmentStore>['getShipments'];
-  getShipmentCustomers: ReturnType<typeof useShipmentStore>['getShipmentCustomers'];
+  addShipment: typeof shipmentStore.addShipment;
+  updateShipment: typeof shipmentStore.updateShipment;
+  deleteShipment: typeof shipmentStore.deleteShipment;
+  getShipments: typeof shipmentStore.getShipments;
+  getShipmentCustomers: typeof shipmentStore.getShipmentCustomers;
 }
 
 export const useDataStore = create<DataStore>((set, get) => {
@@ -142,9 +148,9 @@ export const useDataStore = create<DataStore>((set, get) => {
   // Combine with other stores
   return {
     ...dataStore,
-    ...useCustomerStore.getState(),
-    ...useProductStore.getState(),
-    ...useShipmentStore.getState()
+    ...customerStore,
+    ...productStore,
+    ...shipmentStore
   };
 });
 
