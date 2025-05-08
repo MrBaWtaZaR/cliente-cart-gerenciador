@@ -13,10 +13,12 @@ import { OrderCard } from '@/components/OrderCard';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { TimeFormatter } from '@/components/TimeFormatter';
 import { PhoneFormatter } from '@/components/PhoneFormatter';
-
 export const OrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { customers, updateOrderStatus } = useDataStore();
+  const {
+    customers,
+    updateOrderStatus
+  } = useDataStore();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -28,13 +30,11 @@ export const OrdersPage = () => {
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
 
   // Obter todos os pedidos
-  const allOrders = customers.flatMap(customer => 
-    customer.orders.map(order => ({
-      ...order,
-      customerName: customer.name,
-      customerId: customer.id,
-    }))
-  );
+  const allOrders = customers.flatMap(customer => customer.orders.map(order => ({
+    ...order,
+    customerName: customer.name,
+    customerId: customer.id
+  })));
 
   // Check if we should open a specific order from URL parameters
   useEffect(() => {
@@ -52,29 +52,25 @@ export const OrdersPage = () => {
   const filteredOrders = allOrders.filter(order => {
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = 
-      order.id.toLowerCase().includes(searchLower) ||
-      order.customerName.toLowerCase().includes(searchLower);
-    
+    const matchesSearch = order.id.toLowerCase().includes(searchLower) || order.customerName.toLowerCase().includes(searchLower);
+
     // Filter by date if date filter is applied
-    const matchesDate = !dateFilter || 
-      (new Date(order.createdAt).toDateString() === dateFilter.toDateString());
-    
+    const matchesDate = !dateFilter || new Date(order.createdAt).toDateString() === dateFilter.toDateString();
     return matchesStatus && matchesSearch && matchesDate;
   }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
   const handleUpdateOrderStatus = (customerId: string, orderId: string, newStatus: 'pending' | 'completed' | 'cancelled') => {
     updateOrderStatus(customerId, orderId, newStatus);
-    
+
     // Atualizar o status na visualização atual se estiver aberta
     if (viewingOrder && viewingOrder.id === orderId) {
-      setViewingOrder({ ...viewingOrder, status: newStatus });
+      setViewingOrder({
+        ...viewingOrder,
+        status: newStatus
+      });
     }
   };
-
   const handleViewOrder = (order: Order, customerName: string) => {
     const customer = customers.find(c => c.id === order.customerId);
-    
     setViewingOrder(order);
     setCustomerName(customerName);
     setCustomerInfo({
@@ -90,16 +86,17 @@ export const OrdersPage = () => {
     });
 
     // Update URL to include the order ID for direct linking
-    setSearchParams({ view: order.id });
+    setSearchParams({
+      view: order.id
+    });
   };
-  
   const pdfRef = useRef<HTMLDivElement>(null);
-  
+
   // Fix the useReactToPrint hook
   const handlePrintPDF = useReactToPrint({
     documentTitle: `Pedido-${viewingOrder?.id || ''}`,
     onBeforePrint: () => {
-      return new Promise<void>((resolve) => {
+      return new Promise<void>(resolve => {
         setShowPDFPreview(true);
         setTimeout(() => {
           resolve();
@@ -109,7 +106,7 @@ export const OrdersPage = () => {
     onAfterPrint: () => {
       setShowPDFPreview(false);
     },
-    contentRef: pdfRef,
+    contentRef: pdfRef
   });
 
   // Pre-render the PDF content when viewing order changes
@@ -128,16 +125,14 @@ export const OrdersPage = () => {
     // First close the dialog UI
     setDialogOpen(false);
     setShowPDFPreview(false);
-    
+
     // Then clean up the URL and state after a short delay
     setTimeout(() => {
       setViewingOrder(null);
       setSearchParams({});
     }, 300);
   };
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl md:text-3xl font-bold flex items-center">
           <ShoppingCart className="h-6 w-6 mr-2" /> Pedidos
@@ -165,12 +160,7 @@ export const OrdersPage = () => {
       <div className="flex flex-col md:flex-row gap-4 items-start justify-between">
         <div className="relative w-full md:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar pedidos..."
-            className="pl-8 bg-white shadow-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <Input placeholder="Buscar pedidos..." className="pl-8 bg-white shadow-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
 
         <DateFilter onDateChange={setDateFilter} />
@@ -187,165 +177,32 @@ export const OrdersPage = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {filteredOrders.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredOrders.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  customerName={order.customerName}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="py-6 text-center text-muted-foreground">
-              {searchTerm || statusFilter !== 'all' || dateFilter ? 
-                "Nenhum pedido corresponde aos filtros aplicados." : 
-                "Nenhum pedido registrado ainda."
-              }
-            </div>
-          )}
+          {filteredOrders.length > 0 ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredOrders.map(order => <OrderCard key={order.id} order={order} customerName={order.customerName} />)}
+            </div> : <div className="py-6 text-center text-muted-foreground">
+              {searchTerm || statusFilter !== 'all' || dateFilter ? "Nenhum pedido corresponde aos filtros aplicados." : "Nenhum pedido registrado ainda."}
+            </div>}
         </CardContent>
       </Card>
 
       {/* Modal para ver detalhes do pedido - completely rewritten for reliability */}
-      <Dialog 
-        open={dialogOpen} 
-        onOpenChange={(open) => {
-          if (!open) {
-            handleDialogClose();
-          } else {
-            setDialogOpen(open);
-          }
-        }}
-      >
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Detalhes do Pedido</DialogTitle>
-            <DialogDescription>
-              Pedido de {customerName} realizado em {viewingOrder && 
-                new Date(viewingOrder.createdAt).toLocaleString('pt-BR')
-              }
-            </DialogDescription>
-          </DialogHeader>
-          
-          {viewingOrder && (
-            <>
-              <div className="flex flex-col md:flex-row justify-between mb-6">
-                <div>
-                  <p className="font-medium">ID do Pedido:</p>
-                  <p className="font-mono text-sm">{viewingOrder.id}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Status:</p>
-                  <Select
-                    value={viewingOrder.status}
-                    onValueChange={(value) => handleUpdateOrderStatus(
-                      viewingOrder.customerId, 
-                      viewingOrder.id, 
-                      value as 'pending' | 'completed' | 'cancelled'
-                    )}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pendente</SelectItem>
-                      <SelectItem value="completed">Concluído</SelectItem>
-                      <SelectItem value="cancelled">Cancelado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              <div className="space-y-4">
-                <h3 className="font-medium">Produtos no Pedido</h3>
-                <div className="border rounded-md overflow-hidden">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-muted/50">
-                        <th className="text-left p-2">Produto</th>
-                        <th className="text-center p-2">Quantidade</th>
-                        <th className="text-right p-2">Preço</th>
-                        <th className="text-right p-2">Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {viewingOrder.products.map((item, index) => (
-                        <tr key={`${item.productId}-${index}`} className="border-t">
-                          <td className="p-2">
-                            <div className="flex items-center">
-                              {item.images && item.images[0] && (
-                                <div className="w-10 h-10 mr-3 bg-muted rounded overflow-hidden flex-shrink-0">
-                                  <img
-                                    src={item.images[0]}
-                                    alt={item.productName}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                              )}
-                              {item.productName}
-                            </div>
-                          </td>
-                          <td className="p-2 text-center">{item.quantity}</td>
-                          <td className="p-2 text-right">
-                            {new Intl.NumberFormat('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL'
-                            }).format(item.price)}
-                          </td>
-                          <td className="p-2 text-right">
-                            {new Intl.NumberFormat('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL'
-                            }).format(item.price * item.quantity)}
-                          </td>
-                        </tr>
-                      ))}
-                      <tr className="border-t bg-muted/30">
-                        <td colSpan={3} className="p-2 text-right font-bold">
-                          Total:
-                        </td>
-                        <td className="p-2 text-right font-bold">
-                          {new Intl.NumberFormat('pt-BR', {
-                            style: 'currency',
-                            currency: 'BRL'
-                          }).format(viewingOrder.total)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-          
-          <DialogFooter className="flex justify-between items-center space-x-2">
-            <Button variant="outline" onClick={handleDialogClose}>
-              Fechar
-            </Button>
-            <Button 
-              variant="default"
-              onClick={handlePrintPDF}
-              className="flex items-center"
-            >
-              <Printer className="h-4 w-4 mr-2" /> Imprimir Pedido
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+      <Dialog open={dialogOpen} onOpenChange={open => {
+      if (!open) {
+        handleDialogClose();
+      } else {
+        setDialogOpen(open);
+      }
+    }}>
+        
       </Dialog>
       
       {/* Container escondido para o PDF */}
-      {viewingOrder && customerInfo && (
-        <div style={{ display: showPDFPreview ? 'block' : 'none', position: 'absolute', left: '-9999px' }}>
-          <OrderPDF 
-            ref={pdfRef} 
-            order={viewingOrder} 
-            customerName={customerName} 
-            customerInfo={customerInfo} 
-          />
-        </div>
-      )}
-    </div>
-  );
+      {viewingOrder && customerInfo && <div style={{
+      display: showPDFPreview ? 'block' : 'none',
+      position: 'absolute',
+      left: '-9999px'
+    }}>
+          <OrderPDF ref={pdfRef} order={viewingOrder} customerName={customerName} customerInfo={customerInfo} />
+        </div>}
+    </div>;
 };
