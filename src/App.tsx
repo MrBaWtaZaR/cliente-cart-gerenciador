@@ -14,67 +14,84 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { ShipmentPage } from "./pages/ShipmentPage";
 import { DashboardLayout } from "./components/DashboardLayout";
 import NotFound from "./pages/NotFound";
+import { useEffect } from "react";
+import { useDataStore } from "./lib/data";
 
 // Criando um cliente de consulta React Query
 const queryClient = new QueryClient();
 
+const AppContent = () => {
+  const { initializeData, isInitialized } = useDataStore();
+  
+  // Initialize data from Supabase when the app loads
+  useEffect(() => {
+    if (!isInitialized) {
+      initializeData();
+    }
+  }, [initializeData, isInitialized]);
+  
+  return (
+    <BrowserRouter>
+      <TooltipProvider>
+        <Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<LoginPage />} />
+          
+          <Route path="/dashboard" element={
+            <DashboardLayout>
+              <DashboardPage />
+            </DashboardLayout>
+          } />
+          
+          <Route path="/dashboard/customers" element={
+            <DashboardLayout>
+              <CustomersPage />
+            </DashboardLayout>
+          } />
+          
+          <Route path="/dashboard/customers/:customerId" element={
+            <DashboardLayout>
+              <CustomerDetailPage />
+            </DashboardLayout>
+          } />
+          
+          <Route path="/dashboard/products" element={
+            <DashboardLayout>
+              <ProductsPage />
+            </DashboardLayout>
+          } />
+          
+          <Route path="/dashboard/orders" element={
+            <DashboardLayout>
+              <OrdersPage />
+            </DashboardLayout>
+          } />
+          
+          <Route path="/dashboard/shipments" element={
+            <DashboardLayout>
+              <ShipmentPage />
+            </DashboardLayout>
+          } />
+          
+          <Route path="/dashboard/settings" element={
+            <DashboardLayout>
+              <SettingsPage />
+            </DashboardLayout>
+          } />
+          
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        <Toaster />
+        <Sonner />
+      </TooltipProvider>
+    </BrowserRouter>
+  );
+};
+
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <TooltipProvider>
-          <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<LoginPage />} />
-            
-            <Route path="/dashboard" element={
-              <DashboardLayout>
-                <DashboardPage />
-              </DashboardLayout>
-            } />
-            
-            <Route path="/dashboard/customers" element={
-              <DashboardLayout>
-                <CustomersPage />
-              </DashboardLayout>
-            } />
-            
-            <Route path="/dashboard/customers/:customerId" element={
-              <DashboardLayout>
-                <CustomerDetailPage />
-              </DashboardLayout>
-            } />
-            
-            <Route path="/dashboard/products" element={
-              <DashboardLayout>
-                <ProductsPage />
-              </DashboardLayout>
-            } />
-            
-            <Route path="/dashboard/orders" element={
-              <DashboardLayout>
-                <OrdersPage />
-              </DashboardLayout>
-            } />
-            
-            <Route path="/dashboard/shipments" element={
-              <DashboardLayout>
-                <ShipmentPage />
-              </DashboardLayout>
-            } />
-            
-            <Route path="/dashboard/settings" element={
-              <DashboardLayout>
-                <SettingsPage />
-              </DashboardLayout>
-            } />
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <Toaster />
-          <Sonner />
-        </TooltipProvider>
-      </BrowserRouter>
+      <AppContent />
     </QueryClientProvider>
   );
 };

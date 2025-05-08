@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, getStorageUrl } from '@/integrations/supabase/client';
 
 export interface Customer {
   id: string;
@@ -57,6 +57,10 @@ interface DataStore {
   customers: Customer[];
   products: Product[];
   shipments: Shipment[];
+  isInitialized: boolean;
+  isLoading: boolean;
+  
+  initializeData: () => Promise<void>;
   
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'orders'>) => void;
   updateCustomer: (id: string, customerData: Partial<Customer>) => void;
@@ -227,6 +231,89 @@ export const useDataStore = create<DataStore>((set, get) => ({
   customers: initialCustomers,
   products: initialProducts,
   shipments: [],
+  isInitialized: false,
+  isLoading: false,
+  
+  initializeData: async () => {
+    // Don't initialize if already done or in progress
+    if (get().isInitialized || get().isLoading) return;
+    
+    set({ isLoading: true });
+    try {
+      // Fetch customers from Supabase
+      const { data: customerData, error: customerError } = await supabase
+        .from('customers')
+        .select('*')
+        .order('name');
+      
+      if (customerError) {
+        console.error('Error loading customers:', customerError);
+        throw customerError;
+      }
+      
+      // Fetch shipments to build the complete customers data with orders
+      const { data: shipmentData, error: shipmentError } = await supabase
+        .from('shipments')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (shipmentError) {
+        console.error('Error loading shipments:', shipmentError);
+        throw shipmentError;
+      }
+      
+      // Transform customers from Supabase to our app format
+      const customers: Customer[] = customerData.map(customer => {
+        // Use local customer data if we have it to maintain order history
+        const localCustomer = get().customers.find(c => 
+          c.name.toLowerCase() === customer.name.toLowerCase() &&
+          c.email.toLowerCase() === customer.email.toLowerCase()
+        );
+        
+        return {
+          id: localCustomer?.id || generateId(),
+          name: customer.name,
+          email: customer.email,
+          phone: customer.phone,
+          address: customer.address || undefined,
+          createdAt: new Date(customer.created_at || new Date()),
+          tourName: customer.tour_name || undefined,
+          tourSector: customer.tour_sector || undefined,
+          tourSeatNumber: customer.tour_seat_number || undefined,
+          tourCity: customer.tour_city || undefined,
+          tourState: customer.tour_state || undefined,
+          tourDepartureTime: customer.tour_departure_time || undefined,
+          orders: localCustomer?.orders || []
+        };
+      });
+      
+      // Transform shipments to our app format
+      const shipments: Shipment[] = await Promise.all(shipmentData.map(async (shipment) => {
+        const fetchedCustomers = await get().getShipmentCustomers(shipment.id);
+        
+        return {
+          id: shipment.id,
+          name: shipment.name,
+          createdAt: new Date(shipment.created_at),
+          customers: fetchedCustomers
+        };
+      }));
+      
+      // Set data in store
+      set({
+        customers,
+        shipments,
+        isInitialized: true,
+        isLoading: false
+      });
+      
+      console.log('Data initialized from Supabase', { customers, shipments });
+    } catch (error) {
+      console.error('Error initializing data:', error);
+      set({ isLoading: false });
+      toast.error('Erro ao carregar dados do servidor');
+    }
+  },
   
   addCustomer: (customerData) => set((state) => {
     const newCustomer: Customer = {
@@ -239,25 +326,90 @@ export const useDataStore = create<DataStore>((set, get) => ({
     const updatedCustomers = [...state.customers, newCustomer];
     localStorage.setItem('customers', JSON.stringify(updatedCustomers));
     
+    // Also add to Supabase
+    supabase.from('customers').insert({
+      name: customerData.name,
+      email: customerData.email,
+      phone: customerData.phone,
+      address: customerData.address,
+      tour_name: customerData.tourName,
+      tour_sector: customerData.tourSector,
+      tour_seat_number: customerData.tourSeatNumber,
+      tour_city: customerData.tourCity, 
+      tour_state: customerData.tourState,
+      tour_departure_time: customerData.tourDepartureTime
+    }).then(({ error }) => {
+      if (error) {
+        console.error('Error saving customer to Supabase:', error);
+        toast.error('Erro ao sincronizar cliente com o servidor');
+      }
+    });
+    
     toast.success('Cliente adicionado com sucesso');
     return { customers: updatedCustomers };
   }),
   
   updateCustomer: (id, customerData) => set((state) => {
+    const customerToUpdate = state.customers.find(c => c.id === id);
+    if (!customerToUpdate) {
+      toast.error('Cliente não encontrado');
+      return state;
+    }
+    
     const updatedCustomers = state.customers.map((customer) => 
       customer.id === id ? { ...customer, ...customerData } : customer
     );
     
     localStorage.setItem('customers', JSON.stringify(updatedCustomers));
     
+    // Update in Supabase by name (since we don't have the Supabase ID)
+    supabase.from('customers')
+      .update({
+        name: customerData.name || customerToUpdate.name,
+        email: customerData.email || customerToUpdate.email,
+        phone: customerData.phone || customerToUpdate.phone,
+        address: customerData.address,
+        tour_name: customerData.tourName,
+        tour_sector: customerData.tourSector,
+        tour_seat_number: customerData.tourSeatNumber,
+        tour_city: customerData.tourCity,
+        tour_state: customerData.tourState,
+        tour_departure_time: customerData.tourDepartureTime
+      })
+      .eq('name', customerToUpdate.name)
+      .eq('email', customerToUpdate.email)
+      .then(({ error }) => {
+        if (error) {
+          console.error('Error updating customer in Supabase:', error);
+          toast.error('Erro ao sincronizar cliente com o servidor');
+        }
+      });
+    
     toast.success('Cliente atualizado com sucesso');
     return { customers: updatedCustomers };
   }),
   
   deleteCustomer: (id) => set((state) => {
-    const updatedCustomers = state.customers.filter((customer) => customer.id !== id);
+    const customerToDelete = state.customers.find(c => c.id === id);
+    if (!customerToDelete) {
+      toast.error('Cliente não encontrado');
+      return state;
+    }
     
+    const updatedCustomers = state.customers.filter((customer) => customer.id !== id);
     localStorage.setItem('customers', JSON.stringify(updatedCustomers));
+    
+    // Delete from Supabase by matching name and email
+    supabase.from('customers')
+      .delete()
+      .eq('name', customerToDelete.name)
+      .eq('email', customerToDelete.email)
+      .then(({ error }) => {
+        if (error) {
+          console.error('Error deleting customer from Supabase:', error);
+          toast.error('Erro ao remover cliente do servidor');
+        }
+      });
     
     toast.success('Cliente removido com sucesso');
     return { customers: updatedCustomers };
@@ -312,14 +464,14 @@ export const useDataStore = create<DataStore>((set, get) => ({
         throw uploadError;
       }
       
-      const { data } = supabase.storage.from('product-images').getPublicUrl(filePath);
+      const publicUrl = getStorageUrl('product-images', filePath);
       
       set((state) => {
         const updatedProducts = state.products.map((product) => {
           if (product.id === productId) {
             return {
               ...product,
-              images: [...product.images, data.publicUrl]
+              images: [...product.images, publicUrl]
             };
           }
           return product;
@@ -330,7 +482,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
       });
       
       toast.success('Imagem adicionada com sucesso');
-      return data.publicUrl;
+      return publicUrl;
     } catch (error) {
       console.error('Erro ao fazer upload:', error);
       toast.error('Falha ao adicionar imagem');
@@ -683,6 +835,8 @@ export const useDataStore = create<DataStore>((set, get) => ({
       set(state => ({
         shipments: state.shipments.filter(shipment => shipment.id !== shipmentId)
       }));
+      
+      toast.success('Envio excluído com sucesso');
     } catch (error) {
       console.error('Erro ao excluir envio:', error);
       toast.error('Erro ao excluir envio');
@@ -715,9 +869,12 @@ export const useDataStore = create<DataStore>((set, get) => ({
       }));
       
       set({ shipments });
+      
+      return shipments;
     } catch (error) {
       console.error('Erro ao carregar envios:', error);
       toast.error('Erro ao carregar histórico de envios');
+      return [];
     }
   },
   
@@ -755,16 +912,17 @@ export const useDataStore = create<DataStore>((set, get) => ({
       // Map the customers with their orders from local store
       const customers: Customer[] = customerData.map(customer => {
         const localCustomer = get().customers.find(c => 
-          c.name.toLowerCase() === customer.name.toLowerCase()
+          c.name.toLowerCase() === customer.name.toLowerCase() &&
+          c.email.toLowerCase() === customer.email.toLowerCase()
         );
         
         return {
-          id: localCustomer?.id || customer.id,
+          id: localCustomer?.id || generateId(),
           name: customer.name,
           email: customer.email,
           phone: customer.phone,
           address: customer.address || undefined,
-          createdAt: new Date(customer.created_at),
+          createdAt: new Date(customer.created_at || new Date()),
           tourName: customer.tour_name || undefined,
           tourSector: customer.tour_sector || undefined,
           tourSeatNumber: customer.tour_seat_number || undefined,
