@@ -454,8 +454,9 @@ export const useDataStore = create<DataStore>((set, get) => ({
     try {
       // Se o arquivo for um blob URL, precisamos primeiro convertê-lo em um arquivo
       let fileToUpload = file;
+      let fileName = '';
       
-      // Verifica se o arquivo está em formato de blob URL
+      // Verifica se o arquivo está em formato de string (blob URL)
       if (typeof file === 'string' && file.startsWith('blob:')) {
         try {
           // Busca o arquivo do armazenamento temporário
@@ -463,18 +464,25 @@ export const useDataStore = create<DataStore>((set, get) => ({
           const blob = await response.blob();
           
           // Cria um novo arquivo com um nome mais previsível
-          const filename = `product_image_${Date.now()}.${blob.type.split('/')[1] || 'jpeg'}`;
-          fileToUpload = new File([blob], filename, { type: blob.type });
+          fileName = `product_image_${Date.now()}.${blob.type.split('/')[1] || 'jpeg'}`;
+          fileToUpload = new File([blob], fileName, { type: blob.type });
         } catch (error) {
           console.error('Erro ao converter blob URL para arquivo:', error);
           throw new Error('Não foi possível processar a imagem. Por favor, tente novamente.');
         }
+      } else if (fileToUpload instanceof File) {
+        // Se for um File object, pegamos o nome diretamente
+        fileName = fileToUpload.name;
+      } else {
+        // Se for uma string que não é blob URL (como uma URL regular)
+        // Geramos um nome de arquivo baseado no timestamp
+        fileName = `image_${Date.now()}.jpg`;
       }
       
       // Continua com o upload normal
-      const fileExt = fileToUpload.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const filePath = `${productId}/${fileName}`;
+      const fileExt = fileName.split('.').pop();
+      const finalFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `${productId}/${finalFileName}`;
       
       const { error: uploadError } = await supabase.storage
         .from('product-images')
