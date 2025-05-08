@@ -132,7 +132,7 @@ export const OrdersPage = () => {
   
   const pdfRef = useRef<HTMLDivElement>(null);
   
-  // Updated PDF printing with correct options
+  // Updated PDF printing with correct type for contentRef
   const handlePrintPDF = useReactToPrint({
     documentTitle: `Pedido-${viewingOrder?.id || ''}`,
     onBeforePrint: () => {
@@ -159,8 +159,8 @@ export const OrdersPage = () => {
         console.error('Error in onAfterPrint:', error);
       }
     },
-    // Fix: Changed 'content' to proper react-to-print option name
-    contentRef: () => pdfRef.current,
+    // Fix: Changed to provide the direct ref object instead of a function
+    contentRef: pdfRef,
   });
 
   // Pre-render the PDF content when viewing order changes
