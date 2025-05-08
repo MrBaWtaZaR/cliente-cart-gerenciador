@@ -5,7 +5,7 @@ import { AuthGuard } from './AuthGuard';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useDataStore } from '@/stores';
 import { toast } from 'sonner';
-import { useShipmentSafeUnmount, safeCleanupDOM } from './ShipmentSafeUnmount';
+import { useSafeUnmount, performDOMCleanup } from './DOMCleanupUtils';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -14,9 +14,8 @@ interface DashboardLayoutProps {
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const isMobile = useIsMobile();
   const { refreshAll, isInitialized } = useDataStore();
-  const { forceCleanup } = useShipmentSafeUnmount();
+  const { cleanupDOM } = useSafeUnmount();
   const unmountingRef = useRef(false);
-  const cleanupInProgressRef = useRef(false);
   const cleanupTimerRef = useRef<number | null>(null);
   
   // Initialize data when dashboard mounts
@@ -30,32 +29,16 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       });
     }
     
-    // Limpar elementos órfãos no carregamento
-    safeCleanupDOM();
+    // Clean up orphaned elements on load
+    performDOMCleanup();
     
-    // Função para limpar elementos órfãos no DOM de forma segura
-    const cleanupOrphanedElements = () => {
-      // Prevent concurrent cleanups
-      if (cleanupInProgressRef.current) {
-        console.log("Limpeza já em andamento, ignorando chamada");
-        return;
-      }
-      
-      cleanupInProgressRef.current = true;
-      forceCleanup(); // Use the enhanced cleanup function
-      
-      // Liberar o lock de limpeza após um pequeno delay
-      setTimeout(() => {
-        cleanupInProgressRef.current = false;
-      }, 150);
-    };
-  
-    // Registrar evento global para limpeza quando necessário
+    // Handler for cleanup events
     const handleCleanup = () => {
       console.log("Evento de limpeza disparado");
-      cleanupOrphanedElements();
+      cleanupDOM();
     };
-    
+  
+    // Register global event listeners
     window.addEventListener('app-cleanup', handleCleanup);
     window.addEventListener('popstate', handleCleanup);
   
@@ -63,17 +46,16 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       console.log("App desmontado, limpando recursos...");
       unmountingRef.current = true;
       
-      // Remover listeners dos eventos
+      // Remove event listeners
       window.removeEventListener('app-cleanup', handleCleanup);
       window.removeEventListener('popstate', handleCleanup);
       
-      // Limpar qualquer timer pendente
+      // Clear any pending timer
       if (cleanupTimerRef.current !== null) {
         clearTimeout(cleanupTimerRef.current);
       }
       
-      // Remover listeners de eventos residuais em elementos comuns
-      // Usando a técnica de clone para elemento críticos
+      // Clean up clickable elements to prevent stale event listeners
       try {
         const clickableElements = document.querySelectorAll('button, a, [role="button"]');
         clickableElements.forEach(el => {
@@ -86,21 +68,15 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         console.error('Erro ao limpar event listeners:', error);
       }
       
-      // Executar limpeza imediatamente usando nossa função aprimorada
-      forceCleanup();
+      // Execute cleanup immediately
+      cleanupDOM();
       
-      // Executar limpeza novamente após um pequeno delay
+      // And again after a delay
       cleanupTimerRef.current = window.setTimeout(() => {
-        safeCleanupDOM();
+        performDOMCleanup();
       }, 50);
-      
-      // E mais uma vez após um delay maior para garantir
-      cleanupTimerRef.current = window.setTimeout(() => {
-        safeCleanupDOM();
-        unmountingRef.current = false;
-      }, 150);
     };
-  }, [refreshAll, isInitialized, forceCleanup]);
+  }, [refreshAll, isInitialized, cleanupDOM]);
 
   return (
     <AuthGuard>
