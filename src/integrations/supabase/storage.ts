@@ -69,11 +69,9 @@ export const uploadProductImage = async (productId: string, file: File): Promise
   }
 };
 
-// Export functions individually so they can be imported separately
-export { setupStorage, uploadProductImage };
-
 // Also export as default for backward compatibility
 export default {
   setupStorage,
   uploadProductImage
 };
+
