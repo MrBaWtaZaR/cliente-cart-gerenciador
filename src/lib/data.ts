@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase, getStorageUrl } from '@/integrations/supabase/client';
@@ -79,7 +80,8 @@ interface DataStore {
   addShipment: (customerIds: string[]) => Promise<Shipment>;
   updateShipment: (shipmentId: string, customerIds: string[]) => Promise<Shipment>;
   deleteShipment: (shipmentId: string) => Promise<void>;
-  getShipments: () => Promise<void>;
+  // Update the return type to match the implementation
+  getShipments: () => Promise<Shipment[]>;
   getShipmentCustomers: (shipmentId: string) => Promise<Customer[]>;
 }
 
