@@ -1,9 +1,11 @@
-
 import { useEffect, useRef, useCallback } from 'react';
 
 // Centralized global cleanup lock to prevent concurrent cleanup operations
 let globalCleanupInProgress = false;
 let lastCleanupTime = 0;
+
+// Keep track of elements that were already processed to avoid duplicate work
+const processedElements = new WeakSet();
 
 /**
  * Custom hook for safe component unmounting with DOM cleanup
@@ -44,7 +46,11 @@ export const useSafeUnmount = () => {
         '.shipment-print-container',
         '.dialog-content',
         '.toaster',
-        '.toast-container'
+        '.toast-container',
+        // Order-specific selectors
+        '.order-pdf-container',
+        '.order-print-layer',
+        '.pdf-preview'
       ];
       
       // For each selector, find and safely remove elements using multiple approaches
@@ -57,10 +63,13 @@ export const useSafeUnmount = () => {
           }
           
           elements.forEach(el => {
-            if (!el || !el.parentNode) return;
+            if (!el || !el.parentNode || processedElements.has(el)) return;
+            
+            // Add to processed set to avoid duplicate work
+            processedElements.add(el);
             
             // Double check element is still in the DOM
-            if (!document.body.contains(el)) return;
+            if (!document.contains(el)) return;
             
             try {
               // APPROACH 1: First hide the element to prevent visual glitches
@@ -71,44 +80,78 @@ export const useSafeUnmount = () => {
                 el.style.pointerEvents = 'none';
                 el.style.position = 'absolute';
                 el.style.left = '-9999px';
+                el.setAttribute('aria-hidden', 'true');
                 
                 // Add a data attribute to mark this as being removed
                 el.setAttribute('data-being-removed', 'true');
+                
+                // Clone and replace any interactive elements inside
+                const interactives = el.querySelectorAll('button, a, [role="button"], input, select');
+                interactives.forEach(interactive => {
+                  if (interactive.parentNode && document.contains(interactive)) {
+                    try {
+                      const clone = interactive.cloneNode(true);
+                      interactive.parentNode.replaceChild(clone, interactive);
+                    } catch (err) {
+                      // Ignore errors during interactive element replacement
+                    }
+                  }
+                });
               }
               
               // APPROACH 2: Empty the element's contents which may be causing issues
               while (el.firstChild) {
-                el.removeChild(el.firstChild);
+                try {
+                  el.removeChild(el.firstChild);
+                } catch (err) {
+                  // Break the loop if removal fails
+                  break;
+                }
               }
               
-              // APPROACH 3: Clone and replace approach to detach all event listeners
+              // APPROACH 3: Run multiple removal attempts with different strategies
               const parent = el.parentNode;
-              // Check if parent is still connected to document and still contains el
-              if (parent && document.body.contains(parent) && parent.contains(el)) {
+              
+              if (parent && document.contains(parent) && parent.contains(el)) {
+                // Try method 1: Direct removal
                 try {
-                  // Create an empty clone (no children or event listeners)
-                  const clone = el.cloneNode(false);
-                  
-                  // Replace the original with the clone
-                  parent.replaceChild(clone, el);
-                  
-                  // Remove the clone after a brief delay
-                  setTimeout(() => {
-                    if (clone.parentNode && document.contains(clone)) {
-                      clone.parentNode.removeChild(clone);
-                    }
-                  }, 0);
+                  parent.removeChild(el);
+                  return; // If successful, we're done with this element
                 } catch (err) {
-                  // If replacement fails, try direct removal
-                  console.warn("Clone replacement failed, trying direct removal:", err);
-                  
-                  if (el.parentNode && document.contains(el)) {
-                    try {
-                      el.parentNode.removeChild(el);
-                    } catch (removalErr) {
-                      console.error("Direct removal also failed:", removalErr);
-                    }
+                  console.warn("Direct removal failed, trying clone replacement:", err);
+                }
+                
+                // Try method 2: Clone and replace approach
+                try {
+                  if (document.contains(parent) && parent.contains(el)) {
+                    // Create an empty clone (no children or event listeners)
+                    const clone = el.cloneNode(false);
+                    
+                    // Replace the original with the clone
+                    parent.replaceChild(clone, el);
+                    
+                    // Remove the clone after a brief delay
+                    requestAnimationFrame(() => {
+                      try {
+                        if (clone.parentNode && document.contains(clone)) {
+                          clone.parentNode.removeChild(clone);
+                        }
+                      } catch (e) {
+                        // Ignore errors during delayed removal
+                      }
+                    });
                   }
+                } catch (cloneErr) {
+                  console.warn("Clone replacement failed:", cloneErr);
+                }
+                
+                // Method 3: Set outerHTML to empty (last resort)
+                try {
+                  if (el instanceof HTMLElement && document.contains(el) && el.parentNode) {
+                    el.outerHTML = '';
+                  }
+                } catch (outerErr) {
+                  console.warn("outerHTML reset failed:", outerErr);
                 }
               }
             } catch (err) {
@@ -121,86 +164,122 @@ export const useSafeUnmount = () => {
         }
       });
       
-      // Look for orphaned React portals directly under body
+      // Remove overlay elements directly under body - common source of issues
       try {
         const bodyChildren = Array.from(document.body.children);
         bodyChildren.forEach(child => {
-          if (!(child instanceof HTMLElement)) return;
+          if (!(child instanceof HTMLElement) || processedElements.has(child)) return;
+          
+          // Skip essential elements
+          if (child.id === 'root' || child.id === 'app' || 
+              child.tagName === 'SCRIPT' || child.tagName === 'NOSCRIPT' || 
+              child.tagName === 'STYLE' || child.tagName === 'LINK') {
+            return;
+          }
           
           // Check if this looks like a React portal
           const isLikelyPortal = 
             child.getAttribute('role') === 'presentation' ||
             child.getAttribute('role') === 'dialog' ||
             child.hasAttribute('data-radix-portal') ||
-            child.getAttribute('aria-modal') === 'true';
+            child.getAttribute('aria-modal') === 'true' ||
+            child.classList.contains('toast-container') ||
+            child.classList.contains('toaster') ||
+            child.classList.contains('shipment-print-container') ||
+            child.classList.contains('order-print-layer');
           
           if (isLikelyPortal && document.body.contains(child)) {
+            processedElements.add(child);
+            
             child.style.visibility = 'hidden';
             child.style.display = 'none';
             child.style.opacity = '0';
             
             // Empty the element to prevent internal React issues
             while (child.firstChild) {
-              child.removeChild(child.firstChild);
+              try {
+                child.removeChild(child.firstChild);
+              } catch (err) {
+                break; // Break if removal fails
+              }
             }
             
-            setTimeout(() => {
+            // Use RAF which runs after the current render cycle
+            requestAnimationFrame(() => {
               if (child.parentNode && document.contains(child)) {
                 try {
                   child.parentNode.removeChild(child);
                 } catch (err) {
                   console.error("Failed to remove portal element:", err);
+                  
+                  // Last resort: empty the HTML
+                  try {
+                    if (child instanceof HTMLElement) {
+                      child.outerHTML = '';
+                    }
+                  } catch (htmlErr) {
+                    // Give up
+                  }
                 }
               }
-            }, 0);
+            });
           }
         });
       } catch (err) {
         console.error("Error cleaning up body children:", err);
       }
       
-      // Special approach for problematic elements that might be causing insertBefore errors
-      try {
-        // Find any elements with animations that might be causing issues
-        const animatingElements = document.querySelectorAll('.animate-in, .animate-out, [data-state="open"], [data-state="closed"]');
-        
-        animatingElements.forEach(el => {
-          if (el instanceof HTMLElement && document.contains(el)) {
-            // Force animations to end immediately
-            el.style.animation = 'none';
-            el.style.transition = 'none';
-            
-            // Remove animation classes
-            el.classList.remove('animate-in', 'animate-out');
-            
-            // Ensure the element is marked as closed
-            el.setAttribute('data-state', 'closed');
-          }
-        });
-      } catch (err) {
-        console.error("Error cleaning up animating elements:", err);
-      }
-      
       // Special handling for the specific error: detach all event listeners with clone technique
       try {
         // Target the most common nodes that might be involved in insertBefore errors
-        const possibleProblemNodes = document.querySelectorAll('.dialog-overlay, .dialog-content, .dropdown-content, .popover');
+        const possibleProblemNodes = document.querySelectorAll(
+          '.dialog-overlay, .dialog-content, .dropdown-content, .popover, ' + 
+          '[data-radix-popper-content-wrapper], [role="dialog"]'
+        );
         
         possibleProblemNodes.forEach(node => {
-          if (node.parentNode && document.contains(node)) {
-            // Clone without children or event listeners then immediately remove
-            const clone = node.cloneNode(false);
-            node.parentNode.replaceChild(clone, node);
-            
-            requestAnimationFrame(() => {
-              if (clone.parentNode) {
-                clone.parentNode.removeChild(clone);
+          if (!node.parentNode || processedElements.has(node)) return;
+          
+          processedElements.add(node);
+          
+          if (document.contains(node)) {
+            try {
+              // Clone without children or event listeners then immediately remove
+              const clone = node.cloneNode(false);
+              while (node.firstChild) {
+                try {
+                  node.removeChild(node.firstChild);
+                } catch (err) {
+                  break;
+                }
               }
-            });
+              
+              if (node.parentNode && node.parentNode.contains(node)) {
+                node.parentNode.replaceChild(clone, node);
+              }
+              
+              requestAnimationFrame(() => {
+                if (clone.parentNode) {
+                  try {
+                    clone.parentNode.removeChild(clone);
+                  } catch (err) {
+                    // Ignore
+                  }
+                }
+              });
+            } catch (err) {
+              console.warn("Problem with node cleanup:", err);
+            }
           }
         });
       } catch (err) {
         console.error("Error in special node cleanup:", err);
+      }
+      
+      // Reset processedElements WeakSet periodically to prevent memory leaks
+      if (processedElements.size > 1000) {
+        // Can't actually clear a WeakSet, so we create a new one
+        processedElements.clear?.() || (processedElements = new WeakSet());
       }
       
     } catch (err) {
@@ -217,6 +296,9 @@ export const useSafeUnmount = () => {
   useEffect(() => {
     isMountedRef.current = true;
     unmountingRef.current = false;
+    
+    // Initial cleanup on mount to clear any leftover elements
+    cleanupDOM();
     
     return () => {
       console.log("Component unmounting, running cleanup...");
@@ -283,37 +365,76 @@ export const performDOMCleanup = () => {
       '.sonner-toast',
       '.toast',
       '[aria-live="polite"]',
-      '[aria-live="assertive"]'
+      '[aria-live="assertive"]',
+      '.order-pdf-container',
+      '.order-print-layer',
+      '.pdf-preview'
     ];
     
     problematicSelectors.forEach(selector => {
       try {
         const elements = document.querySelectorAll(selector);
         elements.forEach(el => {
-          if (!el || !el.parentNode || !document.contains(el)) return;
+          if (!el || !el.parentNode || !document.contains(el) || processedElements.has(el)) return;
+          
+          processedElements.add(el);
           
           if (el instanceof HTMLElement) {
             // First hide it
             el.style.visibility = 'hidden';
             el.style.display = 'none';
             el.style.opacity = '0';
+            el.setAttribute('aria-hidden', 'true');
           }
           
           // Empty it
           while (el.firstChild) {
-            el.removeChild(el.firstChild);
+            try {
+              el.removeChild(el.firstChild);
+            } catch (err) {
+              break; // Break if removal fails
+            }
           }
           
-          // Then try to remove it
-          setTimeout(() => {
-            if (el.parentNode && document.contains(el)) {
+          // Then try multiple removal approaches
+          if (el.parentNode && document.contains(el)) {
+            // Try direct removal first
+            try {
+              el.parentNode.removeChild(el);
+            } catch (err) {
+              console.warn("Direct removal failed, trying alternatives:", err);
+              
+              // Try clone replacement
               try {
-                el.parentNode.removeChild(el);
-              } catch (err) {
-                console.warn("Failed to remove element in global cleanup:", err);
+                if (document.contains(el) && el.parentNode && el.parentNode.contains(el)) {
+                  const clone = el.cloneNode(false);
+                  el.parentNode.replaceChild(clone, el);
+                  
+                  // Remove clone after a brief delay
+                  requestAnimationFrame(() => {
+                    if (clone.parentNode && document.contains(clone)) {
+                      try {
+                        clone.parentNode.removeChild(clone);
+                      } catch (err) {
+                        // Ignore
+                      }
+                    }
+                  });
+                }
+              } catch (cloneErr) {
+                console.warn("Clone replacement also failed:", cloneErr);
+                
+                // Last resort: reset HTML
+                try {
+                  if (el instanceof HTMLElement) {
+                    el.outerHTML = '';
+                  }
+                } catch (htmlErr) {
+                  // Give up
+                }
               }
             }
-          }, 0);
+          }
         });
       } catch (err) {
         // Ignore errors
@@ -326,6 +447,9 @@ export const performDOMCleanup = () => {
       const clickableElements = document.querySelectorAll('button, a, [role="button"]');
       clickableElements.forEach(el => {
         if (el.parentNode && document.contains(el) && el.hasAttribute('data-being-removed')) {
+          if (processedElements.has(el)) return;
+          processedElements.add(el);
+          
           try {
             const clone = el.cloneNode(true);
             el.parentNode.replaceChild(clone, el);
@@ -349,7 +473,9 @@ export const performDOMCleanup = () => {
 
 // Utility function to clean up a specific element safely
 export const safeRemoveElement = (element: Element) => {
-  if (!element || !element.parentNode) return;
+  if (!element || !element.parentNode || processedElements.has(element)) return;
+  
+  processedElements.add(element);
   
   try {
     // Check if element is still in DOM
@@ -358,34 +484,100 @@ export const safeRemoveElement = (element: Element) => {
     if (element instanceof HTMLElement) {
       element.style.visibility = 'hidden';
       element.style.display = 'none';
+      element.style.opacity = '0';
+      element.style.pointerEvents = 'none';
     }
     
     // Remove children first
     while (element.firstChild) {
-      element.removeChild(element.firstChild);
+      try {
+        element.removeChild(element.firstChild);
+      } catch (err) {
+        // Break if removal fails
+        break;
+      }
     }
     
-    // Then try to remove the element itself
+    // Then try multiple removal approaches
     if (element.parentNode && document.contains(element)) {
-      element.parentNode.removeChild(element);
+      // Try direct removal first
+      try {
+        element.parentNode.removeChild(element);
+      } catch (err) {
+        console.warn("Error in safeRemoveElement direct removal:", err);
+        
+        // Fall back to clone and replace if direct removal fails
+        try {
+          if (element.parentNode && document.contains(element)) {
+            const clone = element.cloneNode(false); // Empty clone
+            element.parentNode.replaceChild(clone, element);
+            
+            requestAnimationFrame(() => {
+              if (clone.parentNode) {
+                try {
+                  clone.parentNode.removeChild(clone);
+                } catch (err) {
+                  // Ignore
+                }
+              }
+            });
+          }
+        } catch (cloneErr) {
+          console.error("Failed all methods of removing element:", cloneErr);
+          
+          // Last resort: reset HTML
+          try {
+            if (element instanceof HTMLElement) {
+              element.outerHTML = '';
+            }
+          } catch (htmlErr) {
+            // Give up
+          }
+        }
+      }
     }
   } catch (err) {
     console.warn("Error in safeRemoveElement:", err);
-    
-    // Fall back to clone and replace if direct removal fails
-    try {
-      if (element.parentNode && document.contains(element)) {
-        const clone = element.cloneNode(false); // Empty clone
-        element.parentNode.replaceChild(clone, element);
-        
-        setTimeout(() => {
-          if (clone.parentNode) {
-            clone.parentNode.removeChild(clone);
-          }
-        }, 0);
-      }
-    } catch (e) {
-      console.error("Failed all methods of removing element:", e);
-    }
   }
 };
+
+// Make a clean version of document.createElement that won't cause React issues
+export const safeCreateElement = (tagName: string) => {
+  const el = document.createElement(tagName);
+  el.setAttribute('data-safe-element', 'true');
+  return el;
+};
+
+// Convenient function to safely append to document.body
+export const safeAppendToBody = (element: HTMLElement) => {
+  if (!element) return;
+  
+  try {
+    // Only append if not already in document
+    if (!document.contains(element)) {
+      document.body.appendChild(element);
+    }
+  } catch (err) {
+    console.error("Error appending element to body:", err);
+  }
+};
+
+// Safely clear all children from an element
+export const safeClearChildren = (element: Element) => {
+  if (!element) return;
+  
+  try {
+    while (element.firstChild) {
+      try {
+        element.removeChild(element.firstChild);
+      } catch (err) {
+        break;
+      }
+    }
+  } catch (err) {
+    console.error("Error clearing children:", err);
+  }
+};
+
+// Export a simplified alias for backward compatibility
+export const safeCleanupDOM = performDOMCleanup;

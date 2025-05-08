@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useSafeUnmount, safeRemoveElement } from '@/components/DOMCleanupUtils';
+import { useSafeUnmount, safeRemoveElement, safeClearChildren } from '@/components/DOMCleanupUtils';
 
 export const OrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -39,16 +39,31 @@ export const OrdersPage = () => {
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [isDeletingShipment, setIsDeletingShipment] = useState<boolean>(false);
   
   // Use our improved safe unmount hook with better DOM cleanup
   const { isMounted, setPrintableContent, cleanupDOM } = useSafeUnmount();
   const pdfRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const printContainerRef = useRef<HTMLDivElement | null>(null);
   
   // Setup cleanup on component unmount and for navigation
   useEffect(() => {
     // Clean up immediately when component mounts to remove any leftover elements
     cleanupDOM();
+    
+    // Create a dedicated container for printing to avoid React issues
+    if (!printContainerRef.current) {
+      const container = document.createElement('div');
+      container.className = 'order-print-layer';
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '-9999px';
+      container.style.visibility = 'hidden';
+      container.style.pointerEvents = 'none';
+      document.body.appendChild(container);
+      printContainerRef.current = container;
+    }
     
     const handleBeforeUnload = () => {
       cleanupDOM();
@@ -78,13 +93,25 @@ export const OrdersPage = () => {
       window.removeEventListener('route-changed', cleanupHandler);
       
       // Force close all dialogs
-      setDialogOpen(false);
-      setDeleteDialogOpen(false);
-      setShowPDFPreview(false);
+      if (isMounted()) {
+        setDialogOpen(false);
+        setDeleteDialogOpen(false);
+        setShowPDFPreview(false);
+      }
       
       // Clear states to free memory
       setViewingOrder(null);
       setCustomerInfo(null);
+      
+      // Clean up print container if it exists
+      if (printContainerRef.current && document.body.contains(printContainerRef.current)) {
+        try {
+          safeClearChildren(printContainerRef.current);
+          document.body.removeChild(printContainerRef.current);
+        } catch (err) {
+          console.error("Error removing print container:", err);
+        }
+      }
       
       // Run the DOM cleanup several times with increasing delays
       cleanupDOM();
@@ -96,6 +123,20 @@ export const OrdersPage = () => {
   // Update the printable content status when PDF ref changes
   useEffect(() => {
     setPrintableContent(pdfRef.current !== null);
+    
+    // Cleanup function to remove any orphaned print elements
+    return () => {
+      const printElements = document.querySelectorAll('.order-pdf-container, .pdf-preview');
+      printElements.forEach(el => {
+        if (el.parentNode && document.body.contains(el)) {
+          try {
+            safeRemoveElement(el);
+          } catch (err) {
+            console.warn("Failed to remove print element:", err);
+          }
+        }
+      });
+    };
   }, [pdfRef.current, setPrintableContent]);
 
   // Get all orders
@@ -152,7 +193,7 @@ export const OrdersPage = () => {
     }
   };
 
-  // Improved view order function
+  // Improved view order function with additional safeguards
   const handleViewOrder = (order: any, customerName: string) => {
     try {
       console.log("Viewing order:", order.id);
@@ -222,17 +263,34 @@ export const OrdersPage = () => {
     }
   };
   
-  // Updated PDF printing with cleanup
+  // Improved PDF printing with proper cleanup and DOM isolation
   const handlePrintPDF = useReactToPrint({
     documentTitle: `Order-${viewingOrder?.id || ''}`,
     onBeforePrint: () => {
       return new Promise<void>((resolve) => {
         try {
-          if (isMounted()) {
-            console.log("Preparing for printing...");
-            setShowPDFPreview(true);
+          if (!isMounted()) return resolve();
+          
+          console.log("Preparing for printing...");
+          
+          // Ensure print container exists
+          if (!printContainerRef.current) {
+            const container = document.createElement('div');
+            container.className = 'order-print-layer';
+            container.style.position = 'fixed';
+            container.style.left = '-9999px';
+            container.style.top = '-9999px';
+            container.style.visibility = 'hidden';
+            container.style.pointerEvents = 'none';
+            document.body.appendChild(container);
+            printContainerRef.current = container;
           }
-          setTimeout(resolve, 500);
+          
+          // Add a small delay to ensure React has time to prepare the DOM
+          setShowPDFPreview(true);
+          
+          // Longer delay for complex PDF rendering
+          setTimeout(resolve, 800);
         } catch (error) {
           console.error('Error in onBeforePrint:', error);
           resolve();
@@ -242,48 +300,33 @@ export const OrdersPage = () => {
     onAfterPrint: () => {
       try {
         console.log("Printing completed");
-        if (isMounted()) {
-          // Do DOM cleanup after print
-          setTimeout(() => {
-            setShowPDFPreview(false);
-            cleanupDOM();
-          }, 100);
-        }
+        if (!isMounted()) return;
+        
+        // Do DOM cleanup after print with staged removal
+        setTimeout(() => {
+          setShowPDFPreview(false);
+          cleanupDOM();
+          
+          // Clear out print container contents
+          if (printContainerRef.current) {
+            safeClearChildren(printContainerRef.current);
+          }
+        }, 300);
       } catch (error) {
         console.error('Error in onAfterPrint:', error);
       }
     },
-    contentRef: pdfRef,
+    content: () => {
+      // Use either the PDF ref or try to find it in the DOM as fallback
+      if (pdfRef.current) {
+        return pdfRef.current;
+      } else {
+        return document.querySelector('.order-pdf-container');
+      }
+    },
   });
 
-  // Pre-render the PDF content when viewing order changes
-  useEffect(() => {
-    if (viewingOrder && !showPDFPreview && isMounted()) {
-      try {
-        console.log("Pre-rendering PDF");
-        setShowPDFPreview(true);
-        // Small timeout to ensure the content is rendered
-        const timer = setTimeout(() => {
-          if (isMounted()) {
-            setShowPDFPreview(false);
-            console.log("Pre-rendering complete");
-          }
-        }, 500);
-        
-        return () => {
-          clearTimeout(timer);
-          console.log("Clearing pre-rendering timer");
-        };
-      } catch (error) {
-        console.error('Error in PDF preview effect:', error);
-        if (isMounted()) {
-          setShowPDFPreview(false);
-        }
-      }
-    }
-  }, [viewingOrder, showPDFPreview, isMounted]);
-
-  // Improved dialog close handling with DOM cleanup
+  // Improved dialog close handling with comprehensive DOM cleanup
   const handleDialogClose = () => {
     try {
       console.log("Closing order dialog");
@@ -305,7 +348,15 @@ export const OrdersPage = () => {
         setViewingOrder(null);
         setCustomerInfo(null);
         setCustomerName('');
-        setSearchParams({});
+        
+        try {
+          // Clear search params without triggering a full re-render
+          const newParams = new URLSearchParams();
+          setSearchParams(newParams);
+        } catch (err) {
+          console.error("Error clearing URL params:", err);
+        }
+        
         console.log("View state cleared");
         
         // Final cleanup to catch any elements React might have missed
@@ -320,7 +371,7 @@ export const OrdersPage = () => {
         setShowPDFPreview(false);
         setIsEditing(false);
         setViewingOrder(null);
-        setSearchParams({});
+        setSearchParams(new URLSearchParams());
       }
     }
   };
@@ -693,22 +744,23 @@ export const OrdersPage = () => {
       </AlertDialog>
       
       {/* Improved PDF container with safer positioning */}
-      {viewingOrder && customerInfo && (
+      {viewingOrder && customerInfo && showPDFPreview && (
         <div 
+          role="presentation" 
+          aria-hidden="true"
+          className="order-pdf-container"
           style={{ 
-            display: showPDFPreview ? 'block' : 'none', 
             position: 'fixed',
             top: '-9999px',
             left: '-9999px',
-            width: '100%',
+            width: '0',
             height: '0',
             overflow: 'hidden',
-            visibility: showPDFPreview ? 'visible' : 'hidden',
+            opacity: 0,
             pointerEvents: 'none',
+            visibility: 'hidden',
             zIndex: -1
           }}
-          className="shipment-print-container"
-          aria-hidden="true"
         >
           <div ref={pdfRef}>
             <OrderPDF 
