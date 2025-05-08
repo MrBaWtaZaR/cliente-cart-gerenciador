@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +15,8 @@ interface CustomerStore {
   updateOrderStatus: (customerId: string, orderId: string, status: Order['status']) => void;
   updateOrder: (customerId: string, orderId: string, orderData: Partial<Order>) => void;
   deleteOrder: (customerId: string, orderId: string) => void;
+  
+  reloadCustomers: () => Promise<void>;
 }
 
 // Helper function to safely store data in localStorage
@@ -48,9 +49,57 @@ const loadInitialCustomers = (): Customer[] => {
   return [];
 };
 
-export const useCustomerStore = create<CustomerStore>((set) => ({
+export const useCustomerStore = create<CustomerStore>((set, get) => ({
   customers: loadInitialCustomers(),
 
+  reloadCustomers: async () => {
+    try {
+      const { data: customerData, error } = await supabase
+        .from('customers')
+        .select('*')
+        .order('name');
+        
+      if (error) {
+        throw error;
+      }
+      
+      const currentCustomers = get().customers;
+      
+      const updatedCustomers = customerData.map(customer => {
+        const localCustomer = currentCustomers.find(c => 
+          c.name?.toLowerCase() === customer.name?.toLowerCase() &&
+          c.email?.toLowerCase() === customer.email?.toLowerCase()
+        );
+        
+        return {
+          id: localCustomer?.id || generateId(),
+          name: customer.name,
+          email: customer.email,
+          phone: customer.phone,
+          address: customer.address || undefined,
+          createdAt: new Date(customer.created_at || new Date()),
+          tourName: customer.tour_name || undefined,
+          tourSector: customer.tour_sector || undefined,
+          tourSeatNumber: customer.tour_seat_number || undefined,
+          tourCity: customer.tour_city || undefined,
+          tourState: customer.tour_state || undefined,
+          tourDepartureTime: customer.tour_departure_time || undefined,
+          orders: localCustomer?.orders || []
+        };
+      });
+      
+      safeLocalStorageSave('customers', updatedCustomers);
+      
+      set({ customers: updatedCustomers });
+      
+      return updatedCustomers;
+    } catch (error) {
+      console.error('Erro ao recarregar clientes:', error);
+      toast.error('Erro ao atualizar lista de clientes');
+      throw error;
+    }
+  },
+  
   addCustomer: (customerData) => set((state) => {
     try {
       const newCustomer: Customer = {
@@ -63,7 +112,6 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
       const updatedCustomers = [...state.customers, newCustomer];
       safeLocalStorageSave('customers', updatedCustomers);
       
-      // Also add to Supabase
       supabase.from('customers').insert({
         name: customerData.name,
         email: customerData.email,
@@ -105,7 +153,6 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
       
       safeLocalStorageSave('customers', updatedCustomers);
       
-      // Update in Supabase by name (since we don't have the Supabase ID)
       if (customerToUpdate.name && customerToUpdate.email) {
         supabase.from('customers')
           .update({
@@ -150,7 +197,6 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
       const updatedCustomers = state.customers.filter((customer) => customer.id !== id);
       safeLocalStorageSave('customers', updatedCustomers);
       
-      // Delete from Supabase by matching name and email
       if (customerToDelete.name && customerToDelete.email) {
         supabase.from('customers')
           .delete()
@@ -196,6 +242,8 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
       
       safeLocalStorageSave('customers', updatedCustomers);
       
+      window.dispatchEvent(new CustomEvent('order-updated'));
+      
       toast.success('Pedido adicionado com sucesso');
       return { customers: updatedCustomers };
     } catch (error) {
@@ -222,6 +270,8 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
       });
       
       safeLocalStorageSave('customers', updatedCustomers);
+      
+      window.dispatchEvent(new CustomEvent('order-updated'));
       
       toast.success('Status do pedido atualizado');
       return { customers: updatedCustomers };
@@ -250,6 +300,8 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
       
       safeLocalStorageSave('customers', updatedCustomers);
       
+      window.dispatchEvent(new CustomEvent('order-updated'));
+      
       toast.success('Pedido atualizado com sucesso');
       return { customers: updatedCustomers };
     } catch (error) {
@@ -270,6 +322,8 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
       });
       
       safeLocalStorageSave('customers', updatedCustomers);
+      
+      window.dispatchEvent(new CustomEvent('order-updated'));
       
       toast.success('Pedido excluído com sucesso');
       return { customers: updatedCustomers };

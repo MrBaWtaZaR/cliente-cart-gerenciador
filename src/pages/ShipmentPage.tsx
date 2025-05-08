@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 export const ShipmentPage = () => {
-  const { customers, shipments, addShipment, getShipments, deleteShipment, updateShipment } = useDataStore();
+  const { customers, shipments, addShipment, getShipments, deleteShipment, updateShipment, refreshAll } = useDataStore();
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [isCreatingShipment, setIsCreatingShipment] = useState(false);
   const [isSelectingCustomers, setIsSelectingCustomers] = useState(false);
@@ -29,16 +29,31 @@ export const ShipmentPage = () => {
   // Fetch shipments when component mounts or when dependencies change
   useEffect(() => {
     const fetchShipments = async () => {
+      setIsLoading(true);
       try {
-        await getShipments();
+        // Usar refreshAll em vez de apenas getShipments para garantir dados atualizados
+        await refreshAll();
       } catch (error) {
         console.error("Error fetching shipments:", error);
         toast.error("Falha ao carregar envios. Por favor, recarregue a página.");
+      } finally {
+        setIsLoading(false);
       }
     };
     
     fetchShipments();
-  }, [getShipments]);
+    
+    // Adicionar listener para eventos de atualização
+    const handleOrderUpdate = () => {
+      fetchShipments();
+    };
+    
+    window.addEventListener('order-updated', handleOrderUpdate);
+    
+    return () => {
+      window.removeEventListener('order-updated', handleOrderUpdate);
+    };
+  }, [getShipments, refreshAll]);
 
   const handlePrintTable = useReactToPrint({
     documentTitle: `Tabela_de_Envio_${format(new Date(), 'dd-MM-yyyy')}`,
@@ -86,8 +101,8 @@ export const ShipmentPage = () => {
       // Reset selection
       setSelectedCustomers([]);
       
-      // Fetch updated shipments
-      await getShipments();
+      // Fetch updated shipments with full refresh
+      await refreshAll();
       toast.success('Envio criado com sucesso!');
     } catch (error) {
       console.error('Erro ao criar envio:', error);
@@ -115,7 +130,9 @@ export const ShipmentPage = () => {
       await deleteShipment(selectedShipment.id);
       setShowDeleteConfirm(false);
       setShowShipmentDetails(false);
-      await getShipments(); // Refresh the shipments list after deletion
+      
+      // Refresh all data after deletion
+      await refreshAll();
       toast.success('Envio excluído com sucesso');
     } catch (error) {
       console.error('Erro ao excluir envio:', error);
@@ -150,8 +167,8 @@ export const ShipmentPage = () => {
       setIsEditing(false);
       setSelectedCustomers([]);
       
-      // Fetch updated shipments
-      await getShipments();
+      // Refresh all data after update
+      await refreshAll();
       toast.success('Envio atualizado com sucesso!');
     } catch (error) {
       console.error('Erro ao atualizar envio:', error);
@@ -190,41 +207,59 @@ export const ShipmentPage = () => {
         </Button>
       </div>
 
-      {/* Histórico de Envios */}
+      {/* Histórico de Envios com indicador de carregamento */}
       <section>
-        <h2 className="text-2xl font-semibold mb-4">Histórico de Envios</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {shipments && shipments.length > 0 ? (
-            shipments.map((shipment) => (
-              <Card key={shipment.id} className="transition-all duration-200 hover:shadow-md">
-                <CardHeader>
-                  <CardTitle>Envio de {format(shipment.createdAt, "dd 'de' MMMM", { locale: ptBR })}</CardTitle>
-                  <CardDescription>
-                    {shipment.customers && shipment.customers.length || 0} clientes
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    <span>{format(shipment.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
-                  </div>
-                </CardContent>
-                <CardFooter className="gap-2">
-                  <Button variant="outline" size="sm" onClick={() => handleShowShipmentDetails(shipment)}>
-                    <Eye className="mr-2 h-4 w-4" /> Detalhes
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleGeneratePDFs(shipment)}>
-                    <Download className="mr-2 h-4 w-4" /> Baixar PDFs
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-12 text-muted-foreground">
-              <p>Nenhum envio encontrado. Crie um novo envio para começar.</p>
-            </div>
-          )}
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-semibold">Histórico de Envios</h2>
+          <Button 
+            variant="outline" 
+            size="sm"
+            disabled={isLoading}
+            onClick={() => refreshAll()}
+          >
+            {isLoading ? 'Atualizando...' : 'Atualizar dados'}
+          </Button>
         </div>
+        
+        {isLoading ? (
+          <div className="py-12 text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+            <p className="mt-2 text-sm text-muted-foreground">Carregando dados...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {shipments && shipments.length > 0 ? (
+              shipments.map((shipment) => (
+                <Card key={shipment.id} className="transition-all duration-200 hover:shadow-md">
+                  <CardHeader>
+                    <CardTitle>Envio de {format(shipment.createdAt, "dd 'de' MMMM", { locale: ptBR })}</CardTitle>
+                    <CardDescription>
+                      {shipment.customers && shipment.customers.length || 0} clientes
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      <span>{format(shipment.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handleShowShipmentDetails(shipment)}>
+                      <Eye className="mr-2 h-4 w-4" /> Detalhes
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleGeneratePDFs(shipment)}>
+                      <Download className="mr-2 h-4 w-4" /> Baixar PDFs
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-12 text-muted-foreground">
+                <p>Nenhum envio encontrado. Crie um novo envio para começar.</p>
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Dialog para seleção de clientes */}

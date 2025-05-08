@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -147,6 +146,9 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         shipments: [...state.shipments, newShipment]
       }));
       
+      // Se o upload for bem-sucedido, realiza consulta imediata para atualizar a lista
+      await get().getShipments();
+      
       toast.success('Envio criado com sucesso');
       return newShipment;
     } catch (error) {
@@ -263,6 +265,10 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         )
       }));
       
+      // Atualiza a lista completa após modificação
+      const shipments = await get().getShipments();
+      set({ shipments });
+      
       toast.success('Envio atualizado com sucesso');
       return updatedShipment;
     } catch (error) {
@@ -298,6 +304,10 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
       set(state => ({
         shipments: state.shipments.filter(shipment => shipment.id !== shipmentId)
       }));
+      
+      // Atualiza a lista completa após exclusão
+      const shipments = await get().getShipments();
+      set({ shipments });
       
       toast.success('Envio excluído com sucesso');
     } catch (error) {

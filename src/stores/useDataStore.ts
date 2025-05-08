@@ -63,6 +63,7 @@ interface DataStore {
   isLoading: boolean;
   
   initializeData: () => Promise<void>;
+  refreshAll: () => Promise<void>; // New function to refresh all data
   
   // Customer store functions
   addCustomer: typeof customerStore.addCustomer;
@@ -95,6 +96,28 @@ export const useDataStore = create<DataStore>((set, get) => {
     shipments: [],
     isInitialized: false,
     isLoading: false,
+    
+    // Nova função para atualizar todos os dados
+    refreshAll: async () => {
+      try {
+        set({ isLoading: true });
+        
+        // Recarregar dados de clientes
+        await get().initializeData();
+        
+        // Recarregar produtos
+        await productStore.loadProducts();
+        
+        // Recarregar shipments
+        await shipmentStore.getShipments();
+        
+        set({ isLoading: false });
+      } catch (error) {
+        console.error('Error refreshing all data:', error);
+        set({ isLoading: false });
+        toast.error('Erro ao atualizar dados');
+      }
+    },
     
     initializeData: async () => {
       // Don't initialize if already done or in progress
