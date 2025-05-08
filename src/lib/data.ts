@@ -453,15 +453,36 @@ export const useDataStore = create<DataStore>((set, get) => ({
   
   uploadProductImage: async (productId, file) => {
     try {
-      const fileExt = file.name.split('.').pop();
+      // Se o arquivo for um blob URL, precisamos primeiro convertê-lo em um arquivo
+      let fileToUpload = file;
+      
+      // Verifica se o arquivo está em formato de blob URL
+      if (typeof file === 'string' && file.startsWith('blob:')) {
+        try {
+          // Busca o arquivo do armazenamento temporário
+          const response = await fetch(file);
+          const blob = await response.blob();
+          
+          // Cria um novo arquivo com um nome mais previsível
+          const filename = `product_image_${Date.now()}.${blob.type.split('/')[1] || 'jpeg'}`;
+          fileToUpload = new File([blob], filename, { type: blob.type });
+        } catch (error) {
+          console.error('Erro ao converter blob URL para arquivo:', error);
+          throw new Error('Não foi possível processar a imagem. Por favor, tente novamente.');
+        }
+      }
+      
+      // Continua com o upload normal
+      const fileExt = fileToUpload.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       const filePath = `${productId}/${fileName}`;
       
       const { error: uploadError } = await supabase.storage
         .from('product-images')
-        .upload(filePath, file);
+        .upload(filePath, fileToUpload);
         
       if (uploadError) {
+        console.error('Erro ao fazer upload da imagem:', uploadError);
         toast.error('Erro ao fazer upload da imagem');
         throw uploadError;
       }
@@ -473,7 +494,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
           if (product.id === productId) {
             return {
               ...product,
-              images: [...product.images, publicUrl]
+              images: [...product.images.filter(img => img !== '/placeholder.svg'), publicUrl]
             };
           }
           return product;

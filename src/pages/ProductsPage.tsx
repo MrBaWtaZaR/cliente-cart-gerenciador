@@ -1,4 +1,3 @@
-
 import { useState, useRef } from 'react';
 import { useDataStore, Product } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -61,24 +60,114 @@ export const ProductsPage = () => {
     }
   };
   
-  const handleAddProduct = () => {
+  const handleAddProductFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    const newImages = [...newProduct.images.filter(img => img !== '/placeholder.svg')];
+    
+    // Exibe mensagem de carregamento para uploads
+    toast.loading(`Processando ${files.length} imagem(ns)...`);
+    
+    try {
+      // Generate temporary URLs for preview
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const tempUrl = URL.createObjectURL(file);
+        newImages.push(tempUrl);
+        
+        // Store the File object for later upload
+        (window as any)[`tempFile_${tempUrl}`] = file;
+      }
+      
+      setNewProduct(prev => ({
+        ...prev,
+        images: newImages.length ? newImages : ['/placeholder.svg']
+      }));
+      
+      if (addFileInputRef.current) addFileInputRef.current.value = '';
+      toast.dismiss();
+    } catch (error) {
+      console.error('Erro ao processar imagens:', error);
+      toast.error('Erro ao processar imagens');
+      if (addFileInputRef.current) addFileInputRef.current.value = '';
+    }
+  };
+  
+  const handleAddProduct = async () => {
     if (!newProduct.name || newProduct.price <= 0) {
       toast.error('Preencha os campos obrigatórios');
       return;
     }
     
-    addProduct(newProduct);
-    setNewProduct({
-      name: '',
-      description: '',
-      price: 0,
-      stock: 0,
-      images: ['/placeholder.svg']
-    });
-    setIsAddingProduct(false);
+    // Se houver imagens temporárias, precisamos fazer o upload delas primeiro
+    const finalProduct = { ...newProduct };
+    let processedImages: string[] = [];
+    
+    // Mostra o toast de carregamento
+    toast.loading('Processando imagens e salvando produto...');
+    
+    try {
+      // Processa cada imagem
+      for (const image of newProduct.images) {
+        if (image === '/placeholder.svg') {
+          processedImages.push(image);
+        } else if (image.startsWith('blob:')) {
+          // Recupera o arquivo temporário armazenado anteriormente
+          const tempFile = (window as any)[`tempFile_${image}`];
+          
+          if (tempFile) {
+            // Gera um ID temporário para o produto se ainda não existir
+            const tempProductId = 'temp_' + Date.now().toString(36);
+            
+            // Faz o upload da imagem e obtém a URL pública
+            const publicUrl = await uploadProductImage(tempProductId, tempFile);
+            processedImages.push(publicUrl);
+            
+            // Limpa a referência ao arquivo temporário
+            delete (window as any)[`tempFile_${image}`];
+            
+            // Revoga a URL do blob para liberar memória
+            URL.revokeObjectURL(image);
+          } else {
+            console.error(`Arquivo temporário não encontrado para ${image}`);
+            // Se não conseguiu encontrar o arquivo, tenta usar a URL diretamente
+            processedImages.push(image);
+          }
+        } else {
+          // Imagem já processada
+          processedImages.push(image);
+        }
+      }
+      
+      // Atualiza o produto com as imagens processadas
+      finalProduct.images = processedImages;
+      
+      // Adiciona o produto com as imagens processadas
+      addProduct(finalProduct);
+      
+      // Reseta o formulário
+      setNewProduct({
+        name: '',
+        description: '',
+        price: 0,
+        stock: 0,
+        images: ['/placeholder.svg']
+      });
+      
+      // Fecha o modal
+      setIsAddingProduct(false);
+      
+      toast.dismiss();
+      toast.success('Produto adicionado com sucesso');
+    } catch (error) {
+      console.error('Erro ao processar imagens:', error);
+      toast.dismiss();
+      toast.error('Erro ao processar imagens e salvar produto');
+    }
   };
   
-  const handleEditProduct = () => {
+  const handleEditProduct = async () => {
     if (!isEditingProduct) return;
     
     if (!newProduct.name || newProduct.price <= 0) {
@@ -86,26 +175,67 @@ export const ProductsPage = () => {
       return;
     }
     
-    updateProduct(isEditingProduct, newProduct);
-    setNewProduct({
-      name: '',
-      description: '',
-      price: 0,
-      stock: 0,
-      images: ['/placeholder.svg']
-    });
-    setIsEditingProduct(null);
-  };
-  
-  const handleEditClick = (product: Product) => {
-    setNewProduct({
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      stock: product.stock,
-      images: product.images
-    });
-    setIsEditingProduct(product.id);
+    // Se houver imagens temporárias, precisamos fazer o upload delas primeiro
+    const finalProduct = { ...newProduct };
+    let processedImages: string[] = [];
+    
+    // Mostra o toast de carregamento
+    toast.loading('Processando imagens e atualizando produto...');
+    
+    try {
+      // Processa cada imagem
+      for (const image of newProduct.images) {
+        if (image === '/placeholder.svg') {
+          processedImages.push(image);
+        } else if (image.startsWith('blob:')) {
+          // Recupera o arquivo temporário armazenado anteriormente
+          const tempFile = (window as any)[`tempFile_${image}`];
+          
+          if (tempFile) {
+            // Faz o upload da imagem e obtém a URL pública
+            const publicUrl = await uploadProductImage(isEditingProduct, tempFile);
+            processedImages.push(publicUrl);
+            
+            // Limpa a referência ao arquivo temporário
+            delete (window as any)[`tempFile_${image}`];
+            
+            // Revoga a URL do blob para liberar memória
+            URL.revokeObjectURL(image);
+          } else {
+            console.error(`Arquivo temporário não encontrado para ${image}`);
+            processedImages.push(image);
+          }
+        } else {
+          // Imagem já processada
+          processedImages.push(image);
+        }
+      }
+      
+      // Atualiza o produto com as imagens processadas
+      finalProduct.images = processedImages;
+      
+      // Atualiza o produto
+      updateProduct(isEditingProduct, finalProduct);
+      
+      // Reseta o formulário
+      setNewProduct({
+        name: '',
+        description: '',
+        price: 0,
+        stock: 0,
+        images: ['/placeholder.svg']
+      });
+      
+      // Fecha o modal de edição
+      setIsEditingProduct(null);
+      
+      toast.dismiss();
+      toast.success('Produto atualizado com sucesso');
+    } catch (error) {
+      console.error('Erro ao processar imagens:', error);
+      toast.dismiss();
+      toast.error('Erro ao processar imagens e atualizar produto');
+    }
   };
   
   const confirmDeleteProduct = () => {
@@ -152,30 +282,6 @@ export const ProductsPage = () => {
     } else if (fileInputRef.current) {
       fileInputRef.current.click();
     }
-  };
-  
-  const handleAddProductFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-    
-    const newImages = [...newProduct.images.filter(img => img !== '/placeholder.svg')];
-    
-    // Generate temporary URLs for preview
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const tempUrl = URL.createObjectURL(file);
-      newImages.push(tempUrl);
-      
-      // Store the File object for later upload
-      (window as any)[`tempFile_${tempUrl}`] = file;
-    }
-    
-    setNewProduct(prev => ({
-      ...prev,
-      images: newImages.length ? newImages : ['/placeholder.svg']
-    }));
-    
-    if (addFileInputRef.current) addFileInputRef.current.value = '';
   };
   
   return (
