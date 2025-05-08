@@ -177,6 +177,16 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
   
   addCustomer: (customerData) => set((state) => {
     try {
+      // Verificar se já existe um cliente com este email
+      const existingCustomer = state.customers.find(c => 
+        c.email?.toLowerCase() === customerData.email?.toLowerCase());
+      
+      if (existingCustomer) {
+        console.log(`Cliente já existe com email ${customerData.email}, usando ID existente:`, existingCustomer.id);
+        // Retornar o estado atual sem alterações
+        return state;
+      }
+      
       const newCustomer: Customer = {
         id: generateId(),
         ...customerData,
@@ -296,6 +306,14 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
   
   addOrder: (orderData) => set((state) => {
     try {
+      // Verificar se o cliente existe
+      const customerExists = state.customers.some(c => c.id === orderData.customerId);
+      if (!customerExists) {
+        console.error(`Cliente não encontrado com ID: ${orderData.customerId}`);
+        toast.error("Cliente não encontrado. Não é possível adicionar o pedido.");
+        return state;
+      }
+      
       const newOrder = {
         id: generateId(),
         customerId: orderData.customerId,

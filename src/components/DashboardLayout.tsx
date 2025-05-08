@@ -4,6 +4,7 @@ import { DashboardSidebar } from './DashboardSidebar';
 import { AuthGuard } from './AuthGuard';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useDataStore } from '@/stores';
+import { toast } from 'sonner';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -21,13 +22,20 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     console.log("Inicializando dados da aplicação...");
     
     if (!isInitialized) {
-      refreshAll();
+      refreshAll().catch(error => {
+        console.error("Erro ao inicializar dados:", error);
+        toast.error("Erro ao carregar dados. Por favor, recarregue a página.");
+      });
     }
     
     // Função para limpar elementos órfãos no DOM de forma segura
     const cleanupOrphanedElements = () => {
       // Prevent concurrent cleanups
-      if (cleanupInProgressRef.current) return;
+      if (cleanupInProgressRef.current) {
+        console.log("Limpeza já em andamento, ignorando chamada");
+        return;
+      }
+      
       cleanupInProgressRef.current = true;
       
       try {
@@ -54,40 +62,54 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         
         // Limpar cada tipo de elemento de forma segura
         selectors.forEach(selector => {
-          const elements = document.querySelectorAll(selector);
-          console.log(`Encontrados ${elements.length} elementos ${selector} para limpar`);
-          
-          elements.forEach(el => {
-            if (!el || !el.parentNode) return;
+          try {
+            const elements = document.querySelectorAll(selector);
+            console.log(`Encontrados ${elements.length} elementos ${selector} para limpar`);
             
-            try {
-              // Verificação adicional para garantir que o elemento existe no DOM
-              const stillInDocument = document.body.contains(el);
-              if (!stillInDocument) {
-                console.log(`Elemento ${selector} já foi removido do DOM`);
-                return;
-              }
+            elements.forEach(el => {
+              if (!el || !el.parentNode) return;
               
-              // Verificação dupla para garantir que o elemento ainda é filho do pai
-              if (el.parentNode && 
-                  typeof el.parentNode.contains === 'function' && 
-                  el.parentNode.contains(el)) {
-                el.parentNode.removeChild(el);
-                console.log(`Elemento ${selector} removido com sucesso`);
+              try {
+                // Verificação adicional para garantir que o elemento existe no DOM
+                const stillInDocument = document.body.contains(el);
+                if (!stillInDocument) {
+                  console.log(`Elemento ${selector} já foi removido do DOM`);
+                  return;
+                }
+                
+                // Verificação dupla mais rigorosa antes de remover
+                if (el.parentNode && 
+                    typeof el.parentNode.contains === 'function' && 
+                    el.parentNode.contains(el) &&
+                    document.contains(el.parentNode as Node)) {
+                  
+                  try {
+                    el.parentNode.removeChild(el);
+                    console.log(`Elemento ${selector} removido com sucesso`);
+                  } catch (removeError) {
+                    console.error(`Erro ao remover elemento ${selector}:`, removeError);
+                    // Tentar abordagem alternativa
+                    (el as HTMLElement).style.display = 'none';
+                  }
+                } else {
+                  console.log(`Elemento ${selector} ou seu pai não está mais no DOM`);
+                }
+              } catch (e) {
+                // Ignorar erros se o elemento já foi removido
+                console.log(`Erro ao tentar remover ${selector}:`, e);
               }
-            } catch (e) {
-              // Ignorar erros se o elemento já foi removido
-              console.log(`Erro ao tentar remover ${selector}:`, e);
-            }
-          });
+            });
+          } catch (selectorError) {
+            console.error(`Erro ao processar seletor ${selector}:`, selectorError);
+          }
         });
       } catch (error) {
-        console.error('Error cleaning up DOM elements:', error);
+        console.error('Erro ao limpar elementos do DOM:', error);
       } finally {
         // Liberar o lock de limpeza após um pequeno delay
         setTimeout(() => {
           cleanupInProgressRef.current = false;
-        }, 100);
+        }, 150);
       }
     };
   
@@ -98,17 +120,29 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     };
     
     window.addEventListener('app-cleanup', handleCleanup);
+    window.addEventListener('popstate', handleCleanup);
   
     return () => {
       console.log("App desmontado, limpando recursos...");
       unmountingRef.current = true;
       
-      // Remover listener do evento
+      // Remover listeners dos eventos
       window.removeEventListener('app-cleanup', handleCleanup);
+      window.removeEventListener('popstate', handleCleanup);
       
       // Limpar qualquer timer pendente
       if (cleanupTimerRef.current !== null) {
         clearTimeout(cleanupTimerRef.current);
+      }
+      
+      // Remover listeners de eventos residuais em elementos comuns
+      try {
+        const clickableElements = document.querySelectorAll('button, a, [role="button"]');
+        clickableElements.forEach(el => {
+          el.replaceWith(el.cloneNode(true));
+        });
+      } catch (error) {
+        console.error('Erro ao limpar event listeners:', error);
       }
       
       // Executar limpeza imediatamente
@@ -117,13 +151,13 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       // Executar limpeza novamente após um pequeno delay
       cleanupTimerRef.current = window.setTimeout(() => {
         cleanupOrphanedElements();
-      }, 0);
+      }, 50);
       
-      // E mais uma vez após um delay maior
+      // E mais uma vez após um delay maior para garantir
       cleanupTimerRef.current = window.setTimeout(() => {
         cleanupOrphanedElements();
         unmountingRef.current = false;
-      }, 50);
+      }, 150);
     };
   }, [refreshAll, isInitialized]);
 

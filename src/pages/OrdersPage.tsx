@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useCustomerStore } from '@/stores';
 import { Button } from '@/components/ui/button';
@@ -70,16 +71,20 @@ export const OrdersPage = () => {
 
   // Check if we should open a specific order from URL parameters
   useEffect(() => {
-    const viewOrderId = searchParams.get('view');
-    if (viewOrderId && !dialogOpen) {
-      console.log("Tentando abrir pedido do URL:", viewOrderId);
-      const orderToView = allOrders.find(order => order.id === viewOrderId);
-      if (orderToView) {
-        handleViewOrder(orderToView, orderToView.customerName);
-        if (isMounted.current) {
-          setDialogOpen(true);
+    try {
+      const viewOrderId = searchParams.get('view');
+      if (viewOrderId && !dialogOpen) {
+        console.log("Tentando abrir pedido do URL:", viewOrderId);
+        const orderToView = allOrders.find(order => order.id === viewOrderId);
+        if (orderToView) {
+          handleViewOrder(orderToView, orderToView.customerName);
+          if (isMounted.current) {
+            setDialogOpen(true);
+          }
         }
       }
+    } catch (error) {
+      console.error("Erro ao processar parâmetros de URL:", error);
     }
   }, [searchParams, allOrders, dialogOpen]);
 
@@ -115,6 +120,12 @@ export const OrdersPage = () => {
       
       if (!isMounted.current) return;
       
+      if (!customer) {
+        console.error(`Cliente não encontrado para o ID: ${order.customerId}`);
+        toast.error("Cliente não encontrado para este pedido.");
+        return;
+      }
+      
       // Create a new order object without the customerName property
       const orderForState = {
         id: order.id,
@@ -126,18 +137,18 @@ export const OrdersPage = () => {
       };
       
       // Separately set the customer name state
-      setCustomerName(customerName);
+      setCustomerName(customerName || customer.name || "Cliente");
       
       setCustomerInfo({
-        email: customer?.email || '',
-        phone: customer?.phone || '',
-        address: customer?.address,
-        tourName: customer?.tourName,
-        tourSector: customer?.tourSector,
-        tourSeatNumber: customer?.tourSeatNumber,
-        tourCity: customer?.tourCity,
-        tourState: customer?.tourState,
-        tourDepartureTime: customer?.tourDepartureTime
+        email: customer.email || '',
+        phone: customer.phone || '',
+        address: customer.address || '',
+        tourName: customer.tourName || '',
+        tourSector: customer.tourSector || '',
+        tourSeatNumber: customer.tourSeatNumber || '',
+        tourCity: customer.tourCity || '',
+        tourState: customer.tourState || '',
+        tourDepartureTime: customer.tourDepartureTime || ''
       });
       
       // Set viewingOrder with the correct Order type
