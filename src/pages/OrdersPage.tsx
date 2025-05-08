@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { useDataStore, Order } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShoppingCart, Search, Filter, Printer } from 'lucide-react';
+import { ShoppingCart, Search, Filter, Printer, Edit } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { OrderPDF } from '@/components/OrderPDF';
 import { DateFilter } from '@/components/DateFilter';
@@ -13,6 +14,7 @@ import { OrderCard } from '@/components/OrderCard';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { TimeFormatter } from '@/components/TimeFormatter';
 import { PhoneFormatter } from '@/components/PhoneFormatter';
+import { EditOrderForm } from '@/components/EditOrderForm';
 
 export const OrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -26,8 +28,9 @@ export const OrdersPage = () => {
   const [customerInfo, setCustomerInfo] = useState<any>(null);
   const [showPDFPreview, setShowPDFPreview] = useState<boolean>(false);
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
 
-  // Obter todos os pedidos
+  // Get all orders
   const allOrders = customers.flatMap(customer => 
     customer.orders.map(order => ({
       ...order,
@@ -48,7 +51,7 @@ export const OrdersPage = () => {
     }
   }, [searchParams, allOrders, dialogOpen]);
 
-  // Filtrar pedidos com base nos filtros
+  // Filter orders based on applied filters
   const filteredOrders = allOrders.filter(order => {
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     const searchLower = searchTerm.toLowerCase();
@@ -66,7 +69,7 @@ export const OrdersPage = () => {
   const handleUpdateOrderStatus = (customerId: string, orderId: string, newStatus: 'pending' | 'completed' | 'cancelled') => {
     updateOrderStatus(customerId, orderId, newStatus);
     
-    // Atualizar o status na visualização atual se estiver aberta
+    // Update status in current view if it's open
     if (viewingOrder && viewingOrder.id === orderId) {
       setViewingOrder({ ...viewingOrder, status: newStatus });
     }
@@ -128,12 +131,38 @@ export const OrdersPage = () => {
     // First close the dialog UI
     setDialogOpen(false);
     setShowPDFPreview(false);
+    setIsEditing(false);
     
     // Then clean up the URL and state after a short delay
     setTimeout(() => {
       setViewingOrder(null);
       setSearchParams({});
     }, 300);
+  };
+
+  const handleStartEditing = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancelEditing = () => {
+    setIsEditing(false);
+  };
+
+  const handleOrderUpdated = () => {
+    setIsEditing(false);
+    // Update the view with the latest order data
+    if (viewingOrder) {
+      const updatedOrder = customers.find(c => c.id === viewingOrder.customerId)
+        ?.orders.find(o => o.id === viewingOrder.id);
+      
+      if (updatedOrder) {
+        setViewingOrder({
+          ...updatedOrder,
+          customerName,
+          customerId: viewingOrder.customerId
+        });
+      }
+    }
   };
 
   return (
@@ -194,6 +223,10 @@ export const OrdersPage = () => {
                   key={order.id}
                   order={order}
                   customerName={order.customerName}
+                  onClick={() => {
+                    handleViewOrder(order, order.customerName);
+                    setDialogOpen(true);
+                  }}
                 />
               ))}
             </div>
@@ -220,118 +253,150 @@ export const OrdersPage = () => {
         }}
       >
         <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Detalhes do Pedido</DialogTitle>
-            <DialogDescription>
-              Pedido de {customerName} realizado em {viewingOrder && 
-                new Date(viewingOrder.createdAt).toLocaleString('pt-BR')
-              }
-            </DialogDescription>
-          </DialogHeader>
-          
-          {viewingOrder && (
+          {isEditing && viewingOrder ? (
             <>
-              <div className="flex flex-col md:flex-row justify-between mb-6">
-                <div>
-                  <p className="font-medium">ID do Pedido:</p>
-                  <p className="font-mono text-sm">{viewingOrder.id}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Status:</p>
-                  <Select
-                    value={viewingOrder.status}
-                    onValueChange={(value) => handleUpdateOrderStatus(
-                      viewingOrder.customerId, 
-                      viewingOrder.id, 
-                      value as 'pending' | 'completed' | 'cancelled'
-                    )}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pendente</SelectItem>
-                      <SelectItem value="completed">Concluído</SelectItem>
-                      <SelectItem value="cancelled">Cancelado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              <DialogHeader>
+                <DialogTitle>Editar Pedido</DialogTitle>
+                <DialogDescription>
+                  Editar pedido de {customerName} realizado em {
+                    new Date(viewingOrder.createdAt).toLocaleString('pt-BR')
+                  }
+                </DialogDescription>
+              </DialogHeader>
               
-              <div className="space-y-4">
-                <h3 className="font-medium">Produtos no Pedido</h3>
-                <div className="border rounded-md overflow-hidden">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-muted/50">
-                        <th className="text-left p-2">Produto</th>
-                        <th className="text-center p-2">Quantidade</th>
-                        <th className="text-right p-2">Preço</th>
-                        <th className="text-right p-2">Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {viewingOrder.products.map((item, index) => (
-                        <tr key={`${item.productId}-${index}`} className="border-t">
-                          <td className="p-2">
-                            <div className="flex items-center">
-                              {item.images && item.images[0] && (
-                                <div className="w-10 h-10 mr-3 bg-muted rounded overflow-hidden flex-shrink-0">
-                                  <img
-                                    src={item.images[0]}
-                                    alt={item.productName}
-                                    className="w-full h-full object-cover"
-                                  />
+              <EditOrderForm 
+                customerId={viewingOrder.customerId}
+                order={viewingOrder}
+                onSuccess={handleOrderUpdated}
+                onCancel={handleCancelEditing}
+              />
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Detalhes do Pedido</DialogTitle>
+                <DialogDescription>
+                  Pedido de {customerName} realizado em {viewingOrder && 
+                    new Date(viewingOrder.createdAt).toLocaleString('pt-BR')
+                  }
+                </DialogDescription>
+              </DialogHeader>
+              
+              {viewingOrder && (
+                <>
+                  <div className="flex flex-col md:flex-row justify-between mb-6">
+                    <div>
+                      <p className="font-medium">ID do Pedido:</p>
+                      <p className="font-mono text-sm">{viewingOrder.id}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Status:</p>
+                      <Select
+                        value={viewingOrder.status}
+                        onValueChange={(value) => handleUpdateOrderStatus(
+                          viewingOrder.customerId, 
+                          viewingOrder.id, 
+                          value as 'pending' | 'completed' | 'cancelled'
+                        )}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pendente</SelectItem>
+                          <SelectItem value="completed">Concluído</SelectItem>
+                          <SelectItem value="cancelled">Cancelado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium">Produtos no Pedido</h3>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleStartEditing}
+                        className="flex items-center"
+                      >
+                        <Edit className="h-4 w-4 mr-2" /> Editar Pedido
+                      </Button>
+                    </div>
+                    <div className="border rounded-md overflow-hidden">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-muted/50">
+                            <th className="text-left p-2">Produto</th>
+                            <th className="text-center p-2">Quantidade</th>
+                            <th className="text-right p-2">Preço</th>
+                            <th className="text-right p-2">Subtotal</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {viewingOrder.products.map((item, index) => (
+                            <tr key={`${item.productId}-${index}`} className="border-t">
+                              <td className="p-2">
+                                <div className="flex items-center">
+                                  {item.images && item.images[0] && (
+                                    <div className="w-10 h-10 mr-3 bg-muted rounded overflow-hidden flex-shrink-0">
+                                      <img
+                                        src={item.images[0]}
+                                        alt={item.productName}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  )}
+                                  {item.productName}
                                 </div>
-                              )}
-                              {item.productName}
-                            </div>
-                          </td>
-                          <td className="p-2 text-center">{item.quantity}</td>
-                          <td className="p-2 text-right">
-                            {new Intl.NumberFormat('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL'
-                            }).format(item.price)}
-                          </td>
-                          <td className="p-2 text-right">
-                            {new Intl.NumberFormat('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL'
-                            }).format(item.price * item.quantity)}
-                          </td>
-                        </tr>
-                      ))}
-                      <tr className="border-t bg-muted/30">
-                        <td colSpan={3} className="p-2 text-right font-bold">
-                          Total:
-                        </td>
-                        <td className="p-2 text-right font-bold">
-                          {new Intl.NumberFormat('pt-BR', {
-                            style: 'currency',
-                            currency: 'BRL'
-                          }).format(viewingOrder.total)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                              </td>
+                              <td className="p-2 text-center">{item.quantity}</td>
+                              <td className="p-2 text-right">
+                                {new Intl.NumberFormat('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL'
+                                }).format(item.price)}
+                              </td>
+                              <td className="p-2 text-right">
+                                {new Intl.NumberFormat('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL'
+                                }).format(item.price * item.quantity)}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="border-t bg-muted/30">
+                            <td colSpan={3} className="p-2 text-right font-bold">
+                              Total:
+                            </td>
+                            <td className="p-2 text-right font-bold">
+                              {new Intl.NumberFormat('pt-BR', {
+                                style: 'currency',
+                                currency: 'BRL'
+                              }).format(viewingOrder.total)}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              <DialogFooter className="flex justify-between items-center space-x-2">
+                <Button variant="outline" onClick={handleDialogClose}>
+                  Fechar
+                </Button>
+                <Button 
+                  variant="default"
+                  onClick={handlePrintPDF}
+                  className="flex items-center"
+                >
+                  <Printer className="h-4 w-4 mr-2" /> Imprimir Pedido
+                </Button>
+              </DialogFooter>
             </>
           )}
-          
-          <DialogFooter className="flex justify-between items-center space-x-2">
-            <Button variant="outline" onClick={handleDialogClose}>
-              Fechar
-            </Button>
-            <Button 
-              variant="default"
-              onClick={handlePrintPDF}
-              className="flex items-center"
-            >
-              <Printer className="h-4 w-4 mr-2" /> Imprimir Pedido
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
       

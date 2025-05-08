@@ -420,19 +420,36 @@ export const useDataStore = create<DataStore>((set, get) => ({
   
   addShipment: async (customerIds) => {
     try {
+      if (!customerIds || customerIds.length === 0) {
+        toast.error('Nenhum cliente selecionado para o envio');
+        return null;
+      }
+      
+      console.log('Creating shipment with customers:', customerIds);
+      
       // Create a new shipment in Supabase
       const { data: shipmentData, error: shipmentError } = await supabase
         .from('shipments')
-        .insert({})
+        .insert({
+          name: `Envio ${new Date().toLocaleDateString('pt-BR')}`
+        })
         .select()
         .single();
         
       if (shipmentError) {
+        console.error('Error creating shipment:', shipmentError);
         throw shipmentError;
       }
       
+      if (!shipmentData) {
+        throw new Error('No shipment data returned from database');
+      }
+      
+      console.log('Created shipment:', shipmentData);
+      
       // Map local customer names to database customer IDs
       const localCustomers = get().customers.filter(c => customerIds.includes(c.id));
+      console.log('Selected customers:', localCustomers);
       
       // Find database UUIDs for each customer by name
       const customerPromises = localCustomers.map(async (localCustomer) => {
@@ -443,8 +460,35 @@ export const useDataStore = create<DataStore>((set, get) => ({
           .single();
           
         if (error || !dbCustomer) {
-          console.error(`No customer found in DB with name: ${localCustomer.name}`);
-          return null;
+          console.error(`No customer found in DB with name: ${localCustomer.name}`, error);
+          
+          // If not found, create the customer in the database
+          const { data: newCustomer, error: createError } = await supabase
+            .from('customers')
+            .insert({
+              name: localCustomer.name,
+              email: localCustomer.email,
+              phone: localCustomer.phone,
+              address: localCustomer.address,
+              tour_name: localCustomer.tourName,
+              tour_sector: localCustomer.tourSector,
+              tour_seat_number: localCustomer.tourSeatNumber,
+              tour_city: localCustomer.tourCity,
+              tour_state: localCustomer.tourState,
+              tour_departure_time: localCustomer.tourDepartureTime
+            })
+            .select('id')
+            .single();
+            
+          if (createError || !newCustomer) {
+            console.error('Error creating customer in DB:', createError);
+            return null;
+          }
+          
+          return {
+            shipment_id: shipmentData.id,
+            customer_id: newCustomer.id
+          };
         }
         
         return {
@@ -457,8 +501,10 @@ export const useDataStore = create<DataStore>((set, get) => ({
       const shipmentCustomers = (await Promise.all(customerPromises)).filter(Boolean);
       
       if (shipmentCustomers.length === 0) {
-        throw new Error("No matching customers found in database");
+        throw new Error("No matching customers found in database and couldn't create new ones");
       }
+      
+      console.log('Shipment-customer associations to create:', shipmentCustomers);
       
       // Create shipment-customer associations
       const { error: associationError } = await supabase
@@ -466,6 +512,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
         .insert(shipmentCustomers);
         
       if (associationError) {
+        console.error('Error creating shipment-customer associations:', associationError);
         throw associationError;
       }
 
@@ -475,9 +522,12 @@ export const useDataStore = create<DataStore>((set, get) => ({
 
       const newShipment: Shipment = {
         id: shipmentData.id,
+        name: shipmentData.name,
         createdAt: new Date(shipmentData.created_at),
         customers: selectedCustomers
       };
+      
+      console.log('Created new shipment with data:', newShipment);
       
       set(state => ({
         shipments: [...state.shipments, newShipment]
@@ -494,6 +544,13 @@ export const useDataStore = create<DataStore>((set, get) => ({
   
   updateShipment: async (shipmentId, customerIds) => {
     try {
+      if (!customerIds || customerIds.length === 0) {
+        toast.error('Nenhum cliente selecionado para o envio');
+        return null;
+      }
+      
+      console.log('Updating shipment:', shipmentId, 'with customers:', customerIds);
+      
       // First, remove all existing associations
       const { error: deleteError } = await supabase
         .from('shipment_customers')
@@ -501,6 +558,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
         .eq('shipment_id', shipmentId);
         
       if (deleteError) {
+        console.error('Error deleting existing shipment-customer associations:', deleteError);
         throw deleteError;
       }
       
@@ -516,8 +574,35 @@ export const useDataStore = create<DataStore>((set, get) => ({
           .single();
           
         if (error || !dbCustomer) {
-          console.error(`No customer found in DB with name: ${localCustomer.name}`);
-          return null;
+          console.error(`No customer found in DB with name: ${localCustomer.name}`, error);
+          
+          // If not found, create the customer in the database
+          const { data: newCustomer, error: createError } = await supabase
+            .from('customers')
+            .insert({
+              name: localCustomer.name,
+              email: localCustomer.email,
+              phone: localCustomer.phone,
+              address: localCustomer.address,
+              tour_name: localCustomer.tourName,
+              tour_sector: localCustomer.tourSector,
+              tour_seat_number: localCustomer.tourSeatNumber,
+              tour_city: localCustomer.tourCity,
+              tour_state: localCustomer.tourState,
+              tour_departure_time: localCustomer.tourDepartureTime
+            })
+            .select('id')
+            .single();
+            
+          if (createError || !newCustomer) {
+            console.error('Error creating customer in DB:', createError);
+            return null;
+          }
+          
+          return {
+            shipment_id: shipmentId,
+            customer_id: newCustomer.id
+          };
         }
         
         return {
@@ -530,7 +615,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
       const shipmentCustomers = (await Promise.all(customerPromises)).filter(Boolean);
       
       if (shipmentCustomers.length === 0) {
-        throw new Error("No matching customers found in database");
+        throw new Error("No matching customers found in database and couldn't create new ones");
       }
       
       // Create new shipment-customer associations
@@ -539,6 +624,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
         .insert(shipmentCustomers);
         
       if (associationError) {
+        console.error('Error creating new shipment-customer associations:', associationError);
         throw associationError;
       }
 
@@ -546,10 +632,13 @@ export const useDataStore = create<DataStore>((set, get) => ({
         customerIds.includes(customer.id)
       );
 
+      const currentShipment = get().shipments.find(s => s.id === shipmentId);
+      
       // Update local state
       const updatedShipment: Shipment = {
         id: shipmentId,
-        createdAt: get().shipments.find(s => s.id === shipmentId)?.createdAt || new Date(),
+        name: currentShipment?.name,
+        createdAt: currentShipment?.createdAt || new Date(),
         customers: selectedCustomers
       };
       
