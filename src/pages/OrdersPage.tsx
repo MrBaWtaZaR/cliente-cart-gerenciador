@@ -127,6 +127,7 @@ export const OrdersPage = () => {
   const handleDialogClose = () => {
     // First close the dialog UI
     setDialogOpen(false);
+    setShowPDFPreview(false);
     
     // Then clean up the URL and state after a short delay
     setTimeout(() => {
@@ -213,6 +214,8 @@ export const OrdersPage = () => {
         onOpenChange={(open) => {
           if (!open) {
             handleDialogClose();
+          } else {
+            setDialogOpen(open);
           }
         }}
       >

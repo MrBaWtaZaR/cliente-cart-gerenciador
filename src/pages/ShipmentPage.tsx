@@ -27,12 +27,27 @@ export const ShipmentPage = () => {
   const tableRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
 
+  // Fetch shipments when component mounts or when dependencies change
   useEffect(() => {
-    getShipments();
+    const fetchShipments = async () => {
+      try {
+        await getShipments();
+      } catch (error) {
+        console.error("Error fetching shipments:", error);
+        toast.error("Falha ao carregar envios. Por favor, recarregue a página.");
+      }
+    };
+    
+    fetchShipments();
   }, [getShipments]);
 
   const handlePrintTable = useReactToPrint({
     documentTitle: `Tabela_de_Envio_${format(new Date(), 'dd-MM-yyyy')}`,
+    onBeforePrint: () => {
+      return new Promise<void>((resolve) => {
+        setTimeout(resolve, 250);
+      });
+    },
     onAfterPrint: () => {
       toast.success('PDF da tabela gerado com sucesso');
     },
@@ -41,6 +56,11 @@ export const ShipmentPage = () => {
 
   const handlePrintCards = useReactToPrint({
     documentTitle: `Cards_de_Envio_${format(new Date(), 'dd-MM-yyyy')}`,
+    onBeforePrint: () => {
+      return new Promise<void>((resolve) => {
+        setTimeout(resolve, 250);
+      });
+    },
     onAfterPrint: () => {
       toast.success('PDF dos cards gerado com sucesso');
     },
@@ -56,6 +76,10 @@ export const ShipmentPage = () => {
     setIsLoading(true);
     try {
       const shipment = await addShipment(selectedCustomers);
+      if (!shipment) {
+        throw new Error("Falha ao criar envio");
+      }
+      
       setSelectedShipment(shipment);
       setIsSelectingCustomers(false);
       setIsCreatingShipment(true);
@@ -87,6 +111,7 @@ export const ShipmentPage = () => {
   const handleDeleteShipment = async () => {
     if (!selectedShipment) return;
     
+    setIsLoading(true);
     try {
       await deleteShipment(selectedShipment.id);
       setShowDeleteConfirm(false);
@@ -96,6 +121,8 @@ export const ShipmentPage = () => {
     } catch (error) {
       console.error('Erro ao excluir envio:', error);
       toast.error('Erro ao excluir envio');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -168,31 +195,32 @@ export const ShipmentPage = () => {
       <section>
         <h2 className="text-2xl font-semibold mb-4">Histórico de Envios</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {shipments.map((shipment) => (
-            <Card key={shipment.id} className="transition-all duration-200 hover:shadow-md">
-              <CardHeader>
-                <CardTitle>Envio de {format(shipment.createdAt, "dd 'de' MMMM", { locale: ptBR })}</CardTitle>
-                <CardDescription>
-                  {shipment.customers.length} clientes
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  <span>{format(shipment.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
-                </div>
-              </CardContent>
-              <CardFooter className="gap-2">
-                <Button variant="outline" size="sm" onClick={() => handleShowShipmentDetails(shipment)}>
-                  <Eye className="mr-2 h-4 w-4" /> Detalhes
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleGeneratePDFs(shipment)}>
-                  <Download className="mr-2 h-4 w-4" /> Baixar PDFs
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-          {shipments.length === 0 && (
+          {shipments && shipments.length > 0 ? (
+            shipments.map((shipment) => (
+              <Card key={shipment.id} className="transition-all duration-200 hover:shadow-md">
+                <CardHeader>
+                  <CardTitle>Envio de {format(shipment.createdAt, "dd 'de' MMMM", { locale: ptBR })}</CardTitle>
+                  <CardDescription>
+                    {shipment.customers && shipment.customers.length || 0} clientes
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    <span>{format(shipment.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+                  </div>
+                </CardContent>
+                <CardFooter className="gap-2">
+                  <Button variant="outline" size="sm" onClick={() => handleShowShipmentDetails(shipment)}>
+                    <Eye className="mr-2 h-4 w-4" /> Detalhes
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleGeneratePDFs(shipment)}>
+                    <Download className="mr-2 h-4 w-4" /> Baixar PDFs
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))
+          ) : (
             <div className="col-span-full text-center py-12 text-muted-foreground">
               <p>Nenhum envio encontrado. Crie um novo envio para começar.</p>
             </div>
@@ -313,8 +341,8 @@ export const ShipmentPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedShipment.customers.map((customer) => {
-                      const latestOrder = customer.orders.length > 0 
+                    {selectedShipment.customers && selectedShipment.customers.map((customer) => {
+                      const latestOrder = customer.orders && customer.orders.length > 0 
                         ? customer.orders.reduce((latest, current) => 
                             new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
                           ) 
@@ -432,7 +460,7 @@ export const ShipmentPage = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteShipment} className="bg-destructive text-destructive-foreground">
-              Excluir
+              {isLoading ? 'Excluindo...' : 'Excluir'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

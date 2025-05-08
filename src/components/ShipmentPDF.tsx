@@ -57,7 +57,7 @@ export const ShipmentTablePDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
             <tbody>
               {shipmentCustomers.map((customer, idx) => {
                 // Find the latest order for this customer
-                const latestOrder = customer.orders.length > 0 
+                const latestOrder = customer.orders && customer.orders.length > 0 
                   ? customer.orders.reduce((latest, current) => 
                       new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
                     ) 
@@ -89,7 +89,7 @@ export const ShipmentTablePDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
                 <td colSpan={1} className="py-3 px-3 text-left">Total:</td>
                 <td className="py-3 px-3 text-right">
                   {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
-                    const latestOrder = customer.orders.length > 0 
+                    const latestOrder = customer.orders && customer.orders.length > 0 
                       ? customer.orders.reduce((latest, current) => 
                           new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
                         ) 
@@ -99,7 +99,7 @@ export const ShipmentTablePDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
                 </td>
                 <td className="py-3 px-3 text-right">
                   {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
-                    const latestOrder = customer.orders.length > 0 
+                    const latestOrder = customer.orders && customer.orders.length > 0 
                       ? customer.orders.reduce((latest, current) => 
                           new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
                         ) 
@@ -110,7 +110,7 @@ export const ShipmentTablePDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
                 <td className="py-3 px-3 text-right"></td>
                 <td className="py-3 px-3 text-right">
                   {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
-                    const latestOrder = customer.orders.length > 0 
+                    const latestOrder = customer.orders && customer.orders.length > 0 
                       ? customer.orders.reduce((latest, current) => 
                           new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
                         ) 
