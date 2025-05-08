@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Customer } from '../types/customers';
+import { Customer, Order, OrderProduct } from '../types/customers';
 import { generateId } from '../utils/idGenerator';
 
 interface CustomerStore {
@@ -12,9 +12,9 @@ interface CustomerStore {
   updateCustomer: (id: string, customerData: Partial<Customer>) => void;
   deleteCustomer: (id: string) => void;
   
-  addOrder: (order: Omit<import('../types/customers').Order, 'id' | 'createdAt'>) => void;
-  updateOrderStatus: (customerId: string, orderId: string, status: import('../types/customers').Order['status']) => void;
-  updateOrder: (customerId: string, orderId: string, orderData: Partial<import('../types/customers').Order>) => void;
+  addOrder: (orderData: { customerId: string; products: OrderProduct[]; status: Order['status']; total: number; }) => void;
+  updateOrderStatus: (customerId: string, orderId: string, status: Order['status']) => void;
+  updateOrder: (customerId: string, orderId: string, orderData: Partial<Order>) => void;
   deleteOrder: (customerId: string, orderId: string) => void;
 }
 
@@ -69,27 +69,29 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
     localStorage.setItem('customers', JSON.stringify(updatedCustomers));
     
     // Update in Supabase by name (since we don't have the Supabase ID)
-    supabase.from('customers')
-      .update({
-        name: customerData.name || customerToUpdate.name,
-        email: customerData.email || customerToUpdate.email,
-        phone: customerData.phone || customerToUpdate.phone,
-        address: customerData.address,
-        tour_name: customerData.tourName,
-        tour_sector: customerData.tourSector,
-        tour_seat_number: customerData.tourSeatNumber,
-        tour_city: customerData.tourCity,
-        tour_state: customerData.tourState,
-        tour_departure_time: customerData.tourDepartureTime
-      })
-      .eq('name', customerToUpdate.name)
-      .eq('email', customerToUpdate.email)
-      .then(({ error }) => {
-        if (error) {
-          console.error('Error updating customer in Supabase:', error);
-          toast.error('Erro ao sincronizar cliente com o servidor');
-        }
-      });
+    if (customerToUpdate.name && customerToUpdate.email) {
+      supabase.from('customers')
+        .update({
+          name: customerData.name || customerToUpdate.name,
+          email: customerData.email || customerToUpdate.email,
+          phone: customerData.phone || customerToUpdate.phone,
+          address: customerData.address,
+          tour_name: customerData.tourName,
+          tour_sector: customerData.tourSector,
+          tour_seat_number: customerData.tourSeatNumber,
+          tour_city: customerData.tourCity,
+          tour_state: customerData.tourState,
+          tour_departure_time: customerData.tourDepartureTime
+        })
+        .eq('name', customerToUpdate.name)
+        .eq('email', customerToUpdate.email)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Error updating customer in Supabase:', error);
+            toast.error('Erro ao sincronizar cliente com o servidor');
+          }
+        });
+    }
     
     toast.success('Cliente atualizado com sucesso');
     return { customers: updatedCustomers };
@@ -106,16 +108,18 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
     localStorage.setItem('customers', JSON.stringify(updatedCustomers));
     
     // Delete from Supabase by matching name and email
-    supabase.from('customers')
-      .delete()
-      .eq('name', customerToDelete.name)
-      .eq('email', customerToDelete.email)
-      .then(({ error }) => {
-        if (error) {
-          console.error('Error deleting customer from Supabase:', error);
-          toast.error('Erro ao remover cliente do servidor');
-        }
-      });
+    if (customerToDelete.name && customerToDelete.email) {
+      supabase.from('customers')
+        .delete()
+        .eq('name', customerToDelete.name)
+        .eq('email', customerToDelete.email)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Error deleting customer from Supabase:', error);
+            toast.error('Erro ao remover cliente do servidor');
+          }
+        });
+    }
     
     toast.success('Cliente removido com sucesso');
     return { customers: updatedCustomers };
@@ -124,7 +128,10 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
   addOrder: (orderData) => set((state) => {
     const newOrder = {
       id: generateId(),
-      ...orderData,
+      customerId: orderData.customerId,
+      products: orderData.products,
+      status: orderData.status,
+      total: orderData.total,
       createdAt: new Date()
     };
     
@@ -132,7 +139,7 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
       if (customer.id === orderData.customerId) {
         return {
           ...customer,
-          orders: [...customer.orders, newOrder]
+          orders: [...(customer.orders || []), newOrder]
         };
       }
       return customer;
@@ -147,7 +154,7 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
   updateOrderStatus: (customerId, orderId, status) => set((state) => {
     const updatedCustomers = state.customers.map((customer) => {
       if (customer.id === customerId) {
-        const updatedOrders = customer.orders.map((order) => {
+        const updatedOrders = (customer.orders || []).map((order) => {
           if (order.id === orderId) {
             return { ...order, status };
           }
@@ -168,7 +175,7 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
   updateOrder: (customerId, orderId, orderData) => set((state) => {
     const updatedCustomers = state.customers.map((customer) => {
       if (customer.id === customerId) {
-        const updatedOrders = customer.orders.map((order) => {
+        const updatedOrders = (customer.orders || []).map((order) => {
           if (order.id === orderId) {
             return { ...order, ...orderData };
           }
@@ -187,17 +194,23 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
   }),
   
   deleteOrder: (customerId, orderId) => set((state) => {
-    const updatedCustomers = state.customers.map((customer) => {
-      if (customer.id === customerId) {
-        const updatedOrders = customer.orders.filter((order) => order.id !== orderId);
-        return { ...customer, orders: updatedOrders };
-      }
-      return customer;
-    });
-    
-    localStorage.setItem('customers', JSON.stringify(updatedCustomers));
-    
-    toast.success('Pedido excluído com sucesso');
-    return { customers: updatedCustomers };
+    try {
+      const updatedCustomers = state.customers.map((customer) => {
+        if (customer.id === customerId) {
+          const updatedOrders = (customer.orders || []).filter((order) => order.id !== orderId);
+          return { ...customer, orders: updatedOrders };
+        }
+        return customer;
+      });
+      
+      localStorage.setItem('customers', JSON.stringify(updatedCustomers));
+      
+      toast.success('Pedido excluído com sucesso');
+      return { customers: updatedCustomers };
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      toast.error('Erro ao excluir pedido');
+      return state;
+    }
   }),
 }));

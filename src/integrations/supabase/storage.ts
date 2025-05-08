@@ -1,87 +1,75 @@
 
 import { supabase } from './client';
 
-// Função para garantir que os buckets necessários existam
+// Function to ensure necessary buckets exist
 export const setupStorage = async () => {
   try {
-    // Verifica se o bucket product-images existe
+    // Check if the product-images bucket exists
     const { data: buckets, error } = await supabase.storage.listBuckets();
     
     if (error) {
-      console.error('Erro ao listar buckets:', error);
+      console.error('Error listing buckets:', error);
       return;
     }
     
+    // Create the product-images bucket if it doesn't exist
     const productImagesBucketExists = buckets.some(bucket => bucket.name === 'product-images');
     
-    // Se o bucket não existir, não tentamos criar pelo cliente
-    // pois isso exigiria permissões especiais
     if (!productImagesBucketExists) {
-      console.log('O bucket product-images não existe. Usando bucket default para uploads.');
-      
-      // Vamos tentar usar o bucket "default" que geralmente já existe em projetos Supabase
-      const { data: defaultBucket } = await supabase.storage.getBucket('default');
-      
-      if (!defaultBucket) {
-        console.log('Bucket default também não existe. O upload de imagens pode não funcionar corretamente.');
-      } else {
-        console.log('Usando bucket default para uploads de produtos.');
+      try {
+        const { data, error } = await supabase.storage.createBucket('product-images', {
+          public: true,
+          fileSizeLimit: 10485760, // 10MB
+          allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
+        });
+        
+        if (error) {
+          console.error('Error creating product-images bucket:', error);
+        } else {
+          console.log('Created product-images bucket successfully');
+        }
+      } catch (bucketError) {
+        console.error('Failed to create product-images bucket:', bucketError);
       }
     } else {
-      console.log('Bucket product-images encontrado e será usado para uploads.');
+      console.log('Bucket product-images found and will be used for uploads.');
     }
   } catch (err) {
-    console.error('Erro ao configurar storage:', err);
+    console.error('Error setting up storage:', err);
   }
 };
 
-// Função para fazer upload de uma imagem usando o bucket correto
+// Function to upload a product image
 export const uploadProductImage = async (productId: string, file: File): Promise<string> => {
   try {
-    // Primeiro tentamos usar o bucket product-images
-    const bucketName = 'product-images';
-    
-    // Cria um nome de arquivo único
+    // Create a unique filename
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
     const filePath = `${productId}/${fileName}`;
     
-    // Tenta fazer upload para o bucket product-images
-    let { error: uploadError, data } = await supabase.storage
-      .from(bucketName)
+    // Try to upload to the product-images bucket
+    const { error: uploadError, data } = await supabase.storage
+      .from('product-images')
       .upload(filePath, file);
       
-    // Se houver erro, tenta usar o bucket default
     if (uploadError) {
-      console.log('Erro ao fazer upload para product-images, tentando bucket default:', uploadError);
-      
-      const { error: defaultUploadError, data: defaultData } = await supabase.storage
-        .from('default')
-        .upload(filePath, file);
-        
-      if (defaultUploadError) {
-        throw defaultUploadError;
-      }
-      
-      // Retorna a URL pública do arquivo no bucket default
-      const { data: publicUrlData } = supabase.storage
-        .from('default')
-        .getPublicUrl(filePath);
-        
-      return publicUrlData.publicUrl;
+      console.error('Error uploading to product-images:', uploadError);
+      throw uploadError;
     }
     
-    // Retorna a URL pública do arquivo
+    // Get the public URL of the file
     const { data: publicUrlData } = supabase.storage
-      .from(bucketName)
+      .from('product-images')
       .getPublicUrl(filePath);
       
     return publicUrlData.publicUrl;
   } catch (error) {
-    console.error('Erro ao fazer upload:', error);
+    console.error('Error uploading image:', error);
     throw error;
   }
 };
 
-// Exporta as funções
-export default setupStorage;
+// Call setupStorage when the module is imported
+setupStorage();
+
+export default { setupStorage, uploadProductImage };

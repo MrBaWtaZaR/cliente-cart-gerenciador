@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,8 +48,16 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
       
       console.log('Created shipment:', shipmentData);
       
-      // Import useDataStore to access customers
-      const { customers } = await import('../stores/useDataStore').then(module => module.useDataStore.getState());
+      // Get customers from the main data store
+      let customers = [];
+      try {
+        // Import dynamically to avoid circular dependency
+        const { useDataStore } = await import('../lib/data');
+        customers = useDataStore.getState().customers;
+      } catch (error) {
+        console.error('Error accessing data store, using empty customers array:', error);
+        customers = [];
+      }
       
       // Map local customer names to database customer IDs
       const localCustomers = customers.filter(c => customerIds.includes(c.id));
@@ -119,9 +128,7 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         throw associationError;
       }
 
-      const selectedCustomers = customers.filter(customer => 
-        customerIds.includes(customer.id)
-      );
+      const selectedCustomers = localCustomers;
 
       const newShipment: Shipment = {
         id: shipmentData.id,
@@ -165,8 +172,16 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         throw deleteError;
       }
       
-      // Import useDataStore to access customers
-      const { customers } = await import('../stores/useDataStore').then(module => module.useDataStore.getState());
+      // Get customers from the main data store
+      let customers = [];
+      try {
+        // Import dynamically to avoid circular dependency
+        const { useDataStore } = await import('../lib/data');
+        customers = useDataStore.getState().customers;
+      } catch (error) {
+        console.error('Error accessing data store, using empty customers array:', error);
+        customers = [];
+      }
       
       // Map local customer names to database customer IDs
       const localCustomers = customers.filter(c => customerIds.includes(c.id));
@@ -234,16 +249,14 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         throw associationError;
       }
 
-      const selectedCustomers = customers.filter(customer => 
-        customerIds.includes(customer.id)
-      );
+      const selectedCustomers = localCustomers;
 
       const currentShipment = get().shipments.find(s => s.id === shipmentId);
       
       // Update local state
       const updatedShipment: Shipment = {
         id: shipmentId,
-        name: currentShipment?.name,
+        name: currentShipment?.name || `Updated Shipment ${new Date().toLocaleDateString()}`,
         createdAt: currentShipment?.createdAt || new Date(),
         customers: selectedCustomers
       };
@@ -312,14 +325,24 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
       // Transform the data to match our Shipment interface
       const shipments: Shipment[] = await Promise.all(shipmentData.map(async (shipment) => {
         // Get customers for this shipment
-        const customers = await get().getShipmentCustomers(shipment.id);
-        
-        return {
-          id: shipment.id,
-          name: shipment.name,
-          createdAt: new Date(shipment.created_at),
-          customers: customers
-        };
+        try {
+          const customers = await get().getShipmentCustomers(shipment.id);
+          
+          return {
+            id: shipment.id,
+            name: shipment.name,
+            createdAt: new Date(shipment.created_at),
+            customers: customers
+          };
+        } catch (error) {
+          console.error(`Error getting customers for shipment ${shipment.id}:`, error);
+          return {
+            id: shipment.id,
+            name: shipment.name,
+            createdAt: new Date(shipment.created_at),
+            customers: []
+          };
+        }
       }));
       
       set({ shipments });
@@ -363,14 +386,22 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         return [];
       }
 
-      // Import useDataStore to access customers
-      const { customers } = await import('../stores/useDataStore').then(module => module.useDataStore.getState());
+      // Get customers from the main data store for orders
+      let localCustomers = [];
+      try {
+        // Import dynamically to avoid circular dependency
+        const { useDataStore } = await import('../lib/data');
+        localCustomers = useDataStore.getState()?.customers || [];
+      } catch (error) {
+        console.error('Error accessing data store:', error);
+        localCustomers = [];
+      }
 
       // Map the customers with their orders from local store
       const mappedCustomers: Customer[] = customerData.map(customer => {
-        const localCustomer = customers.find(c => 
-          c.name.toLowerCase() === customer.name.toLowerCase() &&
-          c.email.toLowerCase() === customer.email.toLowerCase()
+        const localCustomer = localCustomers.find(c => 
+          c.name?.toLowerCase() === customer.name?.toLowerCase() &&
+          c.email?.toLowerCase() === customer.email?.toLowerCase()
         );
         
         return {

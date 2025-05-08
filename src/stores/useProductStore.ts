@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { toast } from 'sonner';
 import { Product } from '../types/products';
 import { generateId } from '../utils/idGenerator';
+import { uploadProductImage } from '../integrations/supabase/storage';
 
 interface ProductStore {
   products: Product[];
@@ -79,9 +80,6 @@ export const useProductStore = create<ProductStore>((set) => ({
         fileName = `image_${Date.now()}.jpg`;
       }
       
-      // Importa a função de upload de produto do arquivo storage.ts
-      const { uploadProductImage } = await import('@/integrations/supabase/storage');
-      
       // Usa a função especializada para fazer o upload
       let publicUrl = '';
       
@@ -97,7 +95,7 @@ export const useProductStore = create<ProductStore>((set) => ({
           if (product.id === productId) {
             return {
               ...product,
-              images: [...product.images.filter(img => img !== '/placeholder.svg'), publicUrl]
+              images: [...(product.images || []).filter(img => img !== '/placeholder.svg'), publicUrl]
             };
           }
           return product;

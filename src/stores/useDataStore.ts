@@ -51,11 +51,46 @@ interface DataStore {
   getShipmentCustomers: typeof shipmentStore.getShipmentCustomers;
 }
 
+// Helper function to get stored data
+const getStoredData = () => {
+  try {
+    // Try to load products from localStorage
+    const storedProductsString = localStorage.getItem('products');
+    const storedProducts = storedProductsString ? 
+      JSON.parse(storedProductsString).map(product => ({
+        ...product, 
+        createdAt: new Date(product.createdAt)
+      })) : 
+      initialProducts;
+      
+    // Try to load customers from localStorage
+    const storedCustomersString = localStorage.getItem('customers');
+    const storedCustomers = storedCustomersString ? 
+      JSON.parse(storedCustomersString).map(customer => ({
+        ...customer, 
+        createdAt: new Date(customer.createdAt),
+        orders: (customer.orders || []).map(order => ({
+          ...order,
+          createdAt: new Date(order.createdAt)
+        }))
+      })) : 
+      initialCustomers;
+      
+    return { products: storedProducts, customers: storedCustomers };
+  } catch (error) {
+    console.error('Error loading stored data:', error);
+    return { products: initialProducts, customers: initialCustomers };
+  }
+};
+
+// Load stored data 
+const storedData = getStoredData();
+
 export const useDataStore = create<DataStore>((set, get) => {
   // Create base store
   const dataStore = {
-    customers: initialCustomers,
-    products: initialProducts,
+    customers: storedData.customers,
+    products: storedData.products,
     shipments: [],
     isInitialized: false,
     isLoading: false,
@@ -66,6 +101,10 @@ export const useDataStore = create<DataStore>((set, get) => {
       
       set({ isLoading: true });
       try {
+        // Setup storage buckets
+        const { setupStorage } = await import('../integrations/supabase/storage');
+        await setupStorage();
+        
         // Fetch customers from Supabase
         const { data: customerData, error: customerError } = await supabase
           .from('customers')
@@ -88,12 +127,15 @@ export const useDataStore = create<DataStore>((set, get) => {
           throw shipmentError;
         }
         
+        // Get stored customers to maintain orders
+        const storedCustomers = get().customers;
+        
         // Transform customers from Supabase to our app format
         const customers: Customer[] = customerData.map(customer => {
           // Use local customer data if we have it to maintain order history
-          const localCustomer = get().customers.find(c => 
-            c.name.toLowerCase() === customer.name.toLowerCase() &&
-            c.email.toLowerCase() === customer.email.toLowerCase()
+          const localCustomer = storedCustomers.find(c => 
+            c.name?.toLowerCase() === customer.name?.toLowerCase() &&
+            c.email?.toLowerCase() === customer.email?.toLowerCase()
           );
           
           return {
@@ -113,9 +155,6 @@ export const useDataStore = create<DataStore>((set, get) => {
           };
         });
         
-        // Get shipment store
-        const shipmentStore = useShipmentStore.getState();
-        
         // Transform shipments to our app format
         const shipments: Shipment[] = await Promise.all(shipmentData.map(async (shipment) => {
           const fetchedCustomers = await shipmentStore.getShipmentCustomers(shipment.id);
@@ -131,10 +170,14 @@ export const useDataStore = create<DataStore>((set, get) => {
         // Set data in store
         set({
           customers,
+          products: get().products, // Keep current products
           shipments,
           isInitialized: true,
           isLoading: false
         });
+        
+        // Save customers to localStorage
+        localStorage.setItem('customers', JSON.stringify(customers));
         
         console.log('Data initialized from Supabase', { customers, shipments });
       } catch (error) {
