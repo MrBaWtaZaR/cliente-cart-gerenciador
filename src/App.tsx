@@ -18,7 +18,7 @@ import { useEffect, StrictMode, useState, useCallback, useRef } from "react";
 import { useDataStore } from "./stores";
 import { useProductStore } from "./stores/useProductStore";
 import Index from "./pages/Index";
-import { safeCleanupDOM } from "./components/ShipmentSafeUnmount";
+import { performDOMCleanup } from "./components/DOMCleanupUtils";
 
 // Create a React Query client with appropriate configurations
 const queryClient = new QueryClient({
@@ -47,7 +47,7 @@ const RouteChangeHandler = ({ children }) => {
       previousPathRef.current = location.pathname;
       
       // Perform a simple cleanup with fewer operations
-      safeCleanupDOM();
+      performDOMCleanup();
       
       // Dispatch route change event
       window.dispatchEvent(new CustomEvent('route-changed', {
@@ -65,7 +65,7 @@ const RouteChangeHandler = ({ children }) => {
       if (cleanupTimerRef.current) {
         clearTimeout(cleanupTimerRef.current);
       }
-      safeCleanupDOM();
+      performDOMCleanup();
     };
   }, [location.pathname, handleRouteChange]);
   

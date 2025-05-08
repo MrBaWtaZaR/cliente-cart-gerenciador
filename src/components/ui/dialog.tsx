@@ -73,32 +73,6 @@ const DialogContent = React.forwardRef<
             props.onPointerDownOutside(e);
           }
         }}
-        // Ensure the dialog is forcibly removed on close
-        onOpenChange={(open) => {
-          if (!open) {
-            // When closing, make sure DOM cleanup happens
-            try {
-              const dialogElements = document.querySelectorAll('[role="dialog"]');
-              dialogElements.forEach(el => {
-                if (el && el.parentNode && document.contains(el)) {
-                  try {
-                    if (el instanceof HTMLElement) {
-                      el.style.display = 'none';
-                    }
-                  } catch (err) {
-                    // Ignore
-                  }
-                }
-              });
-            } catch (err) {
-              // Ignore errors
-            }
-          }
-          
-          if (props.onOpenChange) {
-            props.onOpenChange(open);
-          }
-        }}
         {...props}
       >
         {children}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useCustomerStore } from '@/stores';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,7 @@ export const OrdersPage = () => {
   const [isDeletingShipment, setIsDeletingShipment] = useState<boolean>(false);
   
   // Use our improved safe unmount hook with better DOM cleanup
-  const { isMounted, setPrintableContent, cleanupDOM } = useSafeUnmount();
+  const { isMounted, isUnmounting, cleanupDOM, setPrintableContent } = useSafeUnmount();
   const pdfRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const printContainerRef = useRef<HTMLDivElement | null>(null);
@@ -122,7 +123,10 @@ export const OrdersPage = () => {
 
   // Update the printable content status when PDF ref changes
   useEffect(() => {
-    setPrintableContent(pdfRef.current !== null);
+    // Only call setPrintableContent if pdfRef.current changes
+    if (setPrintableContent) {
+      setPrintableContent(pdfRef.current !== null);
+    }
     
     // Cleanup function to remove any orphaned print elements
     return () => {

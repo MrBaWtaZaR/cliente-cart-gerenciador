@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 
 // Single global lock to prevent concurrent cleanup operations
 let globalCleanupInProgress = false;
@@ -12,6 +12,7 @@ const MIN_CLEANUP_INTERVAL = 150; // ms
 export const useSafeUnmount = () => {
   const isMountedRef = useRef(true);
   const unmountingRef = useRef(false);
+  const [hasPrintableContent, setHasPrintableContent] = useState(false);
   
   // Simplified DOM cleanup function
   const cleanupDOM = useCallback(() => {
@@ -144,7 +145,8 @@ export const useSafeUnmount = () => {
   return {
     isMounted: () => isMountedRef.current,
     isUnmounting: () => unmountingRef.current,
-    cleanupDOM
+    cleanupDOM,
+    setPrintableContent: setHasPrintableContent
   };
 };
 
@@ -246,6 +248,35 @@ export const safeRemoveElement = (element) => {
     }
   } catch (err) {
     console.warn("Error in safeRemoveElement:", err);
+  }
+};
+
+// Add the missing safeClearChildren function
+export const safeClearChildren = (element) => {
+  if (!element || !document.contains(element)) return;
+  
+  try {
+    // First hide children to prevent visual glitches
+    if (element instanceof HTMLElement) {
+      Array.from(element.children).forEach(child => {
+        if (child instanceof HTMLElement) {
+          child.style.display = 'none';
+          child.style.visibility = 'hidden';
+        }
+      });
+    }
+    
+    // Then remove all children
+    while (element.firstChild) {
+      try {
+        element.removeChild(element.firstChild);
+      } catch (err) {
+        console.warn("Error removing child:", err);
+        break;
+      }
+    }
+  } catch (err) {
+    console.warn("Error in safeClearChildren:", err);
   }
 };
 
