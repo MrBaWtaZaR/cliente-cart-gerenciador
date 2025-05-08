@@ -43,17 +43,24 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
     
     return (
       <div ref={ref} className="bg-white p-8 max-w-4xl mx-auto text-black">
-        {/* Cabeçalho */}
-        <div className="border-b-2 border-gray-300 pb-4 mb-6">
+        {/* Cabeçalho com Logo */}
+        <div className="border-b-2 border-blue-800 pb-4 mb-6">
           <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-2xl font-bold text-primary">A&F Consultoria</h1>
-              <p className="text-sm text-gray-500">Gestão de Clientes e Pedidos</p>
+            <div className="flex items-center">
+              <img 
+                src="/public/lovable-uploads/918a2f2c-f5f0-4ea6-8676-f08b6d93bb99.png" 
+                alt="AF Consultoria" 
+                className="h-16 mr-4"
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-blue-800">AF Consultoria</h1>
+                <p className="text-sm text-gray-600">Gestão de Clientes e Pedidos</p>
+              </div>
             </div>
             <div className="text-right">
-              <h2 className="font-bold">PEDIDO #{order.id.substring(0, 8).toUpperCase()}</h2>
-              <p className="text-sm text-gray-500">Data de emissão: {currentDate}</p>
-              <p className="text-sm text-gray-500">
+              <h2 className="font-bold text-blue-800">PEDIDO #{order.id.substring(0, 8).toUpperCase()}</h2>
+              <p className="text-sm text-gray-600">Data de emissão: {currentDate}</p>
+              <p className="text-sm text-gray-600">
                 Data do pedido: {format(new Date(order.createdAt), "dd/MM/yyyy", { locale: ptBR })}
               </p>
             </div>
@@ -64,8 +71,8 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
         <div className="flex flex-row gap-6 mb-6">
           {/* Coluna esquerda: informações do cliente */}
           <div className="w-1/2 space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 h-full">
-              <h2 className="text-lg font-bold mb-3">Informações do Cliente</h2>
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 h-full">
+              <h2 className="text-lg font-bold mb-3 text-blue-800">Informações do Cliente</h2>
               <div className="space-y-2">
                 <p><strong>Nome:</strong> {customerName}</p>
                 <p><strong>Email:</strong> {customerInfo.email}</p>
@@ -80,8 +87,8 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
           {/* Coluna direita: informações da excursão (se disponíveis) ou espaço vazio */}
           <div className="w-1/2 space-y-4">
             {hasTourInfo ? (
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 h-full">
-                <h2 className="text-lg font-bold mb-3">Dados da Excursão</h2>
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 h-full">
+                <h2 className="text-lg font-bold mb-3 text-blue-800">Dados da Excursão</h2>
                 <div className="space-y-2">
                   {customerInfo.tourName && (
                     <p><strong>Nome da Excursão:</strong> {customerInfo.tourName}</p>
@@ -101,17 +108,17 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
                 </div>
               </div>
             ) : (
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 h-full opacity-0"></div>
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 h-full opacity-0"></div>
             )}
           </div>
         </div>
 
         {/* Produtos */}
         <div className="mb-6">
-          <h2 className="text-lg font-bold mb-3">Itens do Pedido</h2>
+          <h2 className="text-lg font-bold mb-3 text-blue-800">Itens do Pedido</h2>
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-gray-100">
+              <tr className="bg-blue-100">
                 <th className="py-2 px-3 text-left">Produto</th>
                 <th className="py-2 px-3 text-center">Quantidade</th>
                 <th className="py-2 px-3 text-right">Preço Un.</th>
@@ -157,7 +164,7 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
                   }).format(serviceFee)}
                 </td>
               </tr>
-              <tr className="font-bold bg-gray-100">
+              <tr className="font-bold bg-blue-100">
                 <td colSpan={3} className="py-3 px-3 text-right">Total com Serviço:</td>
                 <td className="py-3 px-3 text-right">
                   {new Intl.NumberFormat('pt-BR', {
@@ -172,7 +179,7 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
 
         {/* Status e observações */}
         <div className="mb-6">
-          <h2 className="text-lg font-bold mb-3">Status do Pedido</h2>
+          <h2 className="text-lg font-bold mb-3 text-blue-800">Status do Pedido</h2>
           <p>
             <span className={`inline-block px-3 py-1 rounded-full text-sm ${
               order.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -186,8 +193,8 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
         </div>
 
         {/* Rodapé */}
-        <div className="mt-12 pt-4 border-t border-gray-300 text-center text-sm text-gray-500">
-          <p>A&F Consultoria - Documento gerado em {currentDate}</p>
+        <div className="mt-12 pt-4 border-t border-blue-800 text-center text-sm text-gray-600">
+          <p>AF Consultoria - Documento gerado em {currentDate}</p>
           <p>Este documento não possui valor fiscal</p>
           <p className="text-xs mt-2">* Taxa mínima de serviço é R$ 60,00 para pedidos até R$ 600,00.</p>
         </div>
@@ -197,3 +204,4 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
 );
 
 OrderPDF.displayName = 'OrderPDF';
+
