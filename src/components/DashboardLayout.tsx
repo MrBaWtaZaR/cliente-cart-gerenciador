@@ -14,6 +14,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { refreshAll, isInitialized } = useDataStore();
   const unmountingRef = useRef(false);
   const cleanupInProgressRef = useRef(false);
+  const cleanupTimerRef = useRef<number | null>(null);
   
   // Initialize data when dashboard mounts
   useEffect(() => {
@@ -30,6 +31,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       cleanupInProgressRef.current = true;
       
       try {
+        if (unmountingRef.current) {
+          console.log("Realizando limpeza durante desmontagem...");
+        }
+        
         // Lista de seletores para elementos que podem causar problemas
         const selectors = [
           '[role="tooltip"]',
@@ -49,13 +54,26 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         
         // Limpar cada tipo de elemento de forma segura
         selectors.forEach(selector => {
-          document.querySelectorAll(selector).forEach(el => {
+          const elements = document.querySelectorAll(selector);
+          console.log(`Encontrados ${elements.length} elementos ${selector} para limpar`);
+          
+          elements.forEach(el => {
             if (!el || !el.parentNode) return;
             
             try {
-              // Verificação dupla para garantir que o elemento ainda existe e é filho do pai
-              if (el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
+              // Verificação adicional para garantir que o elemento existe no DOM
+              const stillInDocument = document.body.contains(el);
+              if (!stillInDocument) {
+                console.log(`Elemento ${selector} já foi removido do DOM`);
+                return;
+              }
+              
+              // Verificação dupla para garantir que o elemento ainda é filho do pai
+              if (el.parentNode && 
+                  typeof el.parentNode.contains === 'function' && 
+                  el.parentNode.contains(el)) {
                 el.parentNode.removeChild(el);
+                console.log(`Elemento ${selector} removido com sucesso`);
               }
             } catch (e) {
               // Ignorar erros se o elemento já foi removido
@@ -88,16 +106,21 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       // Remover listener do evento
       window.removeEventListener('app-cleanup', handleCleanup);
       
+      // Limpar qualquer timer pendente
+      if (cleanupTimerRef.current !== null) {
+        clearTimeout(cleanupTimerRef.current);
+      }
+      
       // Executar limpeza imediatamente
       cleanupOrphanedElements();
       
       // Executar limpeza novamente após um pequeno delay
-      setTimeout(() => {
+      cleanupTimerRef.current = window.setTimeout(() => {
         cleanupOrphanedElements();
       }, 0);
       
       // E mais uma vez após um delay maior
-      setTimeout(() => {
+      cleanupTimerRef.current = window.setTimeout(() => {
         cleanupOrphanedElements();
         unmountingRef.current = false;
       }, 50);

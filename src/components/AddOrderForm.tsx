@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useRef, useEffect } from 'react';
 import { useDataStore } from '@/stores';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,15 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
   }>>([{ productId: '', quantity: 1 }]);
   const [status, setStatus] = useState<'pending' | 'completed' | 'cancelled'>('pending');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const formSubmitted = useRef(false);
+  
+  // Resetar o formSubmitted quando o componente for montado novamente
+  useEffect(() => {
+    formSubmitted.current = false;
+    return () => {
+      formSubmitted.current = false;
+    };
+  }, [customerId]);
 
   const handleProductChange = (index: number, productId: string) => {
     const newItems = [...orderItems];
@@ -59,8 +69,9 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Prevenir múltiplos envios
-    if (isSubmitting) {
+    // Prevenir submissões múltiplas usando ref para garantir que mesmo em renderizações rápidas não duplique
+    if (isSubmitting || formSubmitted.current) {
+      console.log("Formulário já foi enviado, ignorando submissão duplicada");
       return;
     }
     
@@ -72,6 +83,9 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
 
     try {
       setIsSubmitting(true);
+      formSubmitted.current = true;
+      
+      console.log("Processando novo pedido para cliente:", customerId);
       
       const orderProducts = orderItems.map(item => {
         const product = products.find(p => p.id === item.productId);
@@ -104,10 +118,16 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
       
       // Notify parent component
       onSuccess();
+      
+      // Adicionar um pequeno atraso antes de liberar o estado de submissão
+      setTimeout(() => {
+        setIsSubmitting(false);
+      }, 300);
     } catch (error) {
       console.error("Erro ao adicionar pedido:", error);
       toast.error("Erro ao adicionar pedido. Por favor, tente novamente.");
-    } finally {
+      // Reset estado de submissão em caso de erro também
+      formSubmitted.current = false;
       setIsSubmitting(false);
     }
   };
@@ -116,7 +136,7 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
     <form onSubmit={handleSubmit} className="space-y-4 py-4">
       <div className="space-y-4">
         {orderItems.map((item, index) => (
-          <div key={index} className="flex flex-col space-y-2 p-3 border rounded-md">
+          <div key={`order-item-${index}`} className="flex flex-col space-y-2 p-3 border rounded-md">
             <div className="flex justify-between items-center">
               <h4 className="font-medium flex items-center">
                 <Package className="h-4 w-4 mr-2" />
@@ -182,6 +202,7 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
         size="sm" 
         className="w-full" 
         onClick={addItem}
+        disabled={isSubmitting}
       >
         <Plus className="h-4 w-4 mr-2" /> Adicionar Item
       </Button>
@@ -191,6 +212,7 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
         <Select
           value={status}
           onValueChange={(value: 'pending' | 'completed' | 'cancelled') => setStatus(value)}
+          disabled={isSubmitting}
         >
           <SelectTrigger>
             <SelectValue />
@@ -208,7 +230,9 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
           Total: R$ {calculateTotal().toFixed(2)}
         </div>
         
-        <Button type="submit">Adicionar Pedido</Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Adicionando...' : 'Adicionar Pedido'}
+        </Button>
       </div>
     </form>
   );
