@@ -30,5 +30,5 @@ export interface OrderProduct {
   productName: string;
   quantity: number;
   price: number;
-  images: string[]; // Remove the initializer
+  images: string[];
 }
