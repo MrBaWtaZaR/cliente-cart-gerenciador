@@ -9,7 +9,7 @@ export const setupStorage = async () => {
     
     if (error) {
       console.error('Error listing buckets:', error);
-      return;
+      return false;
     }
     
     // Verificar se o bucket de imagens de produtos existe
@@ -17,6 +17,7 @@ export const setupStorage = async () => {
     
     if (productImagesBucketExists) {
       console.log('Bucket product-images encontrado e será usado para uploads.');
+      return true;
     } else {
       // Instead of trying to create the bucket (which requires admin privileges),
       // just log a message indicating that the bucket doesn't exist
@@ -24,9 +25,11 @@ export const setupStorage = async () => {
       console.log('Use o localStorage como fallback.');
       
       // We'll handle fallbacks in the uploadProductImage function
+      return false;
     }
   } catch (err) {
     console.error('Error setting up storage:', err);
+    return false;
   }
 };
 

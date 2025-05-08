@@ -22,12 +22,18 @@ export const ProductImageCarousel = ({
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [hasError, setHasError] = useState<Record<string, boolean>>({});
+  const [imagesLoaded, setImagesLoaded] = useState(false);
   const timerRef = useRef<number | null>(null);
   
   // Filter out placeholders and images with loading errors
   const validImages = images
     .filter(img => img !== '/placeholder.svg')
     .filter(img => !hasError[img]);
+
+  // Check if images have loaded after component mounts
+  useEffect(() => {
+    setImagesLoaded(true);
+  }, []);
   
   // Handle image error
   const handleImageError = (image: string) => {
@@ -66,6 +72,14 @@ export const ProductImageCarousel = ({
       }
     };
   }, [validImages.length, autoPlayInterval, isPaused]);
+
+  if (!imagesLoaded) {
+    return (
+      <div className="aspect-square bg-muted rounded-md flex flex-col items-center justify-center">
+        <div className="animate-pulse w-full h-full bg-muted-foreground/10"></div>
+      </div>
+    );
+  }
 
   if (!validImages.length) {
     return (

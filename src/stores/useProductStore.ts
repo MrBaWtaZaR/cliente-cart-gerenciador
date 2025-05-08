@@ -15,6 +15,7 @@ import {
 interface ProductStore {
   products: Product[];
   isLoading: boolean;
+  isStorageAvailable: boolean;
   
   loadProducts: () => Promise<void>;
   addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Promise<void>;
@@ -43,12 +44,14 @@ export const useProductStore = create<ProductStore>((set, get) => {
   return {
     products: loadInitialProducts(),
     isLoading: false,
+    isStorageAvailable: false,
     
     loadProducts: async () => {
       set({ isLoading: true });
       try {
         // Inicializa o storage para garantir que o bucket existe
-        await setupStorage();
+        const storageAvailable = await setupStorage();
+        set({ isStorageAvailable: storageAvailable });
         
         // Busca produtos do banco de dados
         const products = await fetchProductsFromDatabase();
