@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useCustomerStore } from '@/stores';
+import { useCustomerStore, useProductStore } from '@/stores';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,7 +17,8 @@ interface EditOrderFormProps {
 }
 
 export const EditOrderForm = ({ customerId, order, onSuccess, onCancel }: EditOrderFormProps) => {
-  const { products, updateOrder } = useCustomerStore();
+  const { updateOrder } = useCustomerStore();
+  const { products } = useProductStore();
   const [orderItems, setOrderItems] = useState<Array<{
     productId: string;
     quantity: number;
