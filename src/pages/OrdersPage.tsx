@@ -74,11 +74,16 @@ export const OrdersPage = () => {
     }
   };
 
+  // Fix the handleViewOrder function to correctly set the viewingOrder state
   const handleViewOrder = (order: Order, customerName: string) => {
     const customer = customers.find(c => c.id === order.customerId);
     
+    // Fix: Set viewingOrder first with the correct Order type
     setViewingOrder(order);
+    
+    // Then separately set the customer name state
     setCustomerName(customerName);
+    
     setCustomerInfo({
       email: customer?.email || '',
       phone: customer?.phone || '',
