@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { useDataStore, Order } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -171,11 +170,17 @@ export const OrdersPage = () => {
         ?.orders.find(o => o.id === viewingOrder.id);
       
       if (updatedOrder) {
-        setViewingOrder({
-          ...updatedOrder,
-          customerName,
-          customerId: viewingOrder.customerId
-        });
+        // Fix: Create a proper Order object without customerName property
+        const updatedOrderForState: Order = {
+          id: updatedOrder.id,
+          customerId: viewingOrder.customerId,
+          products: updatedOrder.products,
+          status: updatedOrder.status,
+          total: updatedOrder.total,
+          createdAt: updatedOrder.createdAt
+        };
+        
+        setViewingOrder(updatedOrderForState);
       }
     }
   };
