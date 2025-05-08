@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase, getStorageUrl } from '@/integrations/supabase/client';
@@ -70,7 +69,7 @@ interface DataStore {
   addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => void;
   updateProduct: (id: string, productData: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
-  uploadProductImage: (productId: string, file: File) => Promise<string>;
+  uploadProductImage: (productId: string, file: File | string) => Promise<string>;
   
   addOrder: (order: Omit<Order, 'id' | 'createdAt'>) => void;
   updateOrderStatus: (customerId: string, orderId: string, status: Order['status']) => void;

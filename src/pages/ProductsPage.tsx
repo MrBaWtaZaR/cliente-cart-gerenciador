@@ -284,6 +284,17 @@ export const ProductsPage = () => {
     }
   };
   
+  const handleEditClick = (product: Product) => {
+    setIsEditingProduct(product.id);
+    setNewProduct({
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      stock: product.stock,
+      images: product.images
+    });
+  };
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
