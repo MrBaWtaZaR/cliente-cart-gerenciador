@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Package, Plus, Trash, Save } from 'lucide-react';
+import { Package, Plus, Trash, Save, HelpCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface EditOrderFormProps {
   customerId: string;
@@ -172,7 +173,19 @@ export const EditOrderForm = ({ customerId, order, onSuccess, onCancel }: EditOr
       </Button>
       
       <div className="space-y-2">
-        <Label>Status do Pedido</Label>
+        <div className="flex items-center gap-2">
+          <Label>Status do Pedido</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Você pode alterar o status do pedido mesmo após finalizado</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         <Select
           value={status}
           onValueChange={(value: 'pending' | 'completed' | 'cancelled') => setStatus(value)}
