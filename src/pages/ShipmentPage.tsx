@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useDataStore, Customer, Shipment } from '@/lib/data';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -29,19 +28,19 @@ export const ShipmentPage = () => {
   }, [getShipments]);
 
   const handlePrintTable = useReactToPrint({
-    content: () => tableRef.current,
     documentTitle: `Tabela_de_Envio_${format(new Date(), 'dd-MM-yyyy')}`,
     onAfterPrint: () => {
       toast.success('PDF da tabela gerado com sucesso');
     },
+    contentRef: tableRef,
   });
 
   const handlePrintCards = useReactToPrint({
-    content: () => cardsRef.current,
     documentTitle: `Cards_de_Envio_${format(new Date(), 'dd-MM-yyyy')}`,
     onAfterPrint: () => {
       toast.success('PDF dos cards gerado com sucesso');
     },
+    contentRef: cardsRef,
   });
 
   const handleCreateShipment = async () => {
