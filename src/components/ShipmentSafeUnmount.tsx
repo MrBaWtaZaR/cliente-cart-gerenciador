@@ -44,9 +44,34 @@ export const useShipmentSafeUnmount = () => {
           elements.forEach(el => {
             if (el && el.parentNode) {
               try {
-                // Check if parent node exists and contains the element
-                if (document.body.contains(el) && el.parentNode.contains(el)) {
-                  el.parentNode.removeChild(el);
+                // Critical check: Make sure the element is still in the document
+                // AND that the parent node still contains the element before removing
+                if (document.body.contains(el) && 
+                    el.parentNode.contains(el) && 
+                    document.contains(el.parentNode as Node)) {
+                  // Set display none before removing to avoid animation issues
+                  try {
+                    (el as HTMLElement).style.display = 'none';
+                    // Small delay before actual removal to avoid race conditions
+                    setTimeout(() => {
+                      try {
+                        if (document.body.contains(el) && 
+                            el.parentNode && 
+                            el.parentNode.contains(el)) {
+                          el.parentNode.removeChild(el);
+                        }
+                      } catch (e) {
+                        // Log but don't throw
+                        console.log(`Erro na remoção tardia: ${e}`);
+                      }
+                    }, 0);
+                  } catch (styleError) {
+                    // If setting style fails, try direct removal
+                    if (document.body.contains(el) && 
+                        el.parentNode.contains(el)) {
+                      el.parentNode.removeChild(el);
+                    }
+                  }
                 }
               } catch (e) {
                 // Ignorar erros se o elemento já foi removido
@@ -72,10 +97,23 @@ export const useShipmentSafeUnmount = () => {
             if (el && el.parentNode) {
               try {
                 // Check if parent node exists and contains the element
-                if (document.body.contains(el) && el.parentNode.contains(el)) {
+                if (document.body.contains(el) && 
+                    el.parentNode.contains(el) && 
+                    document.contains(el.parentNode as Node)) {
                   // Definir display none antes de remover pode ajudar
                   (el as HTMLElement).style.display = 'none';
-                  el.parentNode.removeChild(el);
+                  // Add a small delay before removing
+                  setTimeout(() => {
+                    try {
+                      if (document.body.contains(el) && 
+                          el.parentNode && 
+                          el.parentNode.contains(el)) {
+                        el.parentNode.removeChild(el);
+                      }
+                    } catch (e) {
+                      console.log(`Erro na remoção tardia de impressão: ${e}`);
+                    }
+                  }, 0);
                 }
               } catch (e) {
                 // Ignorar erros
@@ -125,10 +163,11 @@ export const useShipmentSafeUnmount = () => {
         console.error('Erro ao disparar evento component-unmount:', e);
       }
       
-      // Executar limpeza com verificações adicionais
+      // Executar limpeza com verificações adicionais - use a slight delay
       setTimeout(() => {
         try {
-          if (document.body) { // Check if document.body exists
+          // Make sure document.body still exists (important)
+          if (document && document.body) {
             cleanupDomElements();
           }
         } catch (e) {
@@ -139,7 +178,8 @@ export const useShipmentSafeUnmount = () => {
       // Limpeza adicional com intervalo maior para garantir que outros componentes tenham tempo
       setTimeout(() => {
         try {
-          if (document.body) { // Check if document.body exists
+          // Check again if document.body exists
+          if (document && document.body) {
             cleanupDomElements();
             unmountingRef.current = false;
           }
@@ -205,8 +245,34 @@ export const safeCleanupDOM = () => {
           if (el && el.parentNode) {
             try {
               // Additional check to ensure parent exists and contains child
-              if (document.body.contains(el) && el.parentNode.contains(el)) {
-                el.parentNode.removeChild(el);
+              // and that both are still in the document
+              if (document.body.contains(el) && 
+                  el.parentNode.contains(el) && 
+                  document.contains(el.parentNode as Node)) {
+                // Hide first to avoid animation issues
+                try {
+                  (el as HTMLElement).style.display = 'none';
+                  
+                  // Use a small delay to avoid race conditions
+                  setTimeout(() => {
+                    try {
+                      // Recheck that everything is still valid
+                      if (document.body.contains(el) && 
+                          el.parentNode && 
+                          el.parentNode.contains(el)) {
+                        el.parentNode.removeChild(el);
+                      }
+                    } catch (e) {
+                      console.log(`Erro na remoção tardia global: ${e}`);
+                    }
+                  }, 0);
+                } catch (styleError) {
+                  // If setting style fails, try direct removal with checks
+                  if (document.body.contains(el) && 
+                      el.parentNode.contains(el)) {
+                    el.parentNode.removeChild(el);
+                  }
+                }
               }
             } catch (e) {
               // Ignorar erros
@@ -236,8 +302,30 @@ export const safeCleanupDOM = () => {
         if (el && el.parentNode) {
           try {
             // Additional check to ensure parent exists and contains child
-            if (document.body.contains(el) && el.parentNode.contains(el)) {
-              el.parentNode.removeChild(el);
+            if (document.body.contains(el) && 
+                el.parentNode.contains(el) && 
+                document.contains(el.parentNode as Node)) {
+              // Try to hide first
+              try {
+                (el as HTMLElement).style.display = 'none';
+                setTimeout(() => {
+                  try {
+                    if (document.body.contains(el) && 
+                        el.parentNode && 
+                        el.parentNode.contains(el)) {
+                      el.parentNode.removeChild(el);
+                    }
+                  } catch (e) {
+                    // Silence this error
+                  }
+                }, 0);
+              } catch (styleError) {
+                // If that fails, try direct removal
+                if (document.body.contains(el) && 
+                    el.parentNode.contains(el)) {
+                  el.parentNode.removeChild(el);
+                }
+              }
             }
           } catch (e) {
             // Ignorar erros
