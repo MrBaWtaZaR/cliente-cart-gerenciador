@@ -70,6 +70,7 @@ export const uploadProductImage = async (productId: string, file: File): Promise
 };
 
 // Call setupStorage when the module is imported
-setupStorage();
+setupStorage().catch(error => console.error('Error setting up storage on import:', error));
 
+// Export individual functions instead of a default export with object
 export default { setupStorage, uploadProductImage };

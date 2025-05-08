@@ -29,7 +29,7 @@ const queryClient = new QueryClient({
 });
 
 // Setup storage on app initialization
-setupStorage();
+setupStorage().catch(console.error);
 
 const AppContent = () => {
   const { initializeData, isInitialized } = useDataStore();
