@@ -38,9 +38,14 @@ const RouteChangeHandler = ({ children }) => {
   const navigate = useNavigate();
   const [isNavigating, setIsNavigating] = useState(false);
   const previousPathRef = useRef(location.pathname);
+  const cleanupInProgressRef = useRef(false);
   
   // Esta função robusta lida com limpeza do DOM
   const cleanupDOM = useCallback(() => {
+    // Prevent concurrent cleanups
+    if (cleanupInProgressRef.current) return;
+    cleanupInProgressRef.current = true;
+    
     // Limpar qualquer listener ou ref que possa estar causando problemas
     const cleanupBlobURLs = () => {
       Object.keys(window).forEach(key => {
@@ -81,10 +86,14 @@ const RouteChangeHandler = ({ children }) => {
       
       // Limpar todos os seletores especificados
       selectorsToClean.forEach(selector => {
-        document.querySelectorAll(selector).forEach(el => {
-          if (el && el.parentNode) {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+          if (el && el.parentNode && el.parentElement) {
             try {
-              el.parentNode.removeChild(el);
+              // Safety check to ensure parent actually contains the child
+              if (el.parentNode.contains(el)) {
+                el.parentNode.removeChild(el);
+              }
             } catch (e) {
               // Ignorar erros se o elemento já foi removido
             }
@@ -94,9 +103,12 @@ const RouteChangeHandler = ({ children }) => {
       
       // Garantir que elementos de modal são removidos
       document.querySelectorAll('body > [role="presentation"]').forEach(el => {
-        if (el && el.parentNode) {
+        if (el && el.parentNode && el.parentElement) {
           try {
-            el.parentNode.removeChild(el);
+            // Safety check to ensure parent actually contains the child
+            if (el.parentNode.contains(el)) {
+              el.parentNode.removeChild(el);
+            }
           } catch (e) {
             // Ignorar erros se o elemento já foi removido
           }
@@ -105,6 +117,11 @@ const RouteChangeHandler = ({ children }) => {
     } catch (error) {
       console.error('Erro ao limpar elementos do DOM durante navegação:', error);
     }
+    
+    // Release cleanup lock after a small delay
+    setTimeout(() => {
+      cleanupInProgressRef.current = false;
+    }, 100);
     
     // Forçar qualquer microtask pendente a completar para garantir que a limpeza termine
     setTimeout(() => {}, 0);

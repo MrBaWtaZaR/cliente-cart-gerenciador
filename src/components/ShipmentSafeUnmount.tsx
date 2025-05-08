@@ -30,10 +30,14 @@ export const useShipmentSafeUnmount = () => {
       
       // Limpar todos os seletores especificados
       selectorsToClean.forEach(selector => {
-        document.querySelectorAll(selector).forEach(el => {
-          if (el && el.parentNode) {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+          if (el && el.parentNode && el.parentElement) {
             try {
-              el.parentNode.removeChild(el);
+              // Check if parent still contains element before removing
+              if (el.parentNode.contains(el)) {
+                el.parentNode.removeChild(el);
+              }
             } catch (e) {
               // Ignorar erros se o elemento já foi removido
               console.log(`Tentativa de remover elemento ${selector} falhou, provavelmente já removido`);
@@ -44,12 +48,16 @@ export const useShipmentSafeUnmount = () => {
       
       // Aplicar limpeza específica para elementos problemáticos
       if (printRefsExist.current) {
-        document.querySelectorAll('.shipment-print-container').forEach(el => {
-          if (el && el.parentNode) {
+        const printElements = document.querySelectorAll('.shipment-print-container');
+        printElements.forEach(el => {
+          if (el && el.parentNode && el.parentElement) {
             try {
-              // Definir display none antes de remover pode ajudar
-              (el as HTMLElement).style.display = 'none';
-              el.parentNode.removeChild(el);
+              // Check if parent still contains element before removing
+              if (el.parentNode.contains(el)) {
+                // Definir display none antes de remover pode ajudar
+                (el as HTMLElement).style.display = 'none';
+                el.parentNode.removeChild(el);
+              }
             } catch (e) {
               // Ignorar erros
             }
@@ -128,12 +136,16 @@ export const safeCleanupDOM = () => {
       '[aria-live="assertive"]'
     ];
     
-    // Limpar todos os seletores especificados
+    // Limpar todos os seletores especificados com verificação extra
     selectorsToClean.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => {
-        if (el && el.parentNode) {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(el => {
+        if (el && el.parentNode && el.parentElement) {
           try {
-            el.parentNode.removeChild(el);
+            // Check if parent still contains element before removing
+            if (el.parentNode.contains(el)) {
+              el.parentNode.removeChild(el);
+            }
           } catch (e) {
             // Ignorar erros
           }
@@ -148,10 +160,14 @@ export const safeCleanupDOM = () => {
   globalCleanupTimeout = setTimeout(() => {
     // Repetir processo para garantir limpeza completa
     try {
-      document.querySelectorAll('[role="tooltip"], [role="dialog"], [data-portal]').forEach(el => {
-        if (el && el.parentNode) {
+      const elements = document.querySelectorAll('[role="tooltip"], [role="dialog"], [data-portal]');
+      elements.forEach(el => {
+        if (el && el.parentNode && el.parentElement) {
           try {
-            el.parentNode.removeChild(el);
+            // Check if parent still contains element before removing
+            if (el.parentNode.contains(el)) {
+              el.parentNode.removeChild(el);
+            }
           } catch (e) {
             // Ignorar erros
           }

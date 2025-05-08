@@ -27,9 +27,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       try {
         // Limpar tooltips
         document.querySelectorAll('[role="tooltip"]').forEach(el => {
-          if (el && el.parentNode) {
+          if (el && el.parentNode && el.parentElement) {
             try {
-              el.parentNode.removeChild(el);
+              // Check if parent still contains element before removing
+              if (el.parentNode.contains(el)) {
+                el.parentNode.removeChild(el);
+              }
             } catch (e) {
               // Ignore errors if element was already removed
             }
@@ -38,9 +41,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         
         // Limpar dialogs
         document.querySelectorAll('[role="dialog"]').forEach(el => {
-          if (el && el.parentNode) {
+          if (el && el.parentNode && el.parentElement) {
             try {
-              el.parentNode.removeChild(el);
+              // Check if parent still contains element before removing
+              if (el.parentNode.contains(el)) {
+                el.parentNode.removeChild(el);
+              }
             } catch (e) {
               // Ignore errors if element was already removed
             }
@@ -49,9 +55,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         
         // Limpar portals
         document.querySelectorAll('[data-portal]').forEach(el => {
-          if (el && el.parentNode) {
+          if (el && el.parentNode && el.parentElement) {
             try {
-              el.parentNode.removeChild(el);
+              // Check if parent still contains element before removing
+              if (el.parentNode.contains(el)) {
+                el.parentNode.removeChild(el);
+              }
             } catch (e) {
               // Ignore errors if element was already removed
             }
@@ -60,9 +69,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         
         // Limpar popups e menus flutuantes
         document.querySelectorAll('.radix-popup').forEach(el => {
-          if (el && el.parentNode) {
+          if (el && el.parentNode && el.parentElement) {
             try {
-              el.parentNode.removeChild(el);
+              // Check if parent still contains element before removing
+              if (el.parentNode.contains(el)) {
+                el.parentNode.removeChild(el);
+              }
             } catch (e) {
               // Ignore errors if element was already removed
             }
@@ -82,9 +94,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           '[aria-live="assertive"]'
         ].forEach(selector => {
           document.querySelectorAll(selector).forEach(el => {
-            if (el && el.parentNode && unmountingRef.current) {
+            if (el && el.parentNode && el.parentElement && unmountingRef.current) {
               try {
-                el.parentNode.removeChild(el);
+                // Check if parent still contains element before removing
+                if (el.parentNode.contains(el)) {
+                  el.parentNode.removeChild(el);
+                }
               } catch (e) {
                 // Ignore errors if element was already removed
               }
