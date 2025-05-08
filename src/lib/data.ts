@@ -69,8 +69,12 @@ interface DataStore {
   
   addOrder: (order: Omit<Order, 'id' | 'createdAt'>) => void;
   updateOrderStatus: (customerId: string, orderId: string, status: Order['status']) => void;
+  updateOrder: (customerId: string, orderId: string, orderData: Partial<Order>) => void;
+  deleteOrder: (customerId: string, orderId: string) => void;
   
   addShipment: (customerIds: string[]) => Promise<Shipment>;
+  updateShipment: (shipmentId: string, customerIds: string[]) => Promise<Shipment>;
+  deleteShipment: (shipmentId: string) => Promise<void>;
   getShipments: () => Promise<void>;
   getShipmentCustomers: (shipmentId: string) => Promise<Customer[]>;
 }
@@ -378,6 +382,42 @@ export const useDataStore = create<DataStore>((set, get) => ({
     return { customers: updatedCustomers };
   }),
   
+  updateOrder: (customerId, orderId, orderData) => set((state) => {
+    const updatedCustomers = state.customers.map((customer) => {
+      if (customer.id === customerId) {
+        const updatedOrders = customer.orders.map((order) => {
+          if (order.id === orderId) {
+            return { ...order, ...orderData };
+          }
+          return order;
+        });
+        
+        return { ...customer, orders: updatedOrders };
+      }
+      return customer;
+    });
+    
+    localStorage.setItem('customers', JSON.stringify(updatedCustomers));
+    
+    toast.success('Pedido atualizado com sucesso');
+    return { customers: updatedCustomers };
+  }),
+  
+  deleteOrder: (customerId, orderId) => set((state) => {
+    const updatedCustomers = state.customers.map((customer) => {
+      if (customer.id === customerId) {
+        const updatedOrders = customer.orders.filter((order) => order.id !== orderId);
+        return { ...customer, orders: updatedOrders };
+      }
+      return customer;
+    });
+    
+    localStorage.setItem('customers', JSON.stringify(updatedCustomers));
+    
+    toast.success('Pedido excluído com sucesso');
+    return { customers: updatedCustomers };
+  }),
+  
   addShipment: async (customerIds) => {
     try {
       // Create a new shipment in Supabase
@@ -438,6 +478,105 @@ export const useDataStore = create<DataStore>((set, get) => ({
     } catch (error) {
       console.error('Erro ao criar envio:', error);
       toast.error('Erro ao criar envio');
+      throw error;
+    }
+  },
+  
+  updateShipment: async (shipmentId, customerIds) => {
+    try {
+      // First, remove all existing associations
+      const { error: deleteError } = await supabase
+        .from('shipment_customers')
+        .delete()
+        .eq('shipment_id', shipmentId);
+        
+      if (deleteError) {
+        throw deleteError;
+      }
+      
+      // Find database UUIDs for each customer
+      const { data: dbCustomers, error: customersError } = await supabase
+        .from('customers')
+        .select('id, name')
+        .in('name', get().customers.filter(c => customerIds.includes(c.id)).map(c => c.name));
+        
+      if (customersError) {
+        throw customersError;
+      }
+      
+      if (!dbCustomers || dbCustomers.length === 0) {
+        throw new Error("No matching customers found in database");
+      }
+      
+      // Create new shipment-customer associations
+      const shipmentCustomers = dbCustomers.map(dbCustomer => ({
+        shipment_id: shipmentId,
+        customer_id: dbCustomer.id
+      }));
+      
+      const { error: associationError } = await supabase
+        .from('shipment_customers')
+        .insert(shipmentCustomers);
+        
+      if (associationError) {
+        throw associationError;
+      }
+
+      const selectedCustomers = get().customers.filter(customer => 
+        customerIds.includes(customer.id)
+      );
+
+      // Update local state
+      const updatedShipment: Shipment = {
+        id: shipmentId,
+        createdAt: get().shipments.find(s => s.id === shipmentId)?.createdAt || new Date(),
+        customers: selectedCustomers
+      };
+      
+      set(state => ({
+        shipments: state.shipments.map(shipment => 
+          shipment.id === shipmentId ? updatedShipment : shipment
+        )
+      }));
+      
+      toast.success('Envio atualizado com sucesso');
+      return updatedShipment;
+    } catch (error) {
+      console.error('Erro ao atualizar envio:', error);
+      toast.error('Erro ao atualizar envio');
+      throw error;
+    }
+  },
+  
+  deleteShipment: async (shipmentId) => {
+    try {
+      // First, delete all associations
+      const { error: deleteAssociationsError } = await supabase
+        .from('shipment_customers')
+        .delete()
+        .eq('shipment_id', shipmentId);
+        
+      if (deleteAssociationsError) {
+        throw deleteAssociationsError;
+      }
+      
+      // Then delete the shipment itself
+      const { error: deleteShipmentError } = await supabase
+        .from('shipments')
+        .delete()
+        .eq('id', shipmentId);
+        
+      if (deleteShipmentError) {
+        throw deleteShipmentError;
+      }
+      
+      // Update local state
+      set(state => ({
+        shipments: state.shipments.filter(shipment => shipment.id !== shipmentId)
+      }));
+    } catch (error) {
+      console.error('Erro ao excluir envio:', error);
+      toast.error('Erro ao excluir envio');
       throw error;
     }
   },

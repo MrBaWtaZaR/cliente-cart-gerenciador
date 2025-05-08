@@ -18,6 +18,14 @@ export const ShipmentTablePDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
       return Math.max(60, total * 0.1);
     };
 
+    // Function to format currency
+    const formatCurrency = (value: number) => {
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      }).format(value);
+    };
+
     return (
       <div ref={ref} className="bg-white p-8 max-w-4xl mx-auto text-black">
         {/* Cabeçalho */}
@@ -57,28 +65,63 @@ export const ShipmentTablePDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
                 
                 const orderTotal = latestOrder?.total || 0;
                 const serviceFee = calculateServiceFee(orderTotal);
+                const total = orderTotal + serviceFee;
 
                 return (
                   <tr key={idx} className="border-b border-gray-200">
                     <td className="py-3 px-3">{customer.name}</td>
                     <td className="py-3 px-3 text-right">
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL'
-                      }).format(orderTotal)}
+                      {formatCurrency(orderTotal)}
                     </td>
                     <td className="py-3 px-3 text-right">
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL'
-                      }).format(serviceFee)}
+                      {formatCurrency(serviceFee)}
                     </td>
                     <td className="py-3 px-3 text-right"></td>
-                    <td className="py-3 px-3 text-right"></td>
+                    <td className="py-3 px-3 text-right">
+                      {formatCurrency(total)}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
+            <tfoot>
+              <tr className="font-bold bg-gray-100">
+                <td colSpan={1} className="py-3 px-3 text-left">Total:</td>
+                <td className="py-3 px-3 text-right">
+                  {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
+                    const latestOrder = customer.orders.length > 0 
+                      ? customer.orders.reduce((latest, current) => 
+                          new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+                        ) 
+                      : null;
+                    return sum + (latestOrder?.total || 0);
+                  }, 0))}
+                </td>
+                <td className="py-3 px-3 text-right">
+                  {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
+                    const latestOrder = customer.orders.length > 0 
+                      ? customer.orders.reduce((latest, current) => 
+                          new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+                        ) 
+                      : null;
+                    return sum + calculateServiceFee(latestOrder?.total || 0);
+                  }, 0))}
+                </td>
+                <td className="py-3 px-3 text-right"></td>
+                <td className="py-3 px-3 text-right">
+                  {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
+                    const latestOrder = customer.orders.length > 0 
+                      ? customer.orders.reduce((latest, current) => 
+                          new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+                        ) 
+                      : null;
+                    const orderTotal = latestOrder?.total || 0;
+                    const serviceFee = calculateServiceFee(orderTotal);
+                    return sum + orderTotal + serviceFee;
+                  }, 0))}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useDataStore, Customer, Shipment } from '@/lib/data';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -6,19 +7,22 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ShipmentTablePDF, ShipmentCardsPDF } from '@/components/ShipmentPDF';
-import { Plus, FileText, CreditCard, Calendar, Download, Eye } from 'lucide-react';
+import { Plus, FileText, CreditCard, Calendar, Download, Eye, Trash2, Edit, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReactToPrint } from 'react-to-print';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 export const ShipmentPage = () => {
-  const { customers, shipments, addShipment, getShipments } = useDataStore();
+  const { customers, shipments, addShipment, getShipments, deleteShipment, updateShipment } = useDataStore();
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [isCreatingShipment, setIsCreatingShipment] = useState(false);
   const [isSelectingCustomers, setIsSelectingCustomers] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [showShipmentDetails, setShowShipmentDetails] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const tableRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
@@ -61,8 +65,10 @@ export const ShipmentPage = () => {
       
       // Fetch updated shipments
       await getShipments();
+      toast.success('Envio criado com sucesso!');
     } catch (error) {
       console.error('Erro ao criar envio:', error);
+      toast.error('Erro ao criar envio. Por favor, tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -78,6 +84,56 @@ export const ShipmentPage = () => {
     setIsCreatingShipment(true);
   };
 
+  const handleDeleteShipment = async () => {
+    if (!selectedShipment) return;
+    
+    try {
+      await deleteShipment(selectedShipment.id);
+      setShowDeleteConfirm(false);
+      setShowShipmentDetails(false);
+      toast.success('Envio excluído com sucesso');
+    } catch (error) {
+      console.error('Erro ao excluir envio:', error);
+      toast.error('Erro ao excluir envio');
+    }
+  };
+
+  const handleEditShipment = () => {
+    if (!selectedShipment) return;
+    
+    // Pre-select customers
+    const customerIds = selectedShipment.customers.map(customer => customer.id);
+    setSelectedCustomers(customerIds);
+    setIsEditing(true);
+    setShowShipmentDetails(false);
+    setIsSelectingCustomers(true);
+  };
+
+  const handleSaveEditedShipment = async () => {
+    if (!selectedShipment || selectedCustomers.length === 0) {
+      toast.error('Selecione pelo menos um cliente para atualizar o envio');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await updateShipment(selectedShipment.id, selectedCustomers);
+      
+      setIsSelectingCustomers(false);
+      setIsEditing(false);
+      setSelectedCustomers([]);
+      
+      // Fetch updated shipments
+      await getShipments();
+      toast.success('Envio atualizado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar envio:', error);
+      toast.error('Erro ao atualizar envio. Por favor, tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleToggleCustomer = (customerId: string) => {
     setSelectedCustomers(prev => 
       prev.includes(customerId)
@@ -86,11 +142,23 @@ export const ShipmentPage = () => {
     );
   };
 
+  const handleCloseAll = () => {
+    setIsCreatingShipment(false);
+    setShowShipmentDetails(false);
+    setIsSelectingCustomers(false);
+    setIsEditing(false);
+    setSelectedShipment(null);
+  };
+
   return (
     <div className="container space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Preparando Envio</h1>
-        <Button onClick={() => setIsSelectingCustomers(true)}>
+        <Button onClick={() => {
+          setIsEditing(false);
+          setSelectedCustomers([]);
+          setIsSelectingCustomers(true);
+        }}>
           <Plus className="mr-2 h-4 w-4" /> Fazer um novo envio
         </Button>
       </div>
@@ -123,16 +191,32 @@ export const ShipmentPage = () => {
               </CardFooter>
             </Card>
           ))}
+          {shipments.length === 0 && (
+            <div className="col-span-full text-center py-12 text-muted-foreground">
+              <p>Nenhum envio encontrado. Crie um novo envio para começar.</p>
+            </div>
+          )}
         </div>
       </section>
 
       {/* Dialog para seleção de clientes */}
-      <Dialog open={isSelectingCustomers} onOpenChange={setIsSelectingCustomers}>
+      <Dialog open={isSelectingCustomers} onOpenChange={(open) => {
+        if (!open) {
+          setIsSelectingCustomers(false);
+          if (isEditing) {
+            setIsEditing(false);
+          }
+        }
+      }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Selecionar Clientes para Envio</DialogTitle>
+            <DialogTitle>
+              {isEditing ? 'Editar Clientes do Envio' : 'Selecionar Clientes para Envio'}
+            </DialogTitle>
             <DialogDescription>
-              Selecione os clientes que deseja incluir neste envio.
+              {isEditing 
+                ? 'Modifique os clientes que deseja incluir neste envio.' 
+                : 'Selecione os clientes que deseja incluir neste envio.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -180,14 +264,26 @@ export const ShipmentPage = () => {
             </div>
           </div>
           
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setIsSelectingCustomers(false)}>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsSelectingCustomers(false);
+              if (isEditing) {
+                setIsEditing(false);
+              }
+            }}>
               Cancelar
             </Button>
-            <Button onClick={handleCreateShipment} disabled={selectedCustomers.length === 0 || isLoading}>
-              {isLoading ? 'Processando...' : 'Criar Envio'}
-            </Button>
-          </div>
+            {isEditing ? (
+              <Button onClick={handleSaveEditedShipment} disabled={selectedCustomers.length === 0 || isLoading}>
+                <Save className="mr-2 h-4 w-4" />
+                {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            ) : (
+              <Button onClick={handleCreateShipment} disabled={selectedCustomers.length === 0 || isLoading}>
+                {isLoading ? 'Processando...' : 'Criar Envio'}
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -249,7 +345,21 @@ export const ShipmentPage = () => {
                 </table>
               </div>
               
-              <div className="flex justify-end gap-2 mt-4">
+              <DialogFooter className="gap-2">
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleEditShipment}
+                >
+                  <Edit className="mr-2 h-4 w-4" /> Editar
+                </Button>
                 <Button variant="outline" onClick={() => setShowShipmentDetails(false)}>
                   Fechar
                 </Button>
@@ -259,14 +369,14 @@ export const ShipmentPage = () => {
                 }}>
                   <Download className="mr-2 h-4 w-4" /> Gerar PDFs
                 </Button>
-              </div>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
       {/* Dialog para gerar PDFs */}
-      <Dialog open={isCreatingShipment} onOpenChange={setIsCreatingShipment}>
+      <Dialog open={isCreatingShipment} onOpenChange={handleCloseAll}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Gerar PDFs de Envio</DialogTitle>
@@ -299,15 +409,33 @@ export const ShipmentPage = () => {
                 </Card>
               </div>
               
-              <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={() => setIsCreatingShipment(false)}>
+              <DialogFooter>
+                <Button variant="outline" onClick={handleCloseAll}>
                   Fechar
                 </Button>
-              </div>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Confirmar exclusão */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este envio? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteShipment} className="bg-destructive text-destructive-foreground">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Componentes invisíveis para impressão */}
       <div className="hidden">
