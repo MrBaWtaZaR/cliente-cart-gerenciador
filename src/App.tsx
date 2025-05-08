@@ -15,7 +15,7 @@ import { ShipmentPage } from "./pages/ShipmentPage";
 import { DashboardLayout } from "./components/DashboardLayout";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
-import { useDataStore } from "./lib/data";
+import { useDataStore } from "./stores";
 
 // Criando um cliente de consulta React Query
 const queryClient = new QueryClient();

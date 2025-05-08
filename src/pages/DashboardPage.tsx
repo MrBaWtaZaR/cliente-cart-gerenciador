@@ -1,6 +1,6 @@
 
 import { useEffect, useState, useMemo } from 'react';
-import { useDataStore, Customer, Product, Order } from '@/lib/data';
+import { useDataStore, Customer, Product, Order } from '@/stores';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Users, Package, ShoppingCart } from 'lucide-react';
