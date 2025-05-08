@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useDataStore, Order, OrderProduct } from '@/lib/data';
+import { useCustomerStore } from '@/stores';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,13 +11,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 interface EditOrderFormProps {
   customerId: string;
-  order: Order;
+  order: any;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
 export const EditOrderForm = ({ customerId, order, onSuccess, onCancel }: EditOrderFormProps) => {
-  const { products, updateOrder } = useDataStore();
+  const { products, updateOrder } = useCustomerStore();
   const [orderItems, setOrderItems] = useState<Array<{
     productId: string;
     quantity: number;
@@ -27,15 +27,18 @@ export const EditOrderForm = ({ customerId, order, onSuccess, onCancel }: EditOr
   
   // Initialize form with existing order data
   useEffect(() => {
-    if (order) {
+    if (order && Array.isArray(order.products)) {
       setOrderItems(
-        order.products.map((item, index) => ({
-          productId: item.productId,
-          quantity: item.quantity,
+        order.products.map((item: any, index: number) => ({
+          productId: item.productId || "",
+          quantity: item.quantity || 1,
           originalIndex: index
         }))
       );
-      setStatus(order.status);
+      setStatus(order.status || 'pending');
+    } else {
+      // Initialize with empty item if no products
+      setOrderItems([{ productId: '', quantity: 1 }]);
     }
   }, [order]);
 
@@ -56,7 +59,11 @@ export const EditOrderForm = ({ customerId, order, onSuccess, onCancel }: EditOr
   };
 
   const removeItem = (index: number) => {
-    setOrderItems(orderItems.filter((_, i) => i !== index));
+    if (orderItems.length > 1) {
+      setOrderItems(orderItems.filter((_, i) => i !== index));
+    } else {
+      toast.error('Um pedido deve ter pelo menos um item');
+    }
   };
 
   const calculateTotal = () => {
@@ -77,7 +84,11 @@ export const EditOrderForm = ({ customerId, order, onSuccess, onCancel }: EditOr
     
     // Create updated order products list
     const orderProducts = orderItems.map(item => {
-      const product = products.find(p => p.id === item.productId)!;
+      const product = products.find(p => p.id === item.productId);
+      if (!product) {
+        toast.error(`Produto não encontrado para o item: ${item.productId}`);
+        return null;
+      }
       return {
         productId: product.id,
         productName: product.name,
@@ -85,19 +96,28 @@ export const EditOrderForm = ({ customerId, order, onSuccess, onCancel }: EditOr
         price: product.price,
         images: product.images
       };
-    });
+    }).filter(p => p !== null);
+
+    if (orderProducts.some(p => p === null)) {
+      return; // Don't proceed if any products weren't found
+    }
 
     const total = calculateTotal();
 
     // Update the order with new data
-    updateOrder(customerId, order.id, {
-      products: orderProducts,
-      status,
-      total
-    });
+    try {
+      updateOrder(customerId, order.id, {
+        products: orderProducts,
+        status,
+        total
+      });
 
-    toast.success('Pedido atualizado com sucesso!');
-    onSuccess();
+      toast.success('Pedido atualizado com sucesso!');
+      onSuccess();
+    } catch (error) {
+      console.error('Error updating order:', error);
+      toast.error('Erro ao atualizar pedido');
+    }
   };
 
   return (
@@ -116,6 +136,7 @@ export const EditOrderForm = ({ customerId, order, onSuccess, onCancel }: EditOr
                 size="sm" 
                 className="h-8 w-8 p-0" 
                 onClick={() => removeItem(index)}
+                disabled={orderItems.length <= 1}
               >
                 <Trash className="h-4 w-4 text-destructive" />
               </Button>
@@ -148,14 +169,14 @@ export const EditOrderForm = ({ customerId, order, onSuccess, onCancel }: EditOr
                   type="number"
                   min="1"
                   value={item.quantity}
-                  onChange={(e) => handleQuantityChange(index, parseInt(e.target.value))}
+                  onChange={(e) => handleQuantityChange(index, parseInt(e.target.value) || 1)}
                 />
               </div>
             </div>
 
             {item.productId && (
               <div className="text-sm text-right">
-                Subtotal: R$ {(products.find(p => p.id === item.productId)?.price || 0) * item.quantity}
+                Subtotal: R$ {((products.find(p => p.id === item.productId)?.price || 0) * item.quantity).toFixed(2)}
               </div>
             )}
           </div>
@@ -201,12 +222,12 @@ export const EditOrderForm = ({ customerId, order, onSuccess, onCancel }: EditOr
         </Select>
       </div>
       
-      <div className="border-t pt-4 flex justify-between items-center">
+      <div className="border-t pt-4 flex justify-between items-center sm:space-x-2 flex-col sm:flex-row gap-2 sm:gap-0">
         <div className="text-lg font-bold">
           Total: R$ {calculateTotal().toFixed(2)}
         </div>
         
-        <div className="space-x-2">
+        <div className="flex space-x-2">
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>

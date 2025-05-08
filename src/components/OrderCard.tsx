@@ -2,12 +2,11 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Order } from '@/lib/data';
 import { ShoppingCart, Calendar, Clock } from 'lucide-react';
 import { useState } from 'react';
 
 interface OrderCardProps {
-  order: Order;
+  order: any;
   customerName: string;
   onClick?: () => void; // Make onClick optional
 }
@@ -26,13 +25,21 @@ export const OrderCard = ({ order, customerName, onClick }: OrderCardProps) => {
   };
 
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('pt-BR');
+    try {
+      return new Date(date).toLocaleDateString('pt-BR');
+    } catch (error) {
+      return "Data inválida";
+    }
   };
 
   const formatTime = (date: Date) => {
-    return new Date(date).toLocaleTimeString('pt-BR', { 
-      hour: '2-digit', minute: '2-digit'
-    });
+    try {
+      return new Date(date).toLocaleTimeString('pt-BR', { 
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch (error) {
+      return "--:--";
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -62,6 +69,9 @@ export const OrderCard = ({ order, customerName, onClick }: OrderCardProps) => {
     setFailedImages(prev => ({ ...prev, [`${productId}-${index}`]: true }));
   };
 
+  // Check if order has valid products
+  const hasValidProducts = Array.isArray(order.products) && order.products.length > 0;
+
   return (
     <Card 
       className="h-full hover:shadow-md transition-all cursor-pointer"
@@ -86,16 +96,16 @@ export const OrderCard = ({ order, customerName, onClick }: OrderCardProps) => {
         
         <div className="flex items-center space-x-2">
           <ShoppingCart size={16} className="text-muted-foreground" />
-          <span className="text-sm">{order.products.length} produto(s)</span>
+          <span className="text-sm">{hasValidProducts ? order.products.length : 0} produto(s)</span>
         </div>
 
-        {order.products.slice(0, 2).map((product, index) => (
+        {hasValidProducts && order.products.slice(0, 2).map((product: any, index: number) => (
           <div key={`${product.productId}-${index}`} className="flex justify-between text-xs text-muted-foreground">
             <span className="truncate flex-1">{product.productName}</span>
             <span>x{product.quantity}</span>
           </div>
         ))}
-        {order.products.length > 2 && (
+        {hasValidProducts && order.products.length > 2 && (
           <div className="text-xs text-muted-foreground italic">
             + {order.products.length - 2} mais produto(s)
           </div>
@@ -107,7 +117,7 @@ export const OrderCard = ({ order, customerName, onClick }: OrderCardProps) => {
           {new Intl.NumberFormat('pt-BR', {
             style: 'currency',
             currency: 'BRL'
-          }).format(order.total)}
+          }).format(order.total || 0)}
         </div>
       </CardFooter>
     </Card>

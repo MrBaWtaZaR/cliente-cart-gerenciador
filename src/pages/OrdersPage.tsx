@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { useDataStore, Customer, Order } from '@/stores';
+import { useCustomerStore } from '@/stores';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,12 +16,12 @@ import { EditOrderForm } from '@/components/EditOrderForm';
 
 export const OrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { customers, updateOrderStatus } = useDataStore();
+  const { customers, updateOrderStatus } = useCustomerStore();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
-  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<any | null>(null);
   const [customerName, setCustomerName] = useState<string>('');
   const [customerInfo, setCustomerInfo] = useState<any>(null);
   const [showPDFPreview, setShowPDFPreview] = useState<boolean>(false);
@@ -38,7 +39,7 @@ export const OrdersPage = () => {
 
   // Get all orders
   const allOrders = customers.flatMap(customer => 
-    customer.orders.map(order => ({
+    (customer.orders || []).map(order => ({
       ...order,
       customerName: customer.name,
       customerId: customer.id,
@@ -84,14 +85,14 @@ export const OrdersPage = () => {
   };
 
   // Improved view order function
-  const handleViewOrder = (order: Order & { customerName?: string }, customerName: string) => {
+  const handleViewOrder = (order: any, customerName: string) => {
     try {
       const customer = customers.find(c => c.id === order.customerId);
       
       if (!isMounted.current) return;
       
       // Create a new order object without the customerName property
-      const orderForState: Order = {
+      const orderForState = {
         id: order.id,
         customerId: order.customerId,
         products: order.products || [], // Garante que products nunca é undefined
@@ -158,7 +159,7 @@ export const OrdersPage = () => {
         console.error('Error in onAfterPrint:', error);
       }
     },
-    contentRef: pdfRef,
+    content: () => pdfRef.current,
   });
 
   // Pre-render the PDF content when viewing order changes
@@ -234,11 +235,11 @@ export const OrdersPage = () => {
       // Update the view with the latest order data
       if (viewingOrder) {
         const updatedOrder = customers.find(c => c.id === viewingOrder.customerId)
-          ?.orders.find(o => o.id === viewingOrder.id);
+          ?.orders?.find(o => o.id === viewingOrder.id);
         
         if (updatedOrder && isMounted.current) {
           // Create a proper Order object without customerName property
-          const updatedOrderForState: Order = {
+          const updatedOrderForState = {
             id: updatedOrder.id,
             customerId: viewingOrder.customerId,
             products: updatedOrder.products || [], // Garante que products nunca é undefined
@@ -441,7 +442,7 @@ export const OrdersPage = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {(viewingOrder.products || []).map((item, index) => (
+                          {viewingOrder.products && viewingOrder.products.map((item: any, index: number) => (
                             <tr key={`${item.productId}-${index}`} className="border-t">
                               <td className="p-2">
                                 <div className="flex items-center">
@@ -451,6 +452,10 @@ export const OrdersPage = () => {
                                         src={item.images[0]}
                                         alt={item.productName}
                                         className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          // Se a imagem falhar, use o placeholder
+                                          (e.target as HTMLImageElement).src = '/placeholder.svg';
+                                        }}
                                       />
                                     </div>
                                   )}
@@ -490,7 +495,7 @@ export const OrdersPage = () => {
                 </>
               )}
               
-              <DialogFooter className="flex justify-between items-center space-x-2">
+              <DialogFooter className="flex justify-between items-center sm:space-x-2 flex-col sm:flex-row gap-2 sm:gap-0">
                 <Button variant="outline" onClick={handleDialogClose}>
                   Fechar
                 </Button>
