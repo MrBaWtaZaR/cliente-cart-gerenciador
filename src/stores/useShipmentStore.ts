@@ -1,9 +1,9 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Shipment } from '../types/shipments';
 import { Customer } from '../types/customers';
+import { generateId } from '../utils/idGenerator';
 
 interface ShipmentStore {
   shipments: Shipment[];

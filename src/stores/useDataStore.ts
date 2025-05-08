@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,9 +21,31 @@ interface DataStore {
   isLoading: boolean;
   
   initializeData: () => Promise<void>;
+  
+  // Add customer store functions
+  addCustomer: ReturnType<typeof useCustomerStore>['addCustomer'];
+  updateCustomer: ReturnType<typeof useCustomerStore>['updateCustomer'];
+  deleteCustomer: ReturnType<typeof useCustomerStore>['deleteCustomer'];
+  addOrder: ReturnType<typeof useCustomerStore>['addOrder'];
+  updateOrderStatus: ReturnType<typeof useCustomerStore>['updateOrderStatus'];
+  updateOrder: ReturnType<typeof useCustomerStore>['updateOrder'];
+  deleteOrder: ReturnType<typeof useCustomerStore>['deleteOrder'];
+  
+  // Add product store functions
+  addProduct: ReturnType<typeof useProductStore>['addProduct'];
+  updateProduct: ReturnType<typeof useProductStore>['updateProduct'];
+  deleteProduct: ReturnType<typeof useProductStore>['deleteProduct'];
+  uploadProductImage: ReturnType<typeof useProductStore>['uploadProductImage'];
+  
+  // Add shipment store functions
+  addShipment: ReturnType<typeof useShipmentStore>['addShipment'];
+  updateShipment: ReturnType<typeof useShipmentStore>['updateShipment'];
+  deleteShipment: ReturnType<typeof useShipmentStore>['deleteShipment'];
+  getShipments: ReturnType<typeof useShipmentStore>['getShipments'];
+  getShipmentCustomers: ReturnType<typeof useShipmentStore>['getShipmentCustomers'];
 }
 
-export const useDataStore = create<DataStore & ReturnType<typeof useCustomerStore> & ReturnType<typeof useProductStore> & ReturnType<typeof useShipmentStore>>((set, get) => {
+export const useDataStore = create<DataStore>((set, get) => {
   // Create base store
   const dataStore = {
     customers: initialCustomers,
@@ -117,7 +138,7 @@ export const useDataStore = create<DataStore & ReturnType<typeof useCustomerStor
       }
     }
   };
-
+  
   // Combine with other stores
   return {
     ...dataStore,
