@@ -18,37 +18,41 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const unmountingRef = useRef(false);
   const cleanupTimerRef = useRef<number | null>(null);
   
-  // Initialize data when dashboard mounts
+  // Initialize data when dashboard mounts and handle cleanup
   useEffect(() => {
-    console.log("Inicializando dados da aplicação...");
+    console.log("Initializing application data...");
+    
+    // First do a cleanup to remove any leftover elements
+    performDOMCleanup();
     
     if (!isInitialized) {
       refreshAll().catch(error => {
-        console.error("Erro ao inicializar dados:", error);
-        toast.error("Erro ao carregar dados. Por favor, recarregue a página.");
+        console.error("Error initializing data:", error);
+        toast.error("Error loading data. Please reload the page.");
       });
     }
     
-    // Clean up orphaned elements on load
-    performDOMCleanup();
-    
     // Handler for cleanup events
     const handleCleanup = () => {
-      console.log("Evento de limpeza disparado");
+      console.log("Cleanup event triggered");
       cleanupDOM();
     };
   
     // Register global event listeners
     window.addEventListener('app-cleanup', handleCleanup);
     window.addEventListener('popstate', handleCleanup);
+    window.addEventListener('route-changed', handleCleanup);
+    window.addEventListener('beforeunload', handleCleanup);
   
     return () => {
-      console.log("App desmontado, limpando recursos...");
+      console.log("App unmounted, cleaning resources...");
       unmountingRef.current = true;
       
       // Remove event listeners
       window.removeEventListener('app-cleanup', handleCleanup);
       window.removeEventListener('popstate', handleCleanup);
+      window.removeEventListener('route-changed', handleCleanup);
+      window.removeEventListener('beforeunload', handleCleanup);
       
       // Clear any pending timer
       if (cleanupTimerRef.current !== null) {
@@ -60,21 +64,31 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         const clickableElements = document.querySelectorAll('button, a, [role="button"]');
         clickableElements.forEach(el => {
           if (el.parentNode && document.body.contains(el)) {
-            const clone = el.cloneNode(true);
-            el.parentNode.replaceChild(clone, el);
+            try {
+              const clone = el.cloneNode(false); // Clone without children
+              while (el.firstChild) {
+                clone.appendChild(el.firstChild); // Move children to clone
+              }
+              el.parentNode.replaceChild(clone, el);
+            } catch (err) {
+              console.warn("Failed to replace element:", err);
+            }
           }
         });
       } catch (error) {
-        console.error('Erro ao limpar event listeners:', error);
+        console.error('Error cleaning event listeners:', error);
       }
       
-      // Execute cleanup immediately
+      // Execute cleanup in multiple phases with increasing delays
       cleanupDOM();
       
-      // And again after a delay
       cleanupTimerRef.current = window.setTimeout(() => {
         performDOMCleanup();
       }, 50);
+      
+      cleanupTimerRef.current = window.setTimeout(() => {
+        performDOMCleanup();
+      }, 150);
     };
   }, [refreshAll, isInitialized, cleanupDOM]);
 

@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useSafeUnmount } from '@/components/DOMCleanupUtils';
+import { useSafeUnmount, safeRemoveElement } from '@/components/DOMCleanupUtils';
 
 export const OrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -40,16 +40,27 @@ export const OrdersPage = () => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
   
-  // Use our improved safe unmount hook
+  // Use our improved safe unmount hook with better DOM cleanup
   const { isMounted, setPrintableContent, cleanupDOM } = useSafeUnmount();
   const pdfRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   
-  // Setup cleanup on component unmount
+  // Setup cleanup on component unmount and for navigation
   useEffect(() => {
+    // Clean up immediately when component mounts to remove any leftover elements
+    cleanupDOM();
+    
+    const handleBeforeUnload = () => {
+      cleanupDOM();
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
     return () => {
-      console.log("OrdersPage desmontando, limpando recursos...");
+      console.log("OrdersPage unmounting, cleaning resources...");
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       
-      // Make sure all dialogs are closed
+      // Force close all dialogs
       setDialogOpen(false);
       setDeleteDialogOpen(false);
       setShowPDFPreview(false);
@@ -57,9 +68,11 @@ export const OrdersPage = () => {
       // Clear states to free memory
       setViewingOrder(null);
       setCustomerInfo(null);
-
-      // Do a final cleanup
+      
+      // Run the DOM cleanup several times with increasing delays
       cleanupDOM();
+      setTimeout(cleanupDOM, 50);
+      setTimeout(cleanupDOM, 150);
     };
   }, [cleanupDOM]);
 
@@ -69,47 +82,49 @@ export const OrdersPage = () => {
   }, [pdfRef.current, setPrintableContent]);
 
   // Get all orders
-  const allOrders = customers.flatMap(customer => 
+  const allOrders = React.useMemo(() => customers.flatMap(customer => 
     (customer.orders || []).map(order => ({
       ...order,
       customerName: customer.name,
       customerId: customer.id,
     }))
-  );
+  ), [customers]);
 
   // Check if we should open a specific order from URL parameters
   useEffect(() => {
     try {
       const viewOrderId = searchParams.get('view');
       if (viewOrderId && !dialogOpen) {
-        console.log("Tentando abrir pedido do URL:", viewOrderId);
+        console.log("Trying to open order from URL:", viewOrderId);
         const orderToView = allOrders.find(order => order.id === viewOrderId);
         if (orderToView) {
           handleViewOrder(orderToView, orderToView.customerName || '');
         } else {
-          console.log(`Pedido ${viewOrderId} não encontrado`);
-          toast.error("Pedido não encontrado");
+          console.log(`Order ${viewOrderId} not found`);
+          toast.error("Order not found");
         }
       }
     } catch (error) {
-      console.error("Erro ao processar parâmetros de URL:", error);
+      console.error("Error processing URL parameters:", error);
     }
   }, [searchParams, allOrders, dialogOpen]);
 
   // Filter orders based on applied filters
-  const filteredOrders = allOrders.filter(order => {
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = 
-      order.id.toLowerCase().includes(searchLower) ||
-      order.customerName.toLowerCase().includes(searchLower);
-    
-    // Filter by date if date filter is applied
-    const matchesDate = !dateFilter || 
-      (new Date(order.createdAt).toDateString() === dateFilter.toDateString());
-    
-    return matchesStatus && matchesSearch && matchesDate;
-  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const filteredOrders = React.useMemo(() => {
+    return allOrders.filter(order => {
+      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = 
+        order.id.toLowerCase().includes(searchLower) ||
+        order.customerName.toLowerCase().includes(searchLower);
+      
+      // Filter by date if date filter is applied
+      const matchesDate = !dateFilter || 
+        (new Date(order.createdAt).toDateString() === dateFilter.toDateString());
+      
+      return matchesStatus && matchesSearch && matchesDate;
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [allOrders, statusFilter, searchTerm, dateFilter]);
 
   const handleUpdateOrderStatus = (customerId: string, orderId: string, newStatus: 'pending' | 'completed' | 'cancelled') => {
     updateOrderStatus(customerId, orderId, newStatus);
@@ -123,10 +138,10 @@ export const OrdersPage = () => {
   // Improved view order function
   const handleViewOrder = (order: any, customerName: string) => {
     try {
-      console.log("Visualizando pedido:", order.id);
+      console.log("Viewing order:", order.id);
       if (!order || !order.customerId) {
-        console.error('Dados do pedido inválidos:', order);
-        toast.error("Dados do pedido inválidos");
+        console.error('Invalid order data:', order);
+        toast.error("Invalid order data");
         return;
       }
 
@@ -135,10 +150,13 @@ export const OrdersPage = () => {
       if (!isMounted()) return;
       
       if (!customer) {
-        console.error(`Cliente não encontrado para o ID: ${order.customerId}`);
-        toast.error("Cliente não encontrado para este pedido");
+        console.error(`Customer not found for ID: ${order.customerId}`);
+        toast.error("Customer not found for this order");
         return;
       }
+      
+      // Clean up DOM before opening new dialog to prevent element conflicts
+      cleanupDOM();
       
       // Create a new order object without the customerName property
       const orderForState = {
@@ -151,7 +169,7 @@ export const OrdersPage = () => {
       };
       
       // Separately set the customer name state
-      setCustomerName(customerName || customer.name || "Cliente");
+      setCustomerName(customerName || customer.name || "Customer");
       
       setCustomerInfo({
         email: customer.email || '',
@@ -177,24 +195,24 @@ export const OrdersPage = () => {
       }
     } catch (error) {
       console.error('Error in handleViewOrder:', error);
-      // Em caso de erro, limpa o estado para evitar renderizações com dados inválidos
+      // In case of error, clear the state to avoid rendering with invalid data
       if (isMounted()) {
         setViewingOrder(null);
         setCustomerName('');
         setCustomerInfo(null);
-        toast.error("Erro ao carregar detalhes do pedido");
+        toast.error("Error loading order details");
       }
     }
   };
   
   // Updated PDF printing with cleanup
   const handlePrintPDF = useReactToPrint({
-    documentTitle: `Pedido-${viewingOrder?.id || ''}`,
+    documentTitle: `Order-${viewingOrder?.id || ''}`,
     onBeforePrint: () => {
       return new Promise<void>((resolve) => {
         try {
           if (isMounted()) {
-            console.log("Preparando para impressão...");
+            console.log("Preparing for printing...");
             setShowPDFPreview(true);
           }
           setTimeout(resolve, 500);
@@ -206,7 +224,7 @@ export const OrdersPage = () => {
     },
     onAfterPrint: () => {
       try {
-        console.log("Impressão concluída");
+        console.log("Printing completed");
         if (isMounted()) {
           // Do DOM cleanup after print
           setTimeout(() => {
@@ -226,19 +244,19 @@ export const OrdersPage = () => {
   useEffect(() => {
     if (viewingOrder && !showPDFPreview && isMounted()) {
       try {
-        console.log("Pré-renderizando PDF");
+        console.log("Pre-rendering PDF");
         setShowPDFPreview(true);
         // Small timeout to ensure the content is rendered
         const timer = setTimeout(() => {
           if (isMounted()) {
             setShowPDFPreview(false);
-            console.log("Pré-renderização concluída");
+            console.log("Pre-rendering complete");
           }
         }, 500);
         
         return () => {
           clearTimeout(timer);
-          console.log("Limpando timer de pré-renderização");
+          console.log("Clearing pre-rendering timer");
         };
       } catch (error) {
         console.error('Error in PDF preview effect:', error);
@@ -247,12 +265,12 @@ export const OrdersPage = () => {
         }
       }
     }
-  }, [viewingOrder, showPDFPreview]);
+  }, [viewingOrder, showPDFPreview, isMounted]);
 
   // Improved dialog close handling with DOM cleanup
   const handleDialogClose = () => {
     try {
-      console.log("Fechando diálogo de pedido");
+      console.log("Closing order dialog");
       if (!isMounted()) return;
       
       // First clean up DOM to prevent React errors
@@ -272,7 +290,10 @@ export const OrdersPage = () => {
         setCustomerInfo(null);
         setCustomerName('');
         setSearchParams({});
-        console.log("Estado de visualização limpo");
+        console.log("View state cleared");
+        
+        // Final cleanup to catch any elements React might have missed
+        cleanupDOM();
       }, 300);
     } catch (error) {
       console.error('Error in handleDialogClose:', error);
@@ -288,22 +309,36 @@ export const OrdersPage = () => {
     }
   };
 
+  // Handle dialog's escape key or outside click with safer cleanup
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open && isMounted()) {
+      handleDialogClose();
+    } else if (open && isMounted()) {
+      // Clean up before opening new dialog
+      cleanupDOM();
+      setDialogOpen(true);
+    }
+  };
+
   const handleDeleteOrder = () => {
     if (viewingOrder && viewingOrder.customerId) {
       deleteOrder(viewingOrder.customerId, viewingOrder.id);
       setDeleteDialogOpen(false);
       handleDialogClose();
+      toast.success("Order deleted successfully");
     }
   };
 
   const handleStartEditing = () => {
     if (isMounted()) {
+      cleanupDOM(); // Clean DOM before switching views
       setIsEditing(true);
     }
   };
 
   const handleCancelEditing = () => {
     if (isMounted()) {
+      cleanupDOM(); // Clean DOM when switching back
       setIsEditing(false);
     }
   };
@@ -332,12 +367,14 @@ export const OrdersPage = () => {
           };
           
           setViewingOrder(updatedOrderForState);
+          toast.success("Order updated successfully");
         }
       }
     } catch (error) {
       console.error('Error in handleOrderUpdated:', error);
       if (isMounted()) {
         setIsEditing(false);
+        toast.error("Failed to update view with new order data");
       }
     }
   };
@@ -421,22 +458,17 @@ export const OrdersPage = () => {
       {/* Improved order dialog with better focus management */}
       <Dialog 
         open={dialogOpen} 
-        onOpenChange={(open) => {
-          if (!open) {
-            handleDialogClose();
-          } else if (isMounted()) {
-            setDialogOpen(open);
-          }
-        }}
+        onOpenChange={handleDialogOpenChange}
       >
         <DialogContent 
           className="max-w-3xl" 
+          ref={dialogRef}
           onInteractOutside={(e) => {
-            console.log("Dialog click outside bloqueado");
+            console.log("Dialog outside click blocked");
             e.preventDefault();
           }}
           onEscapeKeyDown={(e) => {
-            console.log("Dialog escape bloqueado");
+            console.log("Dialog escape blocked");
             e.preventDefault();
             handleDialogClose();
           }}
@@ -536,8 +568,9 @@ export const OrdersPage = () => {
                                         src={item.images[0]}
                                         alt={item.productName}
                                         className="w-full h-full object-cover"
+                                        loading="lazy"
                                         onError={(e) => {
-                                          // Se a imagem falhar, use o placeholder
+                                          // If image fails, use placeholder
                                           (e.target as HTMLImageElement).src = '/placeholder.svg';
                                         }}
                                       />
@@ -643,20 +676,23 @@ export const OrdersPage = () => {
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Improved PDF container */}
+      {/* Improved PDF container with safer positioning */}
       {viewingOrder && customerInfo && (
         <div 
           style={{ 
             display: showPDFPreview ? 'block' : 'none', 
-            position: 'absolute', 
-            left: '-9999px', 
+            position: 'fixed',  // Changed from 'absolute' to 'fixed'
+            top: '-9999px',     // Position far off-screen in both directions
+            left: '-9999px',    // to prevent React rendering issues
             width: '100%',
             height: '0',
             overflow: 'hidden',
             visibility: showPDFPreview ? 'visible' : 'hidden',
-            pointerEvents: 'none' 
+            pointerEvents: 'none',
+            zIndex: -1          // Ensure it's behind everything
           }}
           className="shipment-print-container"
+          aria-hidden="true"
         >
           <div ref={pdfRef}>
             <OrderPDF 
