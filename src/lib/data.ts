@@ -391,10 +391,24 @@ export const useDataStore = create<DataStore>((set, get) => ({
         throw shipmentError;
       }
       
-      // Create shipment-customer associations
-      const shipmentCustomers = customerIds.map(customerId => ({
+      // Find database UUIDs for each customer - this is the key fix
+      const { data: dbCustomers, error: customersError } = await supabase
+        .from('customers')
+        .select('id, name')
+        .in('name', get().customers.filter(c => customerIds.includes(c.id)).map(c => c.name));
+        
+      if (customersError) {
+        throw customersError;
+      }
+      
+      if (!dbCustomers || dbCustomers.length === 0) {
+        throw new Error("No matching customers found in database");
+      }
+      
+      // Create shipment-customer associations with database UUIDs
+      const shipmentCustomers = dbCustomers.map(dbCustomer => ({
         shipment_id: shipmentData.id,
-        customer_id: customerId
+        customer_id: dbCustomer.id
       }));
       
       const { error: associationError } = await supabase
