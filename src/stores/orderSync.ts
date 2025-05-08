@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Customer, Order, OrderProduct } from '../types/customers';
 import { toast } from 'sonner';
@@ -244,7 +245,10 @@ export const getAllOrdersFromSupabase = async (): Promise<{customerId: string, o
     
     // Create reverse mapping (UUID to custom ID)
     for (const [customId, uuid] of Object.entries(idMappings)) {
-      reverseIdMappings[uuid] = customId;
+      // Fix for TS2538: Type 'unknown' cannot be used as an index type
+      if (typeof uuid === 'string') {
+        reverseIdMappings[uuid] = customId;
+      }
     }
     
     // Group orders by customer
@@ -258,7 +262,9 @@ export const getAllOrdersFromSupabase = async (): Promise<{customerId: string, o
         // If no mapping found, create a new ID
         appCustomerId = `customer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         idMappings[appCustomerId] = dbCustomerId;
-        reverseIdMappings[dbCustomerId] = appCustomerId;
+        if (typeof dbCustomerId === 'string') {
+          reverseIdMappings[dbCustomerId] = appCustomerId;
+        }
         localStorage.setItem('id_mappings', JSON.stringify(idMappings));
       }
       
@@ -287,7 +293,9 @@ export const getAllOrdersFromSupabase = async (): Promise<{customerId: string, o
         // If no mapping found, create a new ID
         appOrderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         idMappings[appOrderId] = dbOrderId;
-        reverseIdMappings[dbOrderId] = appOrderId;
+        if (typeof dbOrderId === 'string') {
+          reverseIdMappings[dbOrderId] = appOrderId;
+        }
         localStorage.setItem('id_mappings', JSON.stringify(idMappings));
       }
       
@@ -377,7 +385,6 @@ export const deleteOrderFromSupabase = async (orderId: string): Promise<boolean>
 
 // Function for syncing all customer orders
 export const syncAllCustomerOrders = async () => {
-  // This will be implemented in useCustomerStore
   console.log("Synchronizing all customer orders with Supabase");
   return;
 };
