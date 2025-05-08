@@ -97,7 +97,7 @@ export const useDataStore = create<DataStore>((set, get) => {
     isInitialized: false,
     isLoading: false,
     
-    // Improved refreshAll function
+    // Fixed refreshAll function
     refreshAll: async () => {
       try {
         set({ isLoading: true });
@@ -105,16 +105,17 @@ export const useDataStore = create<DataStore>((set, get) => {
         // Reload customer data
         await customerStore.reloadCustomers();
         
-        // Reload product data - FIX: Capture the return value from loadProducts
-        const updatedProducts = await productStore.loadProducts();
+        // Reload product data - FIX: Don't check the return value directly 
+        // since loadProducts() might return void in its implementation
+        await productStore.loadProducts();
         
         // Reload shipments
         const updatedShipments = await shipmentStore.getShipments();
         
-        // Update the main store with new data
+        // Update the main store with new data - Use getState() to get the latest products instead
         set({ 
           customers: useCustomerStore.getState().customers,
-          products: updatedProducts || get().products, // Provide fallback to current products if loadProducts returns undefined
+          products: useProductStore.getState().products,
           shipments: updatedShipments,
           isLoading: false 
         });
