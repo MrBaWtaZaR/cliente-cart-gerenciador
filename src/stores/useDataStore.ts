@@ -105,7 +105,7 @@ export const useDataStore = create<DataStore>((set, get) => {
         // Reload customer data
         await customerStore.reloadCustomers();
         
-        // Reload product data
+        // Reload product data - FIX: Capture the return value from loadProducts
         const updatedProducts = await productStore.loadProducts();
         
         // Reload shipments
@@ -114,7 +114,7 @@ export const useDataStore = create<DataStore>((set, get) => {
         // Update the main store with new data
         set({ 
           customers: useCustomerStore.getState().customers,
-          products: updatedProducts,
+          products: updatedProducts || get().products, // Provide fallback to current products if loadProducts returns undefined
           shipments: updatedShipments,
           isLoading: false 
         });
@@ -198,7 +198,6 @@ export const useDataStore = create<DataStore>((set, get) => {
           // Continue with empty shipments array
         }
         
-        // Set data in store
         set({
           customers,
           products: get().products, // Keep current products
