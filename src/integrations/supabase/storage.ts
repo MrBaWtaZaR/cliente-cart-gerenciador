@@ -1,6 +1,6 @@
 
 import { supabase, getStorageUrl } from './client';
-import { Product } from '../types/products';
+import { Product } from '../../types/products';
 
 // Função para verificar se o storage está disponível
 export const setupStorage = async () => {
