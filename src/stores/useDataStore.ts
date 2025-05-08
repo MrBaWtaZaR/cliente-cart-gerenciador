@@ -111,12 +111,10 @@ export const useDataStore = create<DataStore>((set, get) => {
         set({ isLoading: true });
         await useCustomerStore.getState().syncOrdersWithSupabase();
         set({ isLoading: false });
-        return;
       } catch (error) {
         console.error('Error synchronizing orders:', error);
         set({ isLoading: false });
         toast.error('Erro ao sincronizar pedidos');
-        return;
       }
     },
     
@@ -237,7 +235,7 @@ export const useDataStore = create<DataStore>((set, get) => {
           );
           
           return {
-            id: localCustomer?.id || customer.id || generateId(),
+            id: customer.id || generateId(),
             name: customer.name,
             email: customer.email,
             phone: customer.phone,
@@ -249,22 +247,27 @@ export const useDataStore = create<DataStore>((set, get) => {
             tourCity: customer.tour_city || undefined,
             tourState: customer.tour_state || undefined,
             tourDepartureTime: customer.tour_departure_time || undefined,
-            orders: [] // We'll load orders separately for better performance
+            orders: localCustomer?.orders || [] // Initialize with local orders or empty array
           };
         });
         
         // Now fetch all orders for these customers
         await Promise.all(customers.map(async (customer) => {
           try {
-            const customerOrders = await fetchOrdersForCustomer(customer.id);
-            if (customerOrders.length > 0) {
-              customer.orders = customerOrders;
-            } else {
-              // If no orders found in Supabase, use local data if available
-              const localCustomer = storedCustomers.find(c => c.id === customer.id);
-              if (localCustomer && localCustomer.orders && localCustomer.orders.length > 0) {
-                customer.orders = localCustomer.orders;
+            // Make sure we're using the UUID format from Supabase
+            if (customer.id && isValidUUID(customer.id)) {
+              const customerOrders = await fetchOrdersForCustomer(customer.id);
+              if (customerOrders.length > 0) {
+                customer.orders = customerOrders;
+              } else {
+                // If no orders found in Supabase, use local data if available
+                const localCustomer = storedCustomers.find(c => c.id === customer.id);
+                if (localCustomer && localCustomer.orders && localCustomer.orders.length > 0) {
+                  customer.orders = localCustomer.orders;
+                }
               }
+            } else {
+              console.log(`Skipping order fetch for customer with invalid UUID: ${customer.id}`);
             }
           } catch (error) {
             console.error(`Error loading orders for customer ${customer.id}:`, error);
@@ -300,9 +303,21 @@ export const useDataStore = create<DataStore>((set, get) => {
     }
   };
   
+  // Helper function to check if a string is a valid UUID
+  function isValidUUID(id: string) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(id);
+  }
+  
   // Helper function to fetch orders for a customer from Supabase
   async function fetchOrdersForCustomer(customerId: string): Promise<Order[]> {
     try {
+      // Skip invalid UUIDs
+      if (!isValidUUID(customerId)) {
+        console.log(`Skipping fetch for invalid UUID: ${customerId}`);
+        return [];
+      }
+      
       // Fetch orders
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')

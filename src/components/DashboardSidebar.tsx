@@ -131,6 +131,11 @@ export const DashboardSidebar = () => {
           </div>
         </div>
       </aside>
+      
+      {/* Add a placeholder div when on mobile to prevent content from being hidden behind toggle button */}
+      {isMobile && (
+        <div className="h-16 md:hidden"></div>
+      )}
     </>
   );
 };

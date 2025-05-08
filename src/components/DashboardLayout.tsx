@@ -42,14 +42,10 @@ export function DashboardLayout() {
   }, [initializeData, refreshAll]);
 
   return (
-    <div>
-      {/* Use useIsMobile instead of MobileCheck */}
-      <div className="hidden">{useIsMobile() ? 'mobile' : 'desktop'}</div>
-      <div className="flex">
-        <DashboardSidebar />
-        <div className="flex-1 overflow-auto p-6 bg-slate-50 min-h-screen">
-          <Outlet />
-        </div>
+    <div className="flex h-screen overflow-hidden">
+      <DashboardSidebar />
+      <div className="flex-1 overflow-auto p-6 bg-slate-50 min-h-screen">
+        <Outlet />
       </div>
       <Toaster richColors position="top-right" />
     </div>

@@ -4,24 +4,33 @@ import * as React from "react"
 const MOBILE_BREAKPOINT = 768
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
+  const [isMobile, setIsMobile] = React.useState<boolean>(false)
 
   React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-    const onChange = () => {
+    const checkMobile = () => {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     }
-    mql.addEventListener("change", onChange)
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    return () => mql.removeEventListener("change", onChange)
+    
+    // Initial check
+    checkMobile()
+    
+    // Setup listener
+    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
+    if (mql.addEventListener) {
+      mql.addEventListener("change", checkMobile)
+    } else {
+      // Fallback for older browsers
+      window.addEventListener('resize', checkMobile)
+    }
+    
+    return () => {
+      if (mql.removeEventListener) {
+        mql.removeEventListener("change", checkMobile)
+      } else {
+        window.removeEventListener('resize', checkMobile)
+      }
+    }
   }, [])
 
-  return !!isMobile
-}
-
-// Export MobileCheck component for compatibility
-export const MobileCheck: React.FC = () => {
-  const isMobile = useIsMobile()
-  // This is a utility component that just checks mobile status but doesn't render anything visible
-  return null
+  return isMobile
 }
