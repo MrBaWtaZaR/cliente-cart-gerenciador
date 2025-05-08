@@ -1,10 +1,10 @@
-
 import { useEffect, useState, useMemo } from 'react';
 import { useDataStore, Customer, Product, Order } from '@/stores';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { Users, Package, ShoppingCart } from 'lucide-react';
+import { Users, Package, ShoppingCart, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 interface DashboardMetric {
   totalCustomers: number;
@@ -16,8 +16,12 @@ interface DashboardMetric {
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
-  const customers = useDataStore((state) => state.customers);
-  const products = useDataStore((state) => state.products);
+  const { customers, products, refreshAll } = useDataStore((state) => ({
+    customers: state.customers,
+    products: state.products,
+    refreshAll: state.refreshAll
+  }));
+  
   const [metrics, setMetrics] = useState<DashboardMetric>({
     totalCustomers: 0,
     totalProducts: 0,
@@ -25,6 +29,8 @@ export const DashboardPage = () => {
     totalRevenue: 0,
     recentOrders: [],
   });
+  
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Use useMemo para calcular as métricas sempre que os clientes ou produtos mudarem
   const calculatedMetrics = useMemo(() => {
@@ -49,6 +55,32 @@ export const DashboardPage = () => {
   useEffect(() => {
     setMetrics(calculatedMetrics);
   }, [calculatedMetrics]);
+  
+  // Listen for data-updated events
+  useEffect(() => {
+    const handleDataUpdate = () => {
+      // Recalculate metrics when data changes
+      setMetrics(calculatedMetrics);
+    };
+    
+    window.addEventListener('data-updated', handleDataUpdate);
+    
+    return () => {
+      window.removeEventListener('data-updated', handleDataUpdate);
+    };
+  }, [calculatedMetrics]);
+
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshAll();
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Dados para o gráfico de receita
   const revenueData = useMemo(() => {
@@ -110,7 +142,19 @@ export const DashboardPage = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
+        
+        <Button 
+          onClick={handleRefresh} 
+          disabled={isRefreshing}
+          variant="outline"
+          size="sm"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Atualizando...' : 'Atualizar dados'}
+        </Button>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card 

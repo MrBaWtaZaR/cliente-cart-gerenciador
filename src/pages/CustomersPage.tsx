@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDataStore, Customer } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -15,12 +16,12 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Search, Plus, Users, X, UserPlus, Edit, Trash, Truck, Eye } from 'lucide-react';
+import { Search, Plus, Users, X, UserPlus, Edit, Trash, Truck, Eye, RefreshCw } from 'lucide-react';
 import { PhoneFormatter } from '@/components/PhoneFormatter';
 import { BrazilStateSelector } from '@/components/BrazilStateSelector';
 
 export const CustomersPage = () => {
-  const { customers, addCustomer, deleteCustomer } = useDataStore();
+  const { customers, addCustomer, deleteCustomer, refreshAll } = useDataStore();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
@@ -38,6 +39,44 @@ export const CustomersPage = () => {
   });
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [activeTab, setActiveTab] = useState('info');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+
+  // Filter customers based on search term
+  useEffect(() => {
+    const filtered = customers.filter(customer => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        customer.name.toLowerCase().includes(searchLower) ||
+        customer.email.toLowerCase().includes(searchLower) ||
+        customer.phone.toLowerCase().includes(searchLower)
+      );
+    });
+    setFilteredCustomers(filtered);
+  }, [customers, searchTerm]);
+
+  // Listen for data-updated events
+  useEffect(() => {
+    const handleDataUpdate = () => {
+      // The customers state will be updated by the store,
+      // but we need to re-filter them
+      const filtered = customers.filter(customer => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          customer.name.toLowerCase().includes(searchLower) ||
+          customer.email.toLowerCase().includes(searchLower) ||
+          customer.phone.toLowerCase().includes(searchLower)
+        );
+      });
+      setFilteredCustomers(filtered);
+    };
+    
+    window.addEventListener('data-updated', handleDataUpdate);
+    
+    return () => {
+      window.removeEventListener('data-updated', handleDataUpdate);
+    };
+  }, [customers, searchTerm]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -68,28 +107,33 @@ export const CustomersPage = () => {
       tourDepartureTime: '',
     });
     setIsAddingCustomer(false);
+    
+    // Trigger data-updated event
+    window.dispatchEvent(new CustomEvent('data-updated'));
   };
 
   const confirmDeleteCustomer = () => {
     if (customerToDelete) {
       deleteCustomer(customerToDelete.id);
       setCustomerToDelete(null);
+      
+      // Trigger data-updated event
+      window.dispatchEvent(new CustomEvent('data-updated'));
     }
   };
 
   const handleCustomerCardClick = (customerId: string) => {
     navigate(`/dashboard/customers/${customerId}`);
   };
-
-  // Filtrar clientes de acordo com a pesquisa
-  const filteredCustomers = customers.filter(customer => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      customer.name.toLowerCase().includes(searchLower) ||
-      customer.email.toLowerCase().includes(searchLower) ||
-      customer.phone.toLowerCase().includes(searchLower)
-    );
-  });
+  
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshAll();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -98,9 +142,20 @@ export const CustomersPage = () => {
           <Users className="h-6 w-6 mr-2" /> Clientes
         </h1>
 
-        <Button onClick={() => setIsAddingCustomer(true)}>
-          <Plus className="h-4 w-4 mr-2" /> Novo Cliente
-        </Button>
+        <div className="flex space-x-2">
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            title="Atualizar lista de clientes"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button onClick={() => setIsAddingCustomer(true)}>
+            <Plus className="h-4 w-4 mr-2" /> Novo Cliente
+          </Button>
+        </div>
       </div>
 
       <div className="relative w-full md:max-w-sm">

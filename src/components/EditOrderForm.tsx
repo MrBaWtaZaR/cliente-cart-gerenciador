@@ -113,6 +113,9 @@ export const EditOrderForm = ({ customerId, order, onSuccess, onCancel }: EditOr
         total
       });
 
+      // Trigger data-updated event to refresh the UI
+      window.dispatchEvent(new CustomEvent('data-updated'));
+
       toast.success('Pedido atualizado com sucesso!');
       onSuccess();
     } catch (error) {

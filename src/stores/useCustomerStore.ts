@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -92,7 +93,8 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       
       set({ customers: updatedCustomers });
       
-      return updatedCustomers;
+      // Fixed: Return void instead of the customers array
+      return;
     } catch (error) {
       console.error('Erro ao recarregar clientes:', error);
       toast.error('Erro ao atualizar lista de clientes');
@@ -242,7 +244,8 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       
       safeLocalStorageSave('customers', updatedCustomers);
       
-      window.dispatchEvent(new CustomEvent('order-updated'));
+      // Dispatch an event to update the dashboard and other components
+      window.dispatchEvent(new CustomEvent('data-updated'));
       
       toast.success('Pedido adicionado com sucesso');
       return { customers: updatedCustomers };
@@ -271,7 +274,8 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       
       safeLocalStorageSave('customers', updatedCustomers);
       
-      window.dispatchEvent(new CustomEvent('order-updated'));
+      // Dispatch an event to update the dashboard and other components
+      window.dispatchEvent(new CustomEvent('data-updated'));
       
       toast.success('Status do pedido atualizado');
       return { customers: updatedCustomers };
@@ -300,7 +304,8 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       
       safeLocalStorageSave('customers', updatedCustomers);
       
-      window.dispatchEvent(new CustomEvent('order-updated'));
+      // Dispatch an event to update the dashboard and other components
+      window.dispatchEvent(new CustomEvent('data-updated'));
       
       toast.success('Pedido atualizado com sucesso');
       return { customers: updatedCustomers };
@@ -323,7 +328,8 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       
       safeLocalStorageSave('customers', updatedCustomers);
       
-      window.dispatchEvent(new CustomEvent('order-updated'));
+      // Dispatch an event to update the dashboard and other components
+      window.dispatchEvent(new CustomEvent('data-updated'));
       
       toast.success('Pedido excluído com sucesso');
       return { customers: updatedCustomers };
