@@ -30,5 +30,5 @@ export interface OrderProduct {
   productName: string;
   quantity: number;
   price: number;
-  images: string[];
+  images: string[] = []; // Default empty array for images
 }

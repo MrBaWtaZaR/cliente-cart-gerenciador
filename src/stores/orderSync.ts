@@ -25,7 +25,7 @@ export const saveOrderToSupabase = async (order: Order, customerId: string): Pro
       return false;
     }
     
-    // Save the order to Supabase
+    // Save the order to Supabase using the newly created orders table
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .insert({
@@ -108,7 +108,8 @@ export const getOrdersFromSupabase = async (customerId: string): Promise<Order[]
         productId: prod.product_id,
         productName: prod.product_name,
         price: prod.price,
-        quantity: prod.quantity
+        quantity: prod.quantity,
+        images: [] // Adding empty array for images
       })) || [];
       
       orders.push({
@@ -164,7 +165,8 @@ export const getAllOrdersFromSupabase = async (): Promise<{customerId: string, o
         productId: prod.product_id,
         productName: prod.product_name,
         price: prod.price,
-        quantity: prod.quantity
+        quantity: prod.quantity,
+        images: [] // Adding empty array for images
       })) || [];
       
       const order: Order = {
