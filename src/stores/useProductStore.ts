@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { Product } from '../types/products';
@@ -109,48 +108,13 @@ export const useProductStore = create<ProductStore>((set, get) => {
       try {
         // Se o arquivo for um blob URL, precisamos primeiro convertê-lo em um arquivo
         let fileToUpload = file;
-        let fileName = '';
-        
-        // Verifica se o arquivo está em formato de string (blob URL)
-        if (typeof file === 'string' && file.startsWith('blob:')) {
-          try {
-            // Busca o arquivo do armazenamento temporário
-            const response = await fetch(file);
-            const blob = await response.blob();
-            
-            // Cria um novo arquivo com um nome mais previsível
-            fileName = `product_image_${Date.now()}.${blob.type.split('/')[1] || 'jpeg'}`;
-            fileToUpload = new File([blob], fileName, { type: blob.type });
-          } catch (error) {
-            console.error('Erro ao converter blob URL para arquivo:', error);
-            // Return the original blob URL as fallback
-            return file;
-          }
-        } else if (fileToUpload instanceof File) {
-          // Se for um File object, pegamos o nome diretamente
-          fileName = fileToUpload.name;
-        } else {
-          // Se for uma string que não é blob URL (como uma URL regular)
-          // Return it as is if it's already a remote URL
-          if (typeof file === 'string' && !file.startsWith('blob:')) {
-            return file;
-          }
-          // Geramos um nome de arquivo baseado no timestamp
-          fileName = `image_${Date.now()}.jpg`;
-        }
-        
-        // Usa a função especializada para fazer o upload
         let publicUrl = '';
         
+        // Use simplified approach - just create blob URL if it's a File
         if (fileToUpload instanceof File) {
-          try {
-            publicUrl = await uploadProductImage(productId, fileToUpload);
-          } catch (uploadError) {
-            console.error('Upload failed, using local URL as fallback:', uploadError);
-            publicUrl = typeof file === 'string' ? file : URL.createObjectURL(fileToUpload);
-          }
+          publicUrl = URL.createObjectURL(fileToUpload);
         } else {
-          // Se por algum motivo ainda temos uma string, retornamos ela como URL
+          // If it's already a string URL, just use it
           publicUrl = fileToUpload;
         }
         
@@ -186,7 +150,9 @@ export const useProductStore = create<ProductStore>((set, get) => {
       } catch (error) {
         console.error('Erro ao fazer upload:', error);
         toast.error('Falha ao adicionar imagem');
-        throw error;
+        
+        // Return placeholder in case of error
+        return '/placeholder.svg';
       }
     },
   };

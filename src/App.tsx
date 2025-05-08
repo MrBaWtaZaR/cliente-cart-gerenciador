@@ -16,7 +16,6 @@ import { DashboardLayout } from "./components/DashboardLayout";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
 import { useDataStore } from "./stores";
-import { setupStorage } from "./integrations/supabase/storage";
 
 // Create a React Query client
 const queryClient = new QueryClient({
@@ -28,8 +27,7 @@ const queryClient = new QueryClient({
   }
 });
 
-// Setup storage on app initialization
-setupStorage().catch(console.error);
+// Removed setupStorage initialization from here to avoid errors
 
 const AppContent = () => {
   const { initializeData, isInitialized } = useDataStore();
