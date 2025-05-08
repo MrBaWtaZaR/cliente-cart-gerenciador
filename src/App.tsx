@@ -88,9 +88,9 @@ const RouteChangeHandler = ({ children }) => {
       selectorsToClean.forEach(selector => {
         const elements = document.querySelectorAll(selector);
         elements.forEach(el => {
-          if (el && el.parentNode && el.parentElement) {
+          if (el && el.parentNode) {
             try {
-              // Safety check to ensure parent actually contains the child
+              // Safety check to ensure parent actually contains the child before removing
               if (el.parentNode.contains(el)) {
                 el.parentNode.removeChild(el);
               }
@@ -103,9 +103,9 @@ const RouteChangeHandler = ({ children }) => {
       
       // Garantir que elementos de modal são removidos
       document.querySelectorAll('body > [role="presentation"]').forEach(el => {
-        if (el && el.parentNode && el.parentElement) {
+        if (el && el.parentNode) {
           try {
-            // Safety check to ensure parent actually contains the child
+            // Safety check to ensure parent actually contains the child before removing
             if (el.parentNode.contains(el)) {
               el.parentNode.removeChild(el);
             }
@@ -116,12 +116,12 @@ const RouteChangeHandler = ({ children }) => {
       });
     } catch (error) {
       console.error('Erro ao limpar elementos do DOM durante navegação:', error);
+    } finally {
+      // Release the cleanup lock after a delay
+      setTimeout(() => {
+        cleanupInProgressRef.current = false;
+      }, 100);
     }
-    
-    // Release cleanup lock after a small delay
-    setTimeout(() => {
-      cleanupInProgressRef.current = false;
-    }, 100);
     
     // Forçar qualquer microtask pendente a completar para garantir que a limpeza termine
     setTimeout(() => {}, 0);

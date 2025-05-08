@@ -13,6 +13,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const isMobile = useIsMobile();
   const { refreshAll, isInitialized } = useDataStore();
   const unmountingRef = useRef(false);
+  const cleanupInProgressRef = useRef(false);
   
   // Initialize data when dashboard mounts
   useEffect(() => {
@@ -24,12 +25,16 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     
     // Função para limpar elementos órfãos no DOM
     const cleanupOrphanedElements = () => {
+      // Prevent concurrent cleanups
+      if (cleanupInProgressRef.current) return;
+      cleanupInProgressRef.current = true;
+      
       try {
         // Limpar tooltips
         document.querySelectorAll('[role="tooltip"]').forEach(el => {
-          if (el && el.parentNode && el.parentElement) {
+          if (el && el.parentNode) {
             try {
-              // Check if parent still contains element before removing
+              // Double-check that the parent actually contains this child before removing
               if (el.parentNode.contains(el)) {
                 el.parentNode.removeChild(el);
               }
@@ -41,9 +46,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         
         // Limpar dialogs
         document.querySelectorAll('[role="dialog"]').forEach(el => {
-          if (el && el.parentNode && el.parentElement) {
+          if (el && el.parentNode) {
             try {
-              // Check if parent still contains element before removing
+              // Double-check that the parent actually contains this child before removing
               if (el.parentNode.contains(el)) {
                 el.parentNode.removeChild(el);
               }
@@ -55,9 +60,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         
         // Limpar portals
         document.querySelectorAll('[data-portal]').forEach(el => {
-          if (el && el.parentNode && el.parentElement) {
+          if (el && el.parentNode) {
             try {
-              // Check if parent still contains element before removing
+              // Double-check that the parent actually contains this child before removing
               if (el.parentNode.contains(el)) {
                 el.parentNode.removeChild(el);
               }
@@ -69,9 +74,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         
         // Limpar popups e menus flutuantes
         document.querySelectorAll('.radix-popup').forEach(el => {
-          if (el && el.parentNode && el.parentElement) {
+          if (el && el.parentNode) {
             try {
-              // Check if parent still contains element before removing
+              // Double-check that the parent actually contains this child before removing
               if (el.parentNode.contains(el)) {
                 el.parentNode.removeChild(el);
               }
@@ -94,9 +99,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           '[aria-live="assertive"]'
         ].forEach(selector => {
           document.querySelectorAll(selector).forEach(el => {
-            if (el && el.parentNode && el.parentElement && unmountingRef.current) {
+            if (el && el.parentNode && unmountingRef.current) {
               try {
-                // Check if parent still contains element before removing
+                // Double-check that the parent actually contains this child before removing
                 if (el.parentNode.contains(el)) {
                   el.parentNode.removeChild(el);
                 }
@@ -108,6 +113,11 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         });
       } catch (error) {
         console.error('Error cleaning up DOM elements:', error);
+      } finally {
+        // Release the cleanup lock after a small delay
+        setTimeout(() => {
+          cleanupInProgressRef.current = false;
+        }, 100);
       }
     };
   
