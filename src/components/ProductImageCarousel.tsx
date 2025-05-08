@@ -30,6 +30,7 @@ export const ProductImageCarousel = ({
   
   // Handle image error
   const handleImageError = (image: string) => {
+    console.log(`Image load error for: ${image}`);
     setHasError(prev => ({ ...prev, [image]: true }));
   };
 

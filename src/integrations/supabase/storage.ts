@@ -19,7 +19,21 @@ export const setupStorage = async () => {
     if (productImagesBucketExists) {
       console.log('Bucket product-images encontrado e será usado para uploads.');
     } else {
-      console.error('Bucket product-images não encontrado. Utilize o painel do Supabase para criá-lo.');
+      // Instead of just logging an error, we'll attempt to create the bucket
+      try {
+        const { data: newBucket, error: createError } = await supabase.storage.createBucket('product-images', {
+          public: true,
+          fileSizeLimit: 10485760, // 10MB limit
+        });
+        
+        if (createError) {
+          console.error('Error creating product-images bucket:', createError);
+        } else {
+          console.log('Bucket product-images foi criado com sucesso.');
+        }
+      } catch (bucketError) {
+        console.error('Failed to create bucket:', bucketError);
+      }
     }
   } catch (err) {
     console.error('Error setting up storage:', err);
