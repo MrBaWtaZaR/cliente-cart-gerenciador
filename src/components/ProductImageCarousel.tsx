@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Carousel,
   CarouselContent,
@@ -19,18 +19,43 @@ export const ProductImageCarousel = ({
   autoPlayInterval = 5000,
 }: ProductImageCarouselProps) => {
   const [activeIndex, setActiveIndex] = useState(0);
-  const validImages = images.filter(img => img !== '/placeholder.svg');
+  const [isPaused, setIsPaused] = useState(false);
+  const [hasError, setHasError] = useState<Record<string, boolean>>({});
+  const timerRef = useRef<number | null>(null);
   
-  // Auto-play functionality
-  useState(() => {
-    if (validImages.length <= 1 || autoPlayInterval <= 0) return;
+  // Filter out placeholders and images with loading errors
+  const validImages = images
+    .filter(img => img !== '/placeholder.svg')
+    .filter(img => !hasError[img]);
+  
+  // Handle image error
+  const handleImageError = (image: string) => {
+    setHasError(prev => ({ ...prev, [image]: true }));
+  };
+
+  // Auto-play functionality with proper cleanup
+  useEffect(() => {
+    if (validImages.length <= 1 || autoPlayInterval <= 0 || isPaused) {
+      // Clear any existing interval when not needed
+      if (timerRef.current) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
+    }
     
-    const timer = setInterval(() => {
+    timerRef.current = window.setInterval(() => {
       setActiveIndex((prevIndex) => (prevIndex + 1) % validImages.length);
     }, autoPlayInterval);
     
-    return () => clearInterval(timer);
-  });
+    // Cleanup function to prevent memory leaks
+    return () => {
+      if (timerRef.current) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [validImages.length, autoPlayInterval, isPaused]);
 
   if (!validImages.length) {
     return (
@@ -41,16 +66,22 @@ export const ProductImageCarousel = ({
   }
 
   return (
-    <div className="relative group">
+    <div 
+      className="relative group" 
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
       <Carousel className="w-full">
         <CarouselContent>
           {validImages.map((image, index) => (
-            <CarouselItem key={index}>
+            <CarouselItem key={`image-${index}-${image}`}>
               <div className="aspect-square bg-muted rounded-md overflow-hidden">
                 <img 
                   src={image} 
-                  alt={`Product image ${index + 1}`} 
+                  alt={`Imagem do produto ${index + 1}`}
                   className="h-full w-full object-cover transition-all hover:scale-105 duration-300"
+                  onError={() => handleImageError(image)}
+                  loading="lazy"
                 />
               </div>
             </CarouselItem>

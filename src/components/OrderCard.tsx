@@ -1,8 +1,10 @@
+
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Order } from '@/lib/data';
 import { ShoppingCart, Calendar, Clock } from 'lucide-react';
+import { useState } from 'react';
 
 interface OrderCardProps {
   order: Order;
@@ -12,6 +14,8 @@ interface OrderCardProps {
 
 export const OrderCard = ({ order, customerName, onClick }: OrderCardProps) => {
   const navigate = useNavigate();
+  // Track images with loading errors
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   const handleClick = () => {
     if (onClick) {
@@ -53,6 +57,11 @@ export const OrderCard = ({ order, customerName, onClick }: OrderCardProps) => {
     }
   };
 
+  // Handle image errors
+  const handleImageError = (productId: string, index: number) => {
+    setFailedImages(prev => ({ ...prev, [`${productId}-${index}`]: true }));
+  };
+
   return (
     <Card 
       className="h-full hover:shadow-md transition-all cursor-pointer"
@@ -81,7 +90,7 @@ export const OrderCard = ({ order, customerName, onClick }: OrderCardProps) => {
         </div>
 
         {order.products.slice(0, 2).map((product, index) => (
-          <div key={index} className="flex justify-between text-xs text-muted-foreground">
+          <div key={`${product.productId}-${index}`} className="flex justify-between text-xs text-muted-foreground">
             <span className="truncate flex-1">{product.productName}</span>
             <span>x{product.quantity}</span>
           </div>
