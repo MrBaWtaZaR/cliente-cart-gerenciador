@@ -1,4 +1,3 @@
-
 import { supabase, getStorageUrl } from './client';
 import { Product } from '../../types/products';
 
@@ -19,21 +18,12 @@ export const setupStorage = async () => {
     if (productImagesBucketExists) {
       console.log('Bucket product-images encontrado e será usado para uploads.');
     } else {
-      // Instead of just logging an error, we'll attempt to create the bucket
-      try {
-        const { data: newBucket, error: createError } = await supabase.storage.createBucket('product-images', {
-          public: true,
-          fileSizeLimit: 10485760, // 10MB limit
-        });
-        
-        if (createError) {
-          console.error('Error creating product-images bucket:', createError);
-        } else {
-          console.log('Bucket product-images foi criado com sucesso.');
-        }
-      } catch (bucketError) {
-        console.error('Failed to create bucket:', bucketError);
-      }
+      // Instead of trying to create the bucket (which requires admin privileges),
+      // just log a message indicating that the bucket doesn't exist
+      console.log('Bucket product-images não encontrado. Os uploads de imagens irão falhar.');
+      console.log('Use o localStorage como fallback.');
+      
+      // We'll handle fallbacks in the uploadProductImage function
     }
   } catch (err) {
     console.error('Error setting up storage:', err);
@@ -237,12 +227,23 @@ export const deleteProductFromDatabase = async (id: string): Promise<boolean> =>
 // Função para fazer upload de uma imagem para o bucket do Supabase
 export const uploadProductImage = async (productId: string, file: File): Promise<string> => {
   try {
+    // Check if bucket exists first
+    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+    const bucketExists = bucketsError ? false : buckets.some(b => b.name === 'product-images');
+    
+    if (!bucketExists) {
+      console.log('Using local fallback for image storage since bucket does not exist');
+      // Create a blob URL for local display
+      const blobUrl = URL.createObjectURL(file);
+      return blobUrl;
+    }
+    
     // Gera um nome de arquivo único com timestamp para evitar colisões
     const fileExt = file.name.split('.').pop();
     const fileName = `${productId}_${Date.now()}.${fileExt}`;
     const filePath = `${fileName}`;
 
-    // Faz o upload do arquivo para o Supabase Storage
+    // Tenta fazer o upload do arquivo para o Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('product-images')
       .upload(filePath, file);
@@ -259,7 +260,15 @@ export const uploadProductImage = async (productId: string, file: File): Promise
     return publicUrl;
   } catch (error) {
     console.error('Error in uploadProductImage:', error);
-    // Se qualquer coisa falhar, retorna um placeholder
+    // Se qualquer coisa falhar, tenta criar um blob URL ou retorna um placeholder
+    try {
+      if (file instanceof File) {
+        return URL.createObjectURL(file);
+      }
+    } catch (e) {
+      console.error('Failed to create object URL:', e);
+    }
+    // Se tudo falhar, retorna um placeholder
     return '/placeholder.svg';
   }
 };

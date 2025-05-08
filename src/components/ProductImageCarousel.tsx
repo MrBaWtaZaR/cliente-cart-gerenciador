@@ -7,7 +7,8 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
-import { Image, GalleryHorizontal } from 'lucide-react';
+import { Image, GalleryHorizontal, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ProductImageCarouselProps {
   images: string[];
@@ -32,6 +33,14 @@ export const ProductImageCarousel = ({
   const handleImageError = (image: string) => {
     console.log(`Image load error for: ${image}`);
     setHasError(prev => ({ ...prev, [image]: true }));
+    
+    // Only show toast for the first error to prevent spam
+    const errorCount = Object.keys(hasError).length;
+    if (errorCount === 0) {
+      toast.error('Não foi possível carregar algumas imagens', {
+        description: 'Verifique sua conexão ou tente novamente mais tarde.'
+      });
+    }
   };
 
   // Auto-play functionality with proper cleanup
@@ -60,8 +69,9 @@ export const ProductImageCarousel = ({
 
   if (!validImages.length) {
     return (
-      <div className="aspect-square bg-muted rounded-md flex items-center justify-center">
+      <div className="aspect-square bg-muted rounded-md flex flex-col items-center justify-center">
         <Image className="h-10 w-10 text-muted-foreground/40" />
+        <p className="text-muted-foreground text-sm mt-2">Sem imagens disponíveis</p>
       </div>
     );
   }
