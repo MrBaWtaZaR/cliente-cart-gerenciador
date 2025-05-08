@@ -18,7 +18,7 @@ import { useEffect, StrictMode, useState, useCallback, useRef } from "react";
 import { useDataStore } from "./stores";
 import { useProductStore } from "./stores/useProductStore";
 import Index from "./pages/Index";
-import { performDOMCleanup, safeCleanupDOM } from "./components/ShipmentSafeUnmount";
+import { performDOMCleanup, safeCleanupDOM } from "./components/DOMCleanupUtils";
 
 // Create a React Query client with appropriate configurations
 const queryClient = new QueryClient({
@@ -32,27 +32,62 @@ const queryClient = new QueryClient({
   }
 });
 
-// Simplified route change handler that's more focused on essential cleanup
+// Track if navigation is in progress to prevent concurrent cleanups
+let navigationInProgress = false;
+
+// Improved route change handler that's more focused on essential cleanup
 const RouteChangeHandler = ({ children }) => {
   const location = useLocation();
   const previousPathRef = useRef(location.pathname);
   const cleanupTimerRef = useRef(null);
+  const isNavigatingRef = useRef(false);
   
   // Simplified cleanup function
   const handleRouteChange = useCallback(() => {
     if (previousPathRef.current !== location.pathname) {
+      // Skip if already navigating
+      if (navigationInProgress || isNavigatingRef.current) {
+        return;
+      }
+      
       console.log(`Navegando de ${previousPathRef.current} para ${location.pathname}`);
+      
+      // Set navigation flags
+      isNavigatingRef.current = true;
+      navigationInProgress = true;
       
       // Update previous path
       previousPathRef.current = location.pathname;
       
+      // Clear any pending cleanup timers
+      if (cleanupTimerRef.current) {
+        clearTimeout(cleanupTimerRef.current);
+        cleanupTimerRef.current = null;
+      }
+      
       // Perform a simple cleanup with fewer operations
-      performDOMCleanup();
+      setTimeout(() => {
+        try {
+          performDOMCleanup();
+        } catch (err) {
+          console.warn("Error during route change cleanup:", err);
+        }
+        
+        // Clear navigation flags after a delay
+        cleanupTimerRef.current = setTimeout(() => {
+          isNavigatingRef.current = false;
+          navigationInProgress = false;
+        }, 500);
+      }, 50);
       
       // Dispatch route change event
-      window.dispatchEvent(new CustomEvent('route-changed', {
-        detail: { from: previousPathRef.current, to: location.pathname }
-      }));
+      try {
+        window.dispatchEvent(new CustomEvent('route-changed', {
+          detail: { from: previousPathRef.current, to: location.pathname }
+        }));
+      } catch (err) {
+        console.warn("Error dispatching route change event:", err);
+      }
     }
   }, [location.pathname]);
   
@@ -65,7 +100,19 @@ const RouteChangeHandler = ({ children }) => {
       if (cleanupTimerRef.current) {
         clearTimeout(cleanupTimerRef.current);
       }
-      performDOMCleanup();
+      
+      // Schedule cleanup after a delay to let other components unmount first
+      setTimeout(() => {
+        try {
+          performDOMCleanup();
+        } catch (err) {
+          console.warn("Error during unmount cleanup:", err);
+        }
+        
+        // Clear navigation flags
+        isNavigatingRef.current = false;
+        navigationInProgress = false;
+      }, 50);
     };
   }, [location.pathname, handleRouteChange]);
   
@@ -75,9 +122,16 @@ const RouteChangeHandler = ({ children }) => {
 const AppContent = () => {
   const { initializeData, isInitialized } = useDataStore();
   const { loadProducts } = useProductStore();
+  const initializeAttemptedRef = useRef(false);
   
   // Initialize data when the app loads
   useEffect(() => {
+    // Prevent multiple initialization attempts
+    if (initializeAttemptedRef.current) {
+      return;
+    }
+    
+    initializeAttemptedRef.current = true;
     console.log("Inicializando dados da aplicação...");
     
     if (!isInitialized) {
@@ -94,7 +148,11 @@ const AppContent = () => {
     
     // Add listeners for cleanup events
     const handleAppCleanup = () => {
-      safeCleanupDOM();
+      try {
+        safeCleanupDOM();
+      } catch (err) {
+        console.warn("Error in app cleanup:", err);
+      }
     };
     
     // Less frequent cleanup listeners
@@ -108,8 +166,14 @@ const AppContent = () => {
       window.removeEventListener('app-cleanup', handleAppCleanup);
       window.removeEventListener('beforeunload', handleAppCleanup);
       
-      // Final cleanup
-      safeCleanupDOM();
+      // Final cleanup with delay to allow components to unmount first
+      setTimeout(() => {
+        try {
+          safeCleanupDOM();
+        } catch (err) {
+          console.warn("Error in app cleanup during unmount:", err);
+        }
+      }, 100);
     };
   }, [initializeData, isInitialized, loadProducts]);
   

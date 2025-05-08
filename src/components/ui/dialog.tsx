@@ -34,12 +34,53 @@ const DialogContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => {
   // Use a ref to track if the component is mounted
   const isMountedRef = React.useRef(true);
+  const forceCloseRef = React.useRef(false);
   
   React.useEffect(() => {
     return () => {
       isMountedRef.current = false;
     };
   }, []);
+  
+  // If a force close is needed (like during page navigation),
+  // handle it safely
+  React.useEffect(() => {
+    const handleForceClose = () => {
+      forceCloseRef.current = true;
+      
+      // Try to trigger a graceful close if possible
+      const closeButton = document.querySelector('[data-radix-dialog-close]');
+      if (closeButton instanceof HTMLElement) {
+        closeButton.click();
+      }
+    };
+    
+    window.addEventListener('route-changed', handleForceClose);
+    window.addEventListener('app-cleanup', handleForceClose);
+    
+    return () => {
+      window.removeEventListener('route-changed', handleForceClose);
+      window.removeEventListener('app-cleanup', handleForceClose);
+    };
+  }, []);
+  
+  // Handle event listeners more safely
+  const safeEventHandler = (handler: any) => (e: any) => {
+    try {
+      // Skip handling if unmounted or force closing
+      if (!isMountedRef.current || forceCloseRef.current) {
+        e.preventDefault();
+        return;
+      }
+      
+      if (handler) {
+        handler(e);
+      }
+    } catch (error) {
+      console.warn('Error handling dialog event:', error);
+      e.preventDefault();
+    }
+  };
   
   return (
     <DialogPortal>
@@ -51,32 +92,17 @@ const DialogContent = React.forwardRef<
           className
         )}
         // Safely handle events
-        onCloseAutoFocus={(e) => {
-          e.preventDefault();
-          // Only call the callback if still mounted
-          if (isMountedRef.current && props.onCloseAutoFocus) {
-            props.onCloseAutoFocus(e);
-          }
-        }}
-        // Safe handling of Escape key
-        onEscapeKeyDown={(e) => {
-          if (isMountedRef.current && props.onEscapeKeyDown) {
-            props.onEscapeKeyDown(e);
-          }
-        }}
-        // Safe handling of pointer down outside
-        onPointerDownOutside={(e) => {
-          // Stop propagation to prevent React errors during unmounting
-          e.preventDefault();
-          
-          if (isMountedRef.current && props.onPointerDownOutside) {
-            props.onPointerDownOutside(e);
-          }
-        }}
+        onCloseAutoFocus={safeEventHandler(props.onCloseAutoFocus)}
+        onEscapeKeyDown={safeEventHandler(props.onEscapeKeyDown)}
+        onPointerDownOutside={safeEventHandler(props.onPointerDownOutside)}
+        onInteractOutside={safeEventHandler(props.onInteractOutside)}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+        <DialogPrimitive.Close 
+          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+          data-radix-dialog-close
+        >
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>

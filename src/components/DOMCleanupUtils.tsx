@@ -6,6 +6,10 @@ let globalCleanupInProgress = false;
 let lastCleanupTime = 0;
 const MIN_CLEANUP_INTERVAL = 150; // ms
 
+// Track mounted components to prevent operations on unmounted components
+const mountedComponents = new Set();
+const nodesToSkip = new WeakSet();
+
 /**
  * Custom hook for safe component unmounting with DOM cleanup
  */
@@ -13,8 +17,19 @@ export const useSafeUnmount = () => {
   const isMountedRef = useRef(true);
   const unmountingRef = useRef(false);
   const [hasPrintableContent, setHasPrintableContent] = useState(false);
+  const componentIdRef = useRef(`component-${Math.random().toString(36).substr(2, 9)}`);
   
-  // Simplified DOM cleanup function
+  // Register component on mount
+  useEffect(() => {
+    const id = componentIdRef.current;
+    mountedComponents.add(id);
+    
+    return () => {
+      mountedComponents.delete(id);
+    };
+  }, []);
+  
+  // Simplified DOM cleanup function with additional safety checks
   const cleanupDOM = useCallback(() => {
     // Prevent running too frequently or concurrently
     const now = Date.now();
@@ -42,33 +57,42 @@ export const useSafeUnmount = () => {
         '[aria-live]'
       ];
       
-      // Safe element removal function that checks DOM state
+      // Enhanced safe element removal function with DOM validation
       const safeRemove = (element) => {
-        if (!element || !element.parentNode || !document.contains(element)) return;
+        // Skip if already processed or invalid
+        if (!element || nodesToSkip.has(element) || !element.parentNode) return;
         
         try {
+          // First check if the element is still in the document
+          if (!document.contains(element)) {
+            nodesToSkip.add(element);
+            return;
+          }
+          
           // First hide the element to prevent visual glitches
           if (element instanceof HTMLElement) {
             element.style.display = 'none';
             element.style.visibility = 'hidden';
           }
           
-          // Empty the element's contents first
-          while (element.firstChild) {
-            try {
-              element.removeChild(element.firstChild);
-            } catch (err) {
-              break;
-            }
-          }
+          // Safely clear children first
+          safeClearChildren(element);
           
-          // Now try to remove the element itself
-          if (element.parentNode && document.body.contains(element.parentNode)) {
-            element.parentNode.removeChild(element);
+          // Now try to remove the element itself if it's still in the document
+          if (element.parentNode && document.contains(element.parentNode)) {
+            // Double check parent-child relationship
+            const isChild = Array.from(element.parentNode.childNodes).includes(element);
+            if (isChild) {
+              element.parentNode.removeChild(element);
+            } else {
+              console.warn("Prevented removal of non-child node");
+              nodesToSkip.add(element); // Mark to skip in future
+            }
           }
         } catch (err) {
           // Just log the error but don't throw
           console.warn("Error removing element:", err);
+          nodesToSkip.add(element); // Mark to skip in future
         }
       };
       
@@ -94,7 +118,7 @@ export const useSafeUnmount = () => {
           // Skip essential elements
           if (child.id === 'root' || child.id === 'app' || 
               child.tagName === 'SCRIPT' || child.tagName === 'STYLE' || 
-              child.tagName === 'LINK') {
+              child.tagName === 'LINK' || nodesToSkip.has(child)) {
             return;
           }
           
@@ -150,7 +174,62 @@ export const useSafeUnmount = () => {
   };
 };
 
-// Standalone function for global DOM cleanup
+// Safe method to clear children from an element
+export const safeClearChildren = (element) => {
+  if (!element || nodesToSkip.has(element) || !document.contains(element)) return;
+  
+  try {
+    // First hide children to prevent visual glitches
+    if (element instanceof HTMLElement) {
+      Array.from(element.children).forEach(child => {
+        if (child instanceof HTMLElement) {
+          child.style.display = 'none';
+          child.style.visibility = 'hidden';
+        }
+      });
+    }
+    
+    // Then remove all children one by one with added safety checks
+    while (element.firstChild) {
+      try {
+        const child = element.firstChild;
+        if (nodesToSkip.has(child)) {
+          // If we already know this node is problematic, try to skip it
+          const nextSibling = child.nextSibling;
+          try {
+            if (nextSibling) {
+              // Try to insert a placeholder and manipulate the DOM tree
+              const placeholder = document.createComment('placeholder');
+              element.insertBefore(placeholder, nextSibling);
+              element.removeChild(placeholder);
+            }
+          } catch (err) {
+            console.warn("Failed to handle problematic child:", err);
+          }
+          break;
+        }
+        
+        // Check if the child is still a valid child
+        const isValid = Array.from(element.childNodes).includes(child);
+        if (isValid) {
+          element.removeChild(child);
+        } else {
+          console.warn("Prevented removal of invalid child node");
+          nodesToSkip.add(child);
+          break;
+        }
+      } catch (err) {
+        console.warn("Error removing child:", err);
+        // If we can't remove a child, stop trying to avoid infinite loops
+        break;
+      }
+    }
+  } catch (err) {
+    console.warn("Error in safeClearChildren:", err);
+  }
+};
+
+// Standalone function for global DOM cleanup with improved safety
 export const performDOMCleanup = () => {
   // Prevent running too frequently
   const now = Date.now();
@@ -182,7 +261,7 @@ export const performDOMCleanup = () => {
       try {
         const elements = document.querySelectorAll(selector);
         elements.forEach(el => {
-          if (!el || !el.parentNode || !document.contains(el)) return;
+          if (!el || nodesToSkip.has(el) || !document.contains(el)) return;
           
           try {
             // First hide the element
@@ -191,21 +270,23 @@ export const performDOMCleanup = () => {
               el.style.visibility = 'hidden';
             }
             
-            // Empty it first
-            while (el.firstChild) {
-              try {
-                el.removeChild(el.firstChild);
-              } catch (err) {
-                break;
-              }
-            }
+            // Clear its contents first
+            safeClearChildren(el);
             
             // Then remove it if it's still in the DOM
-            if (el.parentNode && document.body.contains(el.parentNode)) {
-              el.parentNode.removeChild(el);
+            if (el.parentNode && document.contains(el.parentNode)) {
+              // Double check parent-child relationship before removing
+              const isChild = Array.from(el.parentNode.childNodes).includes(el);
+              if (isChild) {
+                el.parentNode.removeChild(el);
+              } else {
+                console.warn("Prevented removal of non-child node");
+                nodesToSkip.add(el); // Mark to skip in future attempts
+              }
             }
           } catch (err) {
             console.warn("Error removing element:", err);
+            nodesToSkip.add(el); // Mark problematic nodes
           }
         });
       } catch (err) {
@@ -224,7 +305,7 @@ export const performDOMCleanup = () => {
 
 // Utility function to safely remove a specific element
 export const safeRemoveElement = (element) => {
-  if (!element || !element.parentNode || !document.contains(element)) return;
+  if (!element || nodesToSkip.has(element) || !document.contains(element)) return;
   
   try {
     // First hide it
@@ -233,50 +314,23 @@ export const safeRemoveElement = (element) => {
       element.style.visibility = 'hidden';
     }
     
-    // Empty it first
-    while (element.firstChild) {
-      try {
-        element.removeChild(element.firstChild);
-      } catch (err) {
-        break;
-      }
-    }
+    // Clear its contents first
+    safeClearChildren(element);
     
-    // Then remove it if it's still in the DOM
-    if (element.parentNode && document.body.contains(element.parentNode)) {
-      element.parentNode.removeChild(element);
+    // Then remove it if it's still in the DOM and is a valid child
+    if (element.parentNode && document.contains(element.parentNode)) {
+      // Check if it's actually a child of its parent
+      const isChild = Array.from(element.parentNode.childNodes).includes(element);
+      if (isChild) {
+        element.parentNode.removeChild(element);
+      } else {
+        console.warn("Prevented removal of non-child node");
+        nodesToSkip.add(element);
+      }
     }
   } catch (err) {
     console.warn("Error in safeRemoveElement:", err);
-  }
-};
-
-// Add the missing safeClearChildren function
-export const safeClearChildren = (element) => {
-  if (!element || !document.contains(element)) return;
-  
-  try {
-    // First hide children to prevent visual glitches
-    if (element instanceof HTMLElement) {
-      Array.from(element.children).forEach(child => {
-        if (child instanceof HTMLElement) {
-          child.style.display = 'none';
-          child.style.visibility = 'hidden';
-        }
-      });
-    }
-    
-    // Then remove all children
-    while (element.firstChild) {
-      try {
-        element.removeChild(element.firstChild);
-      } catch (err) {
-        console.warn("Error removing child:", err);
-        break;
-      }
-    }
-  } catch (err) {
-    console.warn("Error in safeClearChildren:", err);
+    nodesToSkip.add(element);
   }
 };
 
