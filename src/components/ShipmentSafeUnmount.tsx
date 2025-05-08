@@ -5,9 +5,8 @@ import { useSafeUnmount, performDOMCleanup as safeCleanupDOM, safeRemoveElement 
 // Additional compatibility exports
 export { 
   useSafeUnmount as useShipmentSafeUnmount,
-  safeCleanupDOM as performDOMCleanup, 
-  safeRemoveElement
+  safeCleanupDOM as performDOMCleanup
 };
 
-// Also export the original names to avoid breaking changes
-export { safeCleanupDOM, safeRemoveElement };
+// Export a single instance of safeRemoveElement to avoid duplication errors
+export { safeRemoveElement };

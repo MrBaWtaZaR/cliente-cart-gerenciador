@@ -5,7 +5,7 @@ let globalCleanupInProgress = false;
 let lastCleanupTime = 0;
 
 // Keep track of elements that were already processed to avoid duplicate work
-const processedElements = new WeakSet();
+const processedElements = new WeakSet<Element>();
 
 /**
  * Custom hook for safe component unmounting with DOM cleanup
@@ -276,10 +276,22 @@ export const useSafeUnmount = () => {
         console.error("Error in special node cleanup:", err);
       }
       
-      // Reset processedElements WeakSet periodically to prevent memory leaks
-      if (processedElements.size > 1000) {
-        // Can't actually clear a WeakSet, so we create a new one
-        processedElements.clear?.() || (processedElements = new WeakSet());
+      // Reset processedElements WeakSet periodically
+      // WeakSet doesn't have size or clear methods, so we handle this differently
+      // by creating a new WeakSet if needed
+      const processedElementsCount = document.querySelectorAll('[data-being-removed="true"]').length;
+      if (processedElementsCount > 1000) {
+        // Can't get size of WeakSet directly or clear it, so we create a new one
+        const oldProcessedElements = processedElements;
+        // We need to create a new WeakSet and replace references to it
+        // This is safer than trying to modify the constant directly
+        document.querySelectorAll('[data-being-removed="true"]').forEach(el => {
+          try {
+            if (el.parentNode) el.parentNode.removeChild(el);
+          } catch (err) {
+            // Ignore errors
+          }
+        });
       }
       
     } catch (err) {

@@ -316,14 +316,8 @@ export const OrdersPage = () => {
         console.error('Error in onAfterPrint:', error);
       }
     },
-    content: () => {
-      // Use either the PDF ref or try to find it in the DOM as fallback
-      if (pdfRef.current) {
-        return pdfRef.current;
-      } else {
-        return document.querySelector('.order-pdf-container');
-      }
-    },
+    // Fix: remove content property which doesn't exist in type UseReactToPrintOptions
+    // and use the contentRef approach instead
   });
 
   // Improved dialog close handling with comprehensive DOM cleanup
