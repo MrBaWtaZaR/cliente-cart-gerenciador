@@ -176,14 +176,14 @@ export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
         {customerPairs.map((pair, pairIndex) => (
           <div 
             key={pairIndex} 
-            className={`flex flex-col gap-4 ${pairIndex > 0 ? 'page-break-before' : ''}`}
-            style={{ height: "297mm", padding: "10px", boxSizing: "border-box" }}
+            className={`grid grid-cols-1 gap-4 ${pairIndex > 0 ? 'page-break-before' : ''}`}
+            style={{ height: "297mm", padding: "10px" }}
           >
             {pair.map((customer, idx) => (
               <div 
                 key={idx} 
                 className="border-2 border-dashed border-blue-800 rounded-lg flex flex-col"
-                style={{ height: "calc(50% - 5px)", margin: "0", boxSizing: "border-box" }}
+                style={{ height: "calc(50% - 10px)" }}
               >
                 {/* Logo no topo do cartão */}
                 <div className="bg-blue-50 p-2 flex justify-center border-b border-blue-200">
@@ -195,42 +195,42 @@ export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
                 </div>
                 
                 <div className="text-center p-2 pb-1 border-b border-blue-200">
-                  <h3 className="font-bold text-2xl text-blue-800">{customer.tourName || "Excursão"}</h3>
+                  <h3 className="font-bold text-xl text-blue-800">{customer.tourName || "Excursão"}</h3>
                 </div>
                 
-                {/* Informações em duas colunas - REORGANIZADAS */}
+                {/* Informações em duas colunas */}
                 <div className="flex flex-row p-3 flex-1">
-                  {/* Coluna 1: AGORA DADOS PESSOAIS (movidos para cima) */}
+                  {/* Coluna 1: Dados da excursão */}
                   <div className="w-1/2 space-y-2">
-                    <div>
-                      <p className="font-bold text-lg text-blue-700">Nome:</p>
-                      <p className="truncate text-2xl font-bold">{customer.name}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="font-bold text-sm text-blue-700">Setor:</p>
+                        <p className="truncate text-2xl font-bold">{customer.tourSector || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm text-blue-700">Vaga:</p>
+                        <p className="text-2xl font-bold">{customer.tourSeatNumber || "-"}</p>
+                      </div>
                     </div>
                     <div>
-                      <p className="font-bold text-lg text-blue-700">Telefone:</p>
-                      <p className="text-2xl font-bold">{formatPhone(customer.phone)}</p>
+                      <p className="font-bold text-sm text-blue-700">Horário:</p>
+                      <p className="text-2xl font-bold">{customer.tourDepartureTime || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-blue-700">Cidade/UF:</p>
+                      <p className="truncate text-xl font-bold">{[customer.tourCity, customer.tourState].filter(Boolean).join('/')}</p>
                     </div>
                   </div>
                   
-                  {/* Coluna 2: AGORA DADOS DA EXCURSÃO (movidos para baixo) */}
+                  {/* Coluna 2: Dados pessoais */}
                   <div className="w-1/2 border-l border-blue-200 pl-4 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <p className="font-bold text-lg text-blue-700">Setor:</p>
-                        <p className="truncate text-3xl font-bold">{customer.tourSector || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="font-bold text-lg text-blue-700">Vaga:</p>
-                        <p className="text-3xl font-bold">{customer.tourSeatNumber || "-"}</p>
-                      </div>
+                    <div>
+                      <p className="font-bold text-sm text-blue-700">Nome:</p>
+                      <p className="truncate text-xl font-bold">{customer.name}</p>
                     </div>
                     <div>
-                      <p className="font-bold text-lg text-blue-700">Horário:</p>
-                      <p className="text-3xl font-bold">{customer.tourDepartureTime || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="font-bold text-lg text-blue-700">Cidade/UF:</p>
-                      <p className="truncate text-2xl font-bold">{[customer.tourCity, customer.tourState].filter(Boolean).join('/')}</p>
+                      <p className="font-bold text-sm text-blue-700">Telefone:</p>
+                      <p className="text-xl font-bold">{formatPhone(customer.phone)}</p>
                     </div>
                   </div>
                 </div>

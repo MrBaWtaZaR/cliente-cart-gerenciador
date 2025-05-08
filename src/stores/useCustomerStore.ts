@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Customer, Order, OrderProduct } from '../types/customers';
 import { generateId } from '../utils/idGenerator';
-import { saveOrderToSupabase, updateOrderStatusInSupabase, deleteOrderFromSupabase, getOrdersFromSupabase } from './orderSync';
 
 interface CustomerStore {
   customers: Customer[];
@@ -19,8 +18,6 @@ interface CustomerStore {
   deleteOrder: (customerId: string, orderId: string) => void;
   
   reloadCustomers: () => Promise<void>;
-  syncOrdersWithSupabase: (customerId: string) => Promise<void>;
-  syncAllCustomerOrders: () => Promise<void>;
 }
 
 // Helper function to safely store data in localStorage
@@ -67,60 +64,6 @@ const notifyOrderStatusChange = () => {
 export const useCustomerStore = create<CustomerStore>((set, get) => ({
   customers: loadInitialCustomers(),
 
-  syncOrdersWithSupabase: async (customerId) => {
-    try {
-      console.log(`Synchronizing orders for customer ${customerId} with Supabase`);
-      const orders = await getOrdersFromSupabase(customerId);
-      
-      if (orders.length > 0) {
-        set((state) => {
-          const updatedCustomers = state.customers.map(customer => {
-            if (customer.id === customerId) {
-              // Merge local and remote orders, preferring remote if there's a conflict
-              const existingOrderIds = new Set(orders.map(o => o.id));
-              const localOnlyOrders = (customer.orders || []).filter(o => !existingOrderIds.has(o.id));
-              
-              return {
-                ...customer,
-                orders: [...orders, ...localOnlyOrders]
-              };
-            }
-            return customer;
-          });
-          
-          safeLocalStorageSave('customers', updatedCustomers);
-          return { customers: updatedCustomers };
-        });
-        
-        console.log(`Synchronized ${orders.length} orders for customer ${customerId}`);
-      }
-    } catch (error) {
-      console.error(`Error synchronizing orders for customer ${customerId}:`, error);
-      toast.error('Erro ao sincronizar pedidos');
-    }
-  },
-  
-  syncAllCustomerOrders: async () => {
-    try {
-      console.log("Starting synchronization of all customer orders with Supabase");
-      // For each customer in our store, sync their orders
-      const customers = get().customers;
-      
-      for (const customer of customers) {
-        await get().syncOrdersWithSupabase(customer.id);
-      }
-      
-      console.log("All customer orders synchronized");
-      toast.success('Pedidos sincronizados com sucesso');
-      
-      // Dispatch an event to update the UI
-      window.dispatchEvent(new CustomEvent('data-updated'));
-    } catch (error) {
-      console.error('Error synchronizing all customer orders:', error);
-      toast.error('Erro ao sincronizar pedidos');
-    }
-  },
-
   reloadCustomers: async () => {
     try {
       const { data: customerData, error } = await supabase
@@ -161,11 +104,6 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       
       set({ customers: updatedCustomers });
       
-      // After loading customers, try to sync their orders
-      for (const customer of updatedCustomers) {
-        await get().syncOrdersWithSupabase(customer.id);
-      }
-      
       // Fixed: Return void instead of the customers array
       return;
     } catch (error) {
@@ -177,16 +115,6 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
   
   addCustomer: (customerData) => set((state) => {
     try {
-      // Verificar se já existe um cliente com este email
-      const existingCustomer = state.customers.find(c => 
-        c.email?.toLowerCase() === customerData.email?.toLowerCase());
-      
-      if (existingCustomer) {
-        console.log(`Cliente já existe com email ${customerData.email}, usando ID existente:`, existingCustomer.id);
-        // Retornar o estado atual sem alterações
-        return state;
-      }
-      
       const newCustomer: Customer = {
         id: generateId(),
         ...customerData,
@@ -306,14 +234,6 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
   
   addOrder: (orderData) => set((state) => {
     try {
-      // Verificar se o cliente existe
-      const customerExists = state.customers.some(c => c.id === orderData.customerId);
-      if (!customerExists) {
-        console.error(`Cliente não encontrado com ID: ${orderData.customerId}`);
-        toast.error("Cliente não encontrado. Não é possível adicionar o pedido.");
-        return state;
-      }
-      
       const newOrder = {
         id: generateId(),
         customerId: orderData.customerId,
@@ -334,21 +254,6 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       });
       
       safeLocalStorageSave('customers', updatedCustomers);
-      
-      // Sync the order with Supabase
-      saveOrderToSupabase(newOrder, orderData.customerId)
-        .then(success => {
-          if (success) {
-            console.log('Order synchronized with Supabase');
-          } else {
-            console.error('Failed to synchronize order with Supabase');
-            toast.error('Erro ao sincronizar pedido com o servidor');
-          }
-        })
-        .catch(error => {
-          console.error('Error syncing order with Supabase:', error);
-          toast.error('Erro ao sincronizar pedido com o servidor');
-        });
       
       // Dispatch improved events 
       notifyOrderStatusChange();
@@ -380,21 +285,6 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       
       safeLocalStorageSave('customers', updatedCustomers);
       
-      // Sync the updated status with Supabase
-      updateOrderStatusInSupabase(orderId, status)
-        .then(success => {
-          if (success) {
-            console.log('Order status synchronized with Supabase');
-          } else {
-            console.error('Failed to synchronize order status with Supabase');
-            toast.error('Erro ao sincronizar status do pedido com o servidor');
-          }
-        })
-        .catch(error => {
-          console.error('Error syncing order status with Supabase:', error);
-          toast.error('Erro ao sincronizar status do pedido com o servidor');
-        });
-      
       // Dispatch improved events
       notifyOrderStatusChange();
       
@@ -413,17 +303,7 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
         if (customer.id === customerId) {
           const updatedOrders = (customer.orders || []).map((order) => {
             if (order.id === orderId) {
-              const updatedOrder = { ...order, ...orderData };
-              
-              // Sync the updated order with Supabase if status changes
-              if (orderData.status && orderData.status !== order.status) {
-                updateOrderStatusInSupabase(orderId, orderData.status)
-                  .catch(error => {
-                    console.error('Error syncing order status with Supabase:', error);
-                  });
-              }
-              
-              return updatedOrder;
+              return { ...order, ...orderData };
             }
             return order;
           });
@@ -458,21 +338,6 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       });
       
       safeLocalStorageSave('customers', updatedCustomers);
-      
-      // Sync the deletion with Supabase
-      deleteOrderFromSupabase(orderId)
-        .then(success => {
-          if (success) {
-            console.log('Order deletion synchronized with Supabase');
-          } else {
-            console.error('Failed to synchronize order deletion with Supabase');
-            toast.error('Erro ao sincronizar exclusão de pedido com o servidor');
-          }
-        })
-        .catch(error => {
-          console.error('Error syncing order deletion with Supabase:', error);
-          toast.error('Erro ao sincronizar exclusão de pedido com o servidor');
-        });
       
       // Dispatch an event to update the dashboard and other components
       window.dispatchEvent(new CustomEvent('data-updated'));

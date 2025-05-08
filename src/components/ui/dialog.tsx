@@ -31,85 +31,39 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
-  // Use a ref to track if the component is mounted
-  const isMountedRef = React.useRef(true);
-  const forceCloseRef = React.useRef(false);
-  
-  React.useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-  
-  // If a force close is needed (like during page navigation),
-  // handle it safely
-  React.useEffect(() => {
-    const handleForceClose = () => {
-      forceCloseRef.current = true;
-      
-      // Try to trigger a graceful close if possible
-      const closeButton = document.querySelector('[data-radix-dialog-close]');
-      if (closeButton instanceof HTMLElement) {
-        closeButton.click();
-      }
-    };
-    
-    window.addEventListener('route-changed', handleForceClose);
-    window.addEventListener('app-cleanup', handleForceClose);
-    
-    return () => {
-      window.removeEventListener('route-changed', handleForceClose);
-      window.removeEventListener('app-cleanup', handleForceClose);
-    };
-  }, []);
-  
-  // Handle event listeners more safely
-  const safeEventHandler = (handler: any) => (e: any) => {
-    try {
-      // Skip handling if unmounted or force closing
-      if (!isMountedRef.current || forceCloseRef.current) {
+>(({ className, children, ...props }, ref) => (
+  <DialogPortal>
+    <DialogOverlay />
+    <DialogPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        className
+      )}
+      // Update the onCloseAutoFocus handler to safely handle events
+      onCloseAutoFocus={(e) => {
         e.preventDefault();
-        return;
-      }
-      
-      if (handler) {
-        handler(e);
-      }
-    } catch (error) {
-      console.warn('Error handling dialog event:', error);
-      e.preventDefault();
-    }
-  };
-  
-  return (
-    <DialogPortal>
-      <DialogOverlay />
-      <DialogPrimitive.Content
-        ref={ref}
-        className={cn(
-          "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-          className
-        )}
-        // Safely handle events
-        onCloseAutoFocus={safeEventHandler(props.onCloseAutoFocus)}
-        onEscapeKeyDown={safeEventHandler(props.onEscapeKeyDown)}
-        onPointerDownOutside={safeEventHandler(props.onPointerDownOutside)}
-        onInteractOutside={safeEventHandler(props.onInteractOutside)}
-        {...props}
-      >
-        {children}
-        <DialogPrimitive.Close 
-          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-          data-radix-dialog-close
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
-      </DialogPrimitive.Content>
-    </DialogPortal>
-  );
-});
+        
+        if (props.onCloseAutoFocus) {
+          props.onCloseAutoFocus(e);
+        }
+      }}
+      // Add onEscapeKeyDown to prevent focus issues
+      onEscapeKeyDown={(e) => {
+        if (props.onEscapeKeyDown) {
+          props.onEscapeKeyDown(e);
+        }
+      }}
+      {...props}
+    >
+      {children}
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+        <X className="h-4 w-4" />
+        <span className="sr-only">Close</span>
+      </DialogPrimitive.Close>
+    </DialogPrimitive.Content>
+  </DialogPortal>
+))
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({

@@ -55,82 +55,36 @@ interface SheetContentProps
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, ...props }, ref) => {
-  // Use a ref to track if the component is mounted
-  const isMountedRef = React.useRef(true);
-  const forceCloseRef = React.useRef(false);
-  
-  React.useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-  
-  // If a force close is needed (like during page navigation),
-  // handle it safely
-  React.useEffect(() => {
-    const handleForceClose = () => {
-      forceCloseRef.current = true;
-      
-      // Try to trigger a graceful close if possible
-      const closeButton = document.querySelector('[data-radix-dialog-close]');
-      if (closeButton instanceof HTMLElement) {
-        closeButton.click();
-      }
-    };
-    
-    window.addEventListener('route-changed', handleForceClose);
-    window.addEventListener('app-cleanup', handleForceClose);
-    
-    return () => {
-      window.removeEventListener('route-changed', handleForceClose);
-      window.removeEventListener('app-cleanup', handleForceClose);
-    };
-  }, []);
-  
-  // Handle event listeners more safely
-  const safeEventHandler = (handler: any) => (e: any) => {
-    try {
-      // Skip handling if unmounted or force closing
-      if (!isMountedRef.current || forceCloseRef.current) {
+>(({ side = "right", className, children, ...props }, ref) => (
+  <SheetPortal>
+    <SheetOverlay />
+    <SheetPrimitive.Content
+      ref={ref}
+      className={cn(sheetVariants({ side }), className)}
+      // Update the onCloseAutoFocus handler
+      onCloseAutoFocus={(e) => {
         e.preventDefault();
-        return;
-      }
-      
-      if (handler) {
-        handler(e);
-      }
-    } catch (error) {
-      console.warn('Error handling sheet event:', error);
-      e.preventDefault();
-    }
-  };
-  
-  return (
-    <SheetPortal>
-      <SheetOverlay />
-      <SheetPrimitive.Content
-        ref={ref}
-        className={cn(sheetVariants({ side }), className)}
-        // Safely handle events
-        onCloseAutoFocus={safeEventHandler(props.onCloseAutoFocus)}
-        onEscapeKeyDown={safeEventHandler(props.onEscapeKeyDown)}
-        onPointerDownOutside={safeEventHandler(props.onPointerDownOutside)}
-        onInteractOutside={safeEventHandler(props.onInteractOutside)}
-        {...props}
-      >
-        {children}
-        <SheetPrimitive.Close 
-          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary"
-          data-radix-dialog-close
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
-        </SheetPrimitive.Close>
-      </SheetPrimitive.Content>
-    </SheetPortal>
-  );
-})
+        
+        if (props.onCloseAutoFocus) {
+          props.onCloseAutoFocus(e);
+        }
+      }}
+      // Add onEscapeKeyDown to prevent focus issues
+      onEscapeKeyDown={(e) => {
+        if (props.onEscapeKeyDown) {
+          props.onEscapeKeyDown(e);
+        }
+      }}
+      {...props}
+    >
+      {children}
+      <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
+        <X className="h-4 w-4" />
+        <span className="sr-only">Close</span>
+      </SheetPrimitive.Close>
+    </SheetPrimitive.Content>
+  </SheetPortal>
+))
 SheetContent.displayName = SheetPrimitive.Content.displayName
 
 const SheetHeader = ({

@@ -1,6 +1,6 @@
 
-import { useState, useRef, useEffect } from 'react';
-import { useDataStore } from '@/stores';
+import { useState } from 'react';
+import { useDataStore } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,16 +20,6 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
     quantity: number;
   }>>([{ productId: '', quantity: 1 }]);
   const [status, setStatus] = useState<'pending' | 'completed' | 'cancelled'>('pending');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const formSubmitted = useRef(false);
-  
-  // Resetar o formSubmitted quando o componente for montado novamente
-  useEffect(() => {
-    formSubmitted.current = false;
-    return () => {
-      formSubmitted.current = false;
-    };
-  }, [customerId]);
 
   const handleProductChange = (index: number, productId: string) => {
     const newItems = [...orderItems];
@@ -60,20 +50,8 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
     }, 0);
   };
 
-  // Função para calcular o subtotal de um item específico
-  const calculateItemSubtotal = (productId: string, quantity: number) => {
-    const product = products.find(p => p.id === productId);
-    return product ? (product.price * quantity) : 0;
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Prevenir submissões múltiplas usando ref para garantir que mesmo em renderizações rápidas não duplique
-    if (isSubmitting || formSubmitted.current) {
-      console.log("Formulário já foi enviado, ignorando submissão duplicada");
-      return;
-    }
     
     // Validar se todos os itens têm produtos selecionados
     if (orderItems.some(item => !item.productId)) {
@@ -81,62 +59,35 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
       return;
     }
 
-    try {
-      setIsSubmitting(true);
-      formSubmitted.current = true;
-      
-      console.log("Processando novo pedido para cliente:", customerId);
-      
-      const orderProducts = orderItems.map(item => {
-        const product = products.find(p => p.id === item.productId);
-        if (!product) {
-          throw new Error(`Produto não encontrado: ${item.productId}`);
-        }
-        return {
-          productId: product.id,
-          productName: product.name,
-          quantity: item.quantity,
-          price: product.price,
-          images: product.images || []
-        };
-      });
+    const orderProducts = orderItems.map(item => {
+      const product = products.find(p => p.id === item.productId)!;
+      return {
+        productId: product.id,
+        productName: product.name,
+        quantity: item.quantity,
+        price: product.price,
+        images: product.images
+      };
+    });
 
-      const total = calculateTotal();
+    const total = calculateTotal();
 
-      addOrder({
-        customerId,
-        products: orderProducts,
-        status,
-        total
-      });
+    addOrder({
+      customerId,
+      products: orderProducts,
+      status,
+      total
+    });
 
-      toast.success('Pedido adicionado com sucesso!');
-      
-      // Reset form
-      setOrderItems([{ productId: '', quantity: 1 }]);
-      setStatus('pending');
-      
-      // Notify parent component
-      onSuccess();
-      
-      // Adicionar um pequeno atraso antes de liberar o estado de submissão
-      setTimeout(() => {
-        setIsSubmitting(false);
-      }, 300);
-    } catch (error) {
-      console.error("Erro ao adicionar pedido:", error);
-      toast.error("Erro ao adicionar pedido. Por favor, tente novamente.");
-      // Reset estado de submissão em caso de erro também
-      formSubmitted.current = false;
-      setIsSubmitting(false);
-    }
+    toast.success('Pedido adicionado com sucesso!');
+    onSuccess();
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 py-4">
       <div className="space-y-4">
         {orderItems.map((item, index) => (
-          <div key={`order-item-${index}`} className="flex flex-col space-y-2 p-3 border rounded-md">
+          <div key={index} className="flex flex-col space-y-2 p-3 border rounded-md">
             <div className="flex justify-between items-center">
               <h4 className="font-medium flex items-center">
                 <Package className="h-4 w-4 mr-2" />
@@ -189,7 +140,7 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
 
             {item.productId && (
               <div className="text-sm text-right">
-                Subtotal: R$ {calculateItemSubtotal(item.productId, item.quantity).toFixed(2)}
+                Subtotal: R$ {(products.find(p => p.id === item.productId)?.price || 0 * item.quantity).toFixed(2)}
               </div>
             )}
           </div>
@@ -202,7 +153,6 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
         size="sm" 
         className="w-full" 
         onClick={addItem}
-        disabled={isSubmitting}
       >
         <Plus className="h-4 w-4 mr-2" /> Adicionar Item
       </Button>
@@ -212,7 +162,6 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
         <Select
           value={status}
           onValueChange={(value: 'pending' | 'completed' | 'cancelled') => setStatus(value)}
-          disabled={isSubmitting}
         >
           <SelectTrigger>
             <SelectValue />
@@ -230,9 +179,7 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
           Total: R$ {calculateTotal().toFixed(2)}
         </div>
         
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Adicionando...' : 'Adicionar Pedido'}
-        </Button>
+        <Button type="submit">Adicionar Pedido</Button>
       </div>
     </form>
   );

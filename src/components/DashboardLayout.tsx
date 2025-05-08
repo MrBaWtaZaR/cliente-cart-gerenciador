@@ -4,8 +4,6 @@ import { DashboardSidebar } from './DashboardSidebar';
 import { AuthGuard } from './AuthGuard';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useDataStore } from '@/stores';
-import { toast } from 'sonner';
-import { useSafeUnmount, performDOMCleanup } from './DOMCleanupUtils';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -14,84 +12,116 @@ interface DashboardLayoutProps {
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const isMobile = useIsMobile();
   const { refreshAll, isInitialized } = useDataStore();
-  const { cleanupDOM } = useSafeUnmount();
   const unmountingRef = useRef(false);
-  const cleanupTimerRef = useRef<number | null>(null);
   
-  // Initialize data when dashboard mounts and handle cleanup
+  // Initialize data when dashboard mounts
   useEffect(() => {
-    console.log("Initializing application data...");
-    
-    // First do a cleanup to remove any leftover elements
-    performDOMCleanup();
+    console.log("Inicializando dados da aplicação...");
     
     if (!isInitialized) {
-      refreshAll().catch(error => {
-        console.error("Error initializing data:", error);
-        toast.error("Error loading data. Please reload the page.");
-      });
+      refreshAll();
     }
     
-    // Handler for cleanup events
-    const handleCleanup = () => {
-      console.log("Cleanup event triggered");
-      cleanupDOM();
-    };
-  
-    // Register global event listeners
-    window.addEventListener('app-cleanup', handleCleanup);
-    window.addEventListener('popstate', handleCleanup);
-    window.addEventListener('route-changed', handleCleanup);
-    window.addEventListener('beforeunload', handleCleanup);
-  
-    return () => {
-      console.log("App unmounted, cleaning resources...");
-      unmountingRef.current = true;
-      
-      // Remove event listeners
-      window.removeEventListener('app-cleanup', handleCleanup);
-      window.removeEventListener('popstate', handleCleanup);
-      window.removeEventListener('route-changed', handleCleanup);
-      window.removeEventListener('beforeunload', handleCleanup);
-      
-      // Clear any pending timer
-      if (cleanupTimerRef.current !== null) {
-        clearTimeout(cleanupTimerRef.current);
-      }
-      
-      // Clean up clickable elements to prevent stale event listeners
+    // Função para limpar elementos órfãos no DOM
+    const cleanupOrphanedElements = () => {
       try {
-        const clickableElements = document.querySelectorAll('button, a, [role="button"]');
-        clickableElements.forEach(el => {
-          if (el.parentNode && document.contains(el)) {
+        // Limpar tooltips
+        document.querySelectorAll('[role="tooltip"]').forEach(el => {
+          if (el && el.parentNode) {
             try {
-              const clone = el.cloneNode(false); // Clone without children
-              while (el.firstChild) {
-                clone.appendChild(el.firstChild); // Move children to clone
-              }
-              el.parentNode.replaceChild(clone, el);
-            } catch (err) {
-              console.warn("Failed to replace element:", err);
+              el.parentNode.removeChild(el);
+            } catch (e) {
+              // Ignore errors if element was already removed
             }
           }
         });
+        
+        // Limpar dialogs
+        document.querySelectorAll('[role="dialog"]').forEach(el => {
+          if (el && el.parentNode) {
+            try {
+              el.parentNode.removeChild(el);
+            } catch (e) {
+              // Ignore errors if element was already removed
+            }
+          }
+        });
+        
+        // Limpar portals
+        document.querySelectorAll('[data-portal]').forEach(el => {
+          if (el && el.parentNode) {
+            try {
+              el.parentNode.removeChild(el);
+            } catch (e) {
+              // Ignore errors if element was already removed
+            }
+          }
+        });
+        
+        // Limpar popups e menus flutuantes
+        document.querySelectorAll('.radix-popup').forEach(el => {
+          if (el && el.parentNode) {
+            try {
+              el.parentNode.removeChild(el);
+            } catch (e) {
+              // Ignore errors if element was already removed
+            }
+          }
+        });
+        
+        // Limpar outros elementos que podem causar problemas
+        [
+          '[data-floating]', 
+          '[data-state="open"]', 
+          '.popover-content', 
+          '.tooltip-content',
+          '.dropdown-menu-content',
+          '.react-flow__node',
+          '.react-flow__edge',
+          '[aria-live="polite"]',
+          '[aria-live="assertive"]'
+        ].forEach(selector => {
+          document.querySelectorAll(selector).forEach(el => {
+            if (el && el.parentNode && unmountingRef.current) {
+              try {
+                el.parentNode.removeChild(el);
+              } catch (e) {
+                // Ignore errors if element was already removed
+              }
+            }
+          });
+        });
       } catch (error) {
-        console.error('Error cleaning event listeners:', error);
+        console.error('Error cleaning up DOM elements:', error);
       }
-      
-      // Execute cleanup in multiple phases with increasing delays
-      cleanupDOM();
-      
-      // Use window.setTimeout to ensure it works correctly with React
-      cleanupTimerRef.current = window.setTimeout(() => {
-        performDOMCleanup();
-      }, 50);
-      
-      cleanupTimerRef.current = window.setTimeout(() => {
-        performDOMCleanup();
-      }, 150);
     };
-  }, [refreshAll, isInitialized, cleanupDOM]);
+  
+    // Registrar evento global para limpeza quando necessário
+    window.addEventListener('app-cleanup', cleanupOrphanedElements);
+  
+    return () => {
+      console.log("App desmontado, limpando recursos...");
+      unmountingRef.current = true;
+      
+      // Disparar evento de limpeza global
+      window.dispatchEvent(new CustomEvent('app-cleanup'));
+      window.removeEventListener('app-cleanup', cleanupOrphanedElements);
+      
+      // Executar limpeza imediatamente
+      cleanupOrphanedElements();
+      
+      // Executar limpeza novamente após um pequeno delay para garantir que elementos assíncronos sejam limpos
+      setTimeout(() => {
+        cleanupOrphanedElements();
+      }, 0);
+      
+      // E mais uma vez após um delay maior para garantir que tudo seja limpo
+      setTimeout(() => {
+        cleanupOrphanedElements();
+        unmountingRef.current = false;
+      }, 50);
+    };
+  }, [refreshAll, isInitialized]);
 
   return (
     <AuthGuard>
