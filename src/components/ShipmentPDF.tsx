@@ -159,48 +159,48 @@ export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
     }
 
     return (
-      <div ref={ref} className="bg-white p-8 mx-auto text-black">
+      <div ref={ref} className="bg-white p-10 mx-auto text-black">
         {customerPairs.map((pair, pairIndex) => (
-          <div key={pairIndex} className={`grid grid-cols-2 gap-4 mb-8 ${pairIndex > 0 ? 'mt-8 page-break-before' : ''}`}>
+          <div key={pairIndex} className={`grid grid-cols-1 gap-10 mb-0 ${pairIndex > 0 ? 'mt-10 page-break-before' : ''}`}>
             {pair.map((customer, idx) => (
-              <div key={idx} className="border-2 border-dashed border-gray-300 p-3 rounded-lg">
-                <div className="text-center mb-2 pb-1 border-b border-gray-200">
-                  <h3 className="font-bold text-sm">{customer.tourName || "Excursão"}</h3>
+              <div key={idx} className="border-2 border-dashed border-gray-300 p-4 rounded-lg h-[calc(50vh-20px)]">
+                <div className="text-center mb-4 pb-2 border-b border-gray-200">
+                  <h3 className="font-bold text-lg">{customer.tourName || "Excursão"}</h3>
                 </div>
                 
                 {/* Informações em duas colunas */}
-                <div className="flex flex-row space-x-2">
+                <div className="flex flex-row space-x-4">
                   {/* Coluna 1: Dados da excursão */}
-                  <div className="w-1/2 text-xs space-y-1">
-                    <div className="grid grid-cols-2 gap-1">
+                  <div className="w-1/2 text-sm space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
                         <p className="font-medium">Setor:</p>
-                        <p className="truncate">{customer.tourSector || "-"}</p>
+                        <p className="truncate text-lg">{customer.tourSector || "-"}</p>
                       </div>
                       <div>
                         <p className="font-medium">Vaga:</p>
-                        <p>{customer.tourSeatNumber || "-"}</p>
+                        <p className="text-lg">{customer.tourSeatNumber || "-"}</p>
                       </div>
                     </div>
                     <div>
                       <p className="font-medium">Horário:</p>
-                      <p>{customer.tourDepartureTime || "-"}</p>
+                      <p className="text-lg">{customer.tourDepartureTime || "-"}</p>
                     </div>
                     <div>
                       <p className="font-medium">Cidade/UF:</p>
-                      <p className="truncate">{[customer.tourCity, customer.tourState].filter(Boolean).join('/')}</p>
+                      <p className="truncate text-lg">{[customer.tourCity, customer.tourState].filter(Boolean).join('/')}</p>
                     </div>
                   </div>
                   
                   {/* Coluna 2: Dados pessoais */}
-                  <div className="w-1/2 border-l pl-2 text-xs space-y-1">
+                  <div className="w-1/2 border-l pl-4 text-sm space-y-3">
                     <div>
                       <p className="font-medium">Nome:</p>
-                      <p className="truncate font-semibold">{customer.name}</p>
+                      <p className="truncate font-semibold text-lg">{customer.name}</p>
                     </div>
                     <div>
                       <p className="font-medium">Telefone:</p>
-                      <p>{formatPhone(customer.phone)}</p>
+                      <p className="text-lg">{formatPhone(customer.phone)}</p>
                     </div>
                   </div>
                 </div>
@@ -212,6 +212,10 @@ export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
           @media print {
             .page-break-before {
               page-break-before: always;
+            }
+            @page {
+              margin: 10px;
+              size: auto;
             }
           }
         `}</style>

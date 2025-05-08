@@ -60,43 +60,49 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
           </div>
         </div>
 
-        {/* Layout com 2 colunas para informações do cliente e da excursão */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Informações da excursão (se disponíveis) */}
-          {hasTourInfo && (
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-              <h2 className="text-lg font-bold mb-3">Dados da Excursão</h2>
+        {/* Layout em duas colunas para todas as informações */}
+        <div className="flex flex-row gap-6 mb-6">
+          {/* Coluna esquerda: informações do cliente */}
+          <div className="w-1/2 space-y-4">
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 h-full">
+              <h2 className="text-lg font-bold mb-3">Informações do Cliente</h2>
               <div className="space-y-2">
-                {customerInfo.tourName && (
-                  <p><strong>Nome da Excursão:</strong> {customerInfo.tourName}</p>
-                )}
-                {(customerInfo.tourCity || customerInfo.tourState) && (
-                  <p><strong>Destino:</strong> {[customerInfo.tourCity, customerInfo.tourState].filter(Boolean).join(' - ')}</p>
-                )}
-                {customerInfo.tourDepartureTime && (
-                  <p><strong>Horário de Saída:</strong> {customerInfo.tourDepartureTime}</p>
-                )}
-                {customerInfo.tourSector && (
-                  <p><strong>Setor:</strong> {customerInfo.tourSector}</p>
-                )}
-                {customerInfo.tourSeatNumber && (
-                  <p><strong>Vaga:</strong> {customerInfo.tourSeatNumber}</p>
+                <p><strong>Nome:</strong> {customerName}</p>
+                <p><strong>Email:</strong> {customerInfo.email}</p>
+                <p><strong>Telefone:</strong> {formatPhone(customerInfo.phone)}</p>
+                {customerInfo.address && (
+                  <p><strong>Endereço:</strong> {customerInfo.address}</p>
                 )}
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Informações do cliente */}
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-            <h2 className="text-lg font-bold mb-3">Informações do Cliente</h2>
-            <div className="space-y-2">
-              <p><strong>Nome:</strong> {customerName}</p>
-              <p><strong>Email:</strong> {customerInfo.email}</p>
-              <p><strong>Telefone:</strong> {formatPhone(customerInfo.phone)}</p>
-              {customerInfo.address && (
-                <p><strong>Endereço:</strong> {customerInfo.address}</p>
-              )}
-            </div>
+          {/* Coluna direita: informações da excursão (se disponíveis) ou espaço vazio */}
+          <div className="w-1/2 space-y-4">
+            {hasTourInfo ? (
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 h-full">
+                <h2 className="text-lg font-bold mb-3">Dados da Excursão</h2>
+                <div className="space-y-2">
+                  {customerInfo.tourName && (
+                    <p><strong>Nome da Excursão:</strong> {customerInfo.tourName}</p>
+                  )}
+                  {(customerInfo.tourCity || customerInfo.tourState) && (
+                    <p><strong>Destino:</strong> {[customerInfo.tourCity, customerInfo.tourState].filter(Boolean).join(' - ')}</p>
+                  )}
+                  {customerInfo.tourDepartureTime && (
+                    <p><strong>Horário de Saída:</strong> {customerInfo.tourDepartureTime}</p>
+                  )}
+                  {customerInfo.tourSector && (
+                    <p><strong>Setor:</strong> {customerInfo.tourSector}</p>
+                  )}
+                  {customerInfo.tourSeatNumber && (
+                    <p><strong>Vaga:</strong> {customerInfo.tourSeatNumber}</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 h-full opacity-0"></div>
+            )}
           </div>
         </div>
 
