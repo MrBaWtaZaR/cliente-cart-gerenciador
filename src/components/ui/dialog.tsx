@@ -54,12 +54,6 @@ const DialogContent = React.forwardRef<
           props.onEscapeKeyDown(e);
         }
       }}
-      // Add onInteractOutside to prevent focus issues when clicking outside
-      onInteractOutside={(e) => {
-        if (props.onInteractOutside) {
-          props.onInteractOutside(e);
-        }
-      }}
       {...props}
     >
       {children}

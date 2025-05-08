@@ -75,12 +75,6 @@ const SheetContent = React.forwardRef<
           props.onEscapeKeyDown(e);
         }
       }}
-      // Add onInteractOutside for better focus management
-      onInteractOutside={(e) => {
-        if (props.onInteractOutside) {
-          props.onInteractOutside(e);
-        }
-      }}
       {...props}
     >
       {children}
