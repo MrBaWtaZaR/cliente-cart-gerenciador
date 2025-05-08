@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -91,6 +92,8 @@ interface DataStore {
 let isRefreshInProgress = false;
 // Track the last refresh time to prevent too frequent updates
 let lastRefreshTime = 0;
+// Improved debounce timer
+let refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useDataStore = create<DataStore>((set, get) => {
   // Create base store
@@ -101,12 +104,36 @@ export const useDataStore = create<DataStore>((set, get) => {
     isInitialized: false,
     isLoading: false,
     
-    // Improved refreshAll function to prevent infinite loops
+    // Improved refreshAll function with better debouncing
     refreshAll: async () => {
       const now = Date.now();
-      // If a refresh is already in progress or we refreshed less than 1 second ago, skip
-      if (isRefreshInProgress || now - lastRefreshTime < 1000) {
-        console.log("Refresh skipped - already in progress or too soon");
+      
+      // Clear any existing debounce timer
+      if (refreshDebounceTimer) {
+        clearTimeout(refreshDebounceTimer);
+      }
+      
+      // If a refresh is already in progress, debounce and try again later
+      if (isRefreshInProgress) {
+        console.log("Refresh already in progress, debouncing...");
+        
+        // Set up debounce timer for a retry
+        refreshDebounceTimer = setTimeout(() => {
+          get().refreshAll();
+        }, 250);
+        
+        return;
+      }
+      
+      // If we refreshed very recently, debounce
+      if (now - lastRefreshTime < 500) {
+        console.log("Refresh too soon, debouncing...");
+        
+        // Set up debounce timer for a retry
+        refreshDebounceTimer = setTimeout(() => {
+          get().refreshAll();
+        }, 500);
+        
         return;
       }
       
@@ -116,7 +143,7 @@ export const useDataStore = create<DataStore>((set, get) => {
         lastRefreshTime = now;
         set({ isLoading: true });
         
-        // Reload customer data
+        // Reload customer data - this is critical for pending order status
         console.log("Recarregando dados de clientes");
         await customerStore.reloadCustomers();
         
@@ -144,7 +171,6 @@ export const useDataStore = create<DataStore>((set, get) => {
         window.dispatchEvent(new CustomEvent('data-updated'));
         
         console.log("Dados atualizados com sucesso");
-        toast.success('Dados atualizados com sucesso');
       } catch (error) {
         console.error('Error refreshing all data:', error);
         set({ isLoading: false });

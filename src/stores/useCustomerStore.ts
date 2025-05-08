@@ -50,6 +50,17 @@ const loadInitialCustomers = (): Customer[] => {
   return [];
 };
 
+// Improved function to trigger order status updates
+const notifyOrderStatusChange = () => {
+  console.log("Order status changed, notifying components...");
+  // Use a more specific event for order status changes
+  window.dispatchEvent(new CustomEvent('order-status-changed'));
+  // Also trigger the general update event
+  window.dispatchEvent(new CustomEvent('order-updated'));
+  // General data update event
+  window.dispatchEvent(new CustomEvent('data-updated'));
+};
+
 export const useCustomerStore = create<CustomerStore>((set, get) => ({
   customers: loadInitialCustomers(),
 
@@ -244,8 +255,8 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       
       safeLocalStorageSave('customers', updatedCustomers);
       
-      // Dispatch an event to update the dashboard and other components
-      window.dispatchEvent(new CustomEvent('data-updated'));
+      // Dispatch improved events 
+      notifyOrderStatusChange();
       
       toast.success('Pedido adicionado com sucesso');
       return { customers: updatedCustomers };
@@ -274,8 +285,8 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       
       safeLocalStorageSave('customers', updatedCustomers);
       
-      // Dispatch an event to update the dashboard and other components
-      window.dispatchEvent(new CustomEvent('data-updated'));
+      // Dispatch improved events
+      notifyOrderStatusChange();
       
       toast.success('Status do pedido atualizado');
       return { customers: updatedCustomers };
@@ -304,8 +315,8 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       
       safeLocalStorageSave('customers', updatedCustomers);
       
-      // Dispatch an event to update the dashboard and other components
-      window.dispatchEvent(new CustomEvent('data-updated'));
+      // Dispatch improved events
+      notifyOrderStatusChange();
       
       toast.success('Pedido atualizado com sucesso');
       return { customers: updatedCustomers };

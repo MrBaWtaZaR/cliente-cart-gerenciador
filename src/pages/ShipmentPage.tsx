@@ -32,14 +32,18 @@ export const ShipmentPage = () => {
   const tableRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
 
-  // Filter customers with pending orders only
+  // Filter customers with pending orders only - improved to be more reliable
   const customersWithPendingOrders = useMemo(() => {
+    console.log("Recalculating customers with pending orders...");
     return customers.filter(customer => {
       // Check if customer has at least one pending order
-      return customer.orders && customer.orders.some(order => order.status === 'pending');
+      return customer.orders && customer.orders.some(order => {
+        const isPending = order.status === 'pending';
+        return isPending;
+      });
     });
   }, [customers]);
-  
+
   // Update the print refs status
   useEffect(() => {
     setPrintRefsExist(tableRef.current !== null || cardsRef.current !== null);
@@ -77,10 +81,12 @@ export const ShipmentPage = () => {
     fetchShipments();
   }, [getShipments, isMounted]);
 
-  // Set up separate listener effect, with debounce
+  // Improved event listeners for data updates
   useEffect(() => {
     let updateTimer: ReturnType<typeof setTimeout>;
+    let orderStatusUpdateTimer: ReturnType<typeof setTimeout>;
     
+    // Generic order update handler
     const handleOrderUpdate = () => {
       // Clear any pending update
       clearTimeout(updateTimer);
@@ -112,13 +118,48 @@ export const ShipmentPage = () => {
       }, 500); // Add significant debounce time
     };
     
+    // Specific handler for order status changes
+    const handleOrderStatusChange = () => {
+      // Clear any pending status update
+      clearTimeout(orderStatusUpdateTimer);
+      
+      // If we're already updating or the component has unmounted, don't proceed
+      if (isUpdatingRef.current || !isMounted()) return;
+      
+      console.log("Order status changed, refreshing data...");
+      
+      // Use a shorter debounce for status changes to make it feel more responsive
+      orderStatusUpdateTimer = setTimeout(async () => {
+        isUpdatingRef.current = true;
+        
+        try {
+          // Request a full data refresh
+          await useDataStore.getState().refreshAll();
+        } catch (error) {
+          console.error("Error refreshing data after status change:", error);
+        } finally {
+          // Release the update lock after a short delay
+          setTimeout(() => {
+            isUpdatingRef.current = false;
+          }, 300);
+        }
+      }, 250);
+    };
+    
+    // Listen for general order updates
     window.addEventListener('order-updated', handleOrderUpdate);
     window.addEventListener('data-updated', handleOrderUpdate);
     
+    // Listen specifically for order status changes
+    window.addEventListener('order-status-changed', handleOrderStatusChange);
+    
     return () => {
+      // Clean up all timers and event listeners
       clearTimeout(updateTimer);
+      clearTimeout(orderStatusUpdateTimer);
       window.removeEventListener('order-updated', handleOrderUpdate);
       window.removeEventListener('data-updated', handleOrderUpdate);
+      window.removeEventListener('order-status-changed', handleOrderStatusChange);
     };
   }, [getShipments, isMounted]);
 
@@ -327,6 +368,11 @@ export const ShipmentPage = () => {
     
     try {
       console.log("Manual refresh requested...");
+      
+      // Use the full data refresh to ensure everything is up to date
+      await useDataStore.getState().refreshAll();
+      
+      // Then specifically refresh shipments
       const fetchedShipments = await getShipments();
       console.log("Manual refresh completed, found", fetchedShipments?.length || 0, "shipments");
       
@@ -354,6 +400,12 @@ export const ShipmentPage = () => {
   useEffect(() => {
     console.log("Current shipments in state:", shipments?.length || 0);
   }, [shipments]);
+
+  // Debug logging for monitoring customers and their order status
+  useEffect(() => {
+    console.log("Current pending customers count:", customersWithPendingOrders.length);
+    console.log("Total customers count:", customers.length);
+  }, [customersWithPendingOrders, customers]);
 
   // Calculate if "new shipment" button should be disabled
   const isNewShipmentButtonDisabled = isLoading;
