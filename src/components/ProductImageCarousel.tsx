@@ -23,6 +23,7 @@ export const ProductImageCarousel = ({
   const [isPaused, setIsPaused] = useState(false);
   const [hasError, setHasError] = useState<Record<string, boolean>>({});
   const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const timerRef = useRef<number | null>(null);
   
   // Filter out placeholders and images with loading errors
@@ -32,7 +33,13 @@ export const ProductImageCarousel = ({
 
   // Check if images have loaded after component mounts
   useEffect(() => {
-    setImagesLoaded(true);
+    // Set images loaded with a small delay to allow for rendering
+    const timer = setTimeout(() => {
+      setImagesLoaded(true);
+      setIsLoading(false);
+    }, 300);
+    
+    return () => clearTimeout(timer);
   }, []);
   
   // Handle image error
@@ -73,7 +80,7 @@ export const ProductImageCarousel = ({
     };
   }, [validImages.length, autoPlayInterval, isPaused]);
 
-  if (!imagesLoaded) {
+  if (isLoading) {
     return (
       <div className="aspect-square bg-muted rounded-md flex flex-col items-center justify-center">
         <div className="animate-pulse w-full h-full bg-muted-foreground/10"></div>
@@ -106,6 +113,7 @@ export const ProductImageCarousel = ({
                   alt={`Imagem do produto ${index + 1}`}
                   className="h-full w-full object-cover transition-all hover:scale-105 duration-300"
                   onError={() => handleImageError(image)}
+                  onLoad={() => setIsLoading(false)}
                   loading="lazy"
                 />
               </div>

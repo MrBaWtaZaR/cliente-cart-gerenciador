@@ -1,3 +1,4 @@
+
 import { supabase, getStorageUrl } from './client';
 import { Product } from '../../types/products';
 
@@ -16,16 +17,28 @@ export const setupStorage = async () => {
     const productImagesBucketExists = buckets.some(bucket => bucket.name === 'product-images');
     
     if (productImagesBucketExists) {
-      console.log('Bucket product-images encontrado e será usado para uploads.');
+      console.log('Bucket product-images encontrado e pronto para uso.');
       return true;
     } else {
-      // Instead of trying to create the bucket (which requires admin privileges),
-      // just log a message indicating that the bucket doesn't exist
-      console.log('Bucket product-images não encontrado. Os uploads de imagens irão falhar.');
-      console.log('Use o localStorage como fallback.');
+      console.warn('Bucket product-images não encontrado apesar de ter sido criado. Tentando novamente...');
       
-      // We'll handle fallbacks in the uploadProductImage function
-      return false;
+      // Try to check object permissions as a way to verify bucket exists
+      try {
+        const { data: objects, error: objError } = await supabase.storage
+          .from('product-images')
+          .list();
+          
+        if (!objError) {
+          console.log('Bucket product-images está acessível.');
+          return true;
+        } else {
+          console.error('Erro ao acessar bucket product-images:', objError);
+          return false;
+        }
+      } catch (err) {
+        console.error('Erro ao verificar bucket:', err);
+        return false;
+      }
     }
   } catch (err) {
     console.error('Error setting up storage:', err);
@@ -234,13 +247,6 @@ export const uploadProductImage = async (productId: string, file: File): Promise
     const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
     const bucketExists = bucketsError ? false : buckets.some(b => b.name === 'product-images');
     
-    if (!bucketExists) {
-      console.log('Using local fallback for image storage since bucket does not exist');
-      // Create a blob URL for local display
-      const blobUrl = URL.createObjectURL(file);
-      return blobUrl;
-    }
-    
     // Gera um nome de arquivo único com timestamp para evitar colisões
     const fileExt = file.name.split('.').pop();
     const fileName = `${productId}_${Date.now()}.${fileExt}`;
@@ -255,11 +261,13 @@ export const uploadProductImage = async (productId: string, file: File): Promise
       console.error('Error uploading image to Supabase Storage:', uploadError);
       // Se falhar o upload, cria um blob URL para exibição temporária
       const blobUrl = URL.createObjectURL(file);
+      console.warn('Fallback to local storage via blob URL');
       return blobUrl;
     }
 
     // Se o upload for bem-sucedido, obtém a URL pública
     const publicUrl = getStorageUrl('product-images', filePath);
+    console.log('Image uploaded successfully:', publicUrl);
     return publicUrl;
   } catch (error) {
     console.error('Error in uploadProductImage:', error);
