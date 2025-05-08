@@ -16,6 +16,7 @@ import { DashboardLayout } from "./components/DashboardLayout";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
 import { useDataStore } from "./stores";
+import { useProductStore } from "./stores/useProductStore";
 
 // Create a React Query client
 const queryClient = new QueryClient({
@@ -27,19 +28,24 @@ const queryClient = new QueryClient({
   }
 });
 
-// Removed setupStorage initialization from here to avoid errors
-
 const AppContent = () => {
   const { initializeData, isInitialized } = useDataStore();
+  const { loadProducts } = useProductStore();
   
   // Initialize data from Supabase when the app loads
   useEffect(() => {
     if (!isInitialized) {
+      // Inicializa dados dos clientes
       initializeData().catch(error => {
         console.error("Failed to initialize data:", error);
       });
+      
+      // Carrega produtos separadamente para evitar bloqueios
+      loadProducts().catch(error => {
+        console.error("Failed to load products:", error);
+      });
     }
-  }, [initializeData, isInitialized]);
+  }, [initializeData, isInitialized, loadProducts]);
   
   return (
     <TooltipProvider>

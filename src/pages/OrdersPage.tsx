@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useDataStore, Customer, Order } from '@/stores';
 import { Button } from '@/components/ui/button';
@@ -12,8 +11,6 @@ import { OrderPDF } from '@/components/OrderPDF';
 import { DateFilter } from '@/components/DateFilter';
 import { OrderCard } from '@/components/OrderCard';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { TimeFormatter } from '@/components/TimeFormatter';
-import { PhoneFormatter } from '@/components/PhoneFormatter';
 import { EditOrderForm } from '@/components/EditOrderForm';
 
 export const OrdersPage = () => {
@@ -88,40 +85,48 @@ export const OrdersPage = () => {
 
   // Improved view order function
   const handleViewOrder = (order: Order & { customerName?: string }, customerName: string) => {
-    const customer = customers.find(c => c.id === order.customerId);
-    
-    if (!isMounted.current) return;
-    
-    // Create a new order object without the customerName property
-    const orderForState: Order = {
-      id: order.id,
-      customerId: order.customerId,
-      products: order.products,
-      status: order.status,
-      total: order.total,
-      createdAt: order.createdAt
-    };
-    
-    // Set viewingOrder with the correct Order type
-    setViewingOrder(orderForState);
-    
-    // Separately set the customer name state
-    setCustomerName(customerName);
-    
-    setCustomerInfo({
-      email: customer?.email || '',
-      phone: customer?.phone || '',
-      address: customer?.address,
-      tourName: customer?.tourName,
-      tourSector: customer?.tourSector,
-      tourSeatNumber: customer?.tourSeatNumber,
-      tourCity: customer?.tourCity,
-      tourState: customer?.tourState,
-      tourDepartureTime: customer?.tourDepartureTime
-    });
-
-    // Update URL to include the order ID for direct linking
-    setSearchParams({ view: order.id });
+    try {
+      const customer = customers.find(c => c.id === order.customerId);
+      
+      if (!isMounted.current) return;
+      
+      // Create a new order object without the customerName property
+      const orderForState: Order = {
+        id: order.id,
+        customerId: order.customerId,
+        products: order.products || [], // Garante que products nunca é undefined
+        status: order.status,
+        total: order.total,
+        createdAt: order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt)
+      };
+      
+      // Separately set the customer name state
+      setCustomerName(customerName);
+      
+      setCustomerInfo({
+        email: customer?.email || '',
+        phone: customer?.phone || '',
+        address: customer?.address,
+        tourName: customer?.tourName,
+        tourSector: customer?.tourSector,
+        tourSeatNumber: customer?.tourSeatNumber,
+        tourCity: customer?.tourCity,
+        tourState: customer?.tourState,
+        tourDepartureTime: customer?.tourDepartureTime
+      });
+      
+      // Set viewingOrder with the correct Order type
+      setViewingOrder(orderForState);
+      
+      // Update URL to include the order ID for direct linking
+      setSearchParams({ view: order.id });
+    } catch (error) {
+      console.error('Error in handleViewOrder:', error);
+      // Em caso de erro, limpa o estado para evitar renderizações com dados inválidos
+      setViewingOrder(null);
+      setCustomerName('');
+      setCustomerInfo(null);
+    }
   };
   
   const pdfRef = useRef<HTMLDivElement>(null);
@@ -131,17 +136,26 @@ export const OrdersPage = () => {
     documentTitle: `Pedido-${viewingOrder?.id || ''}`,
     onBeforePrint: () => {
       return new Promise<void>((resolve) => {
-        if (isMounted.current) {
-          setShowPDFPreview(true);
+        try {
+          if (isMounted.current) {
+            setShowPDFPreview(true);
+          }
+          setTimeout(() => {
+            resolve();
+          }, 400); // Increased delay for better reliability
+        } catch (error) {
+          console.error('Error in onBeforePrint:', error);
+          resolve(); // Resolve anyway to avoid hanging
         }
-        setTimeout(() => {
-          resolve();
-        }, 200); // Increased delay for better reliability
       });
     },
     onAfterPrint: () => {
-      if (isMounted.current) {
-        setShowPDFPreview(false);
+      try {
+        if (isMounted.current) {
+          setShowPDFPreview(false);
+        }
+      } catch (error) {
+        console.error('Error in onAfterPrint:', error);
       }
     },
     contentRef: pdfRef,
@@ -150,34 +164,53 @@ export const OrdersPage = () => {
   // Pre-render the PDF content when viewing order changes
   useEffect(() => {
     if (viewingOrder && !showPDFPreview && isMounted.current) {
-      setShowPDFPreview(true);
-      // Small timeout to ensure the content is rendered
-      const timer = setTimeout(() => {
+      try {
+        setShowPDFPreview(true);
+        // Small timeout to ensure the content is rendered
+        const timer = setTimeout(() => {
+          if (isMounted.current) {
+            setShowPDFPreview(false);
+          }
+        }, 400); // Increased delay for better reliability
+        
+        return () => clearTimeout(timer);
+      } catch (error) {
+        console.error('Error in PDF preview effect:', error);
         if (isMounted.current) {
           setShowPDFPreview(false);
         }
-      }, 200); // Increased delay for better reliability
-      
-      return () => clearTimeout(timer);
+      }
     }
   }, [viewingOrder, showPDFPreview]);
 
   // Improved dialog close handling
   const handleDialogClose = () => {
-    if (!isMounted.current) return;
-    
-    // First close the dialog UI
-    setDialogOpen(false);
-    setShowPDFPreview(false);
-    setIsEditing(false);
-    
-    // Then clean up the URL and state after a short delay
-    setTimeout(() => {
+    try {
       if (!isMounted.current) return;
       
-      setViewingOrder(null);
-      setSearchParams({});
-    }, 300);
+      // First close the dialog UI
+      setDialogOpen(false);
+      setShowPDFPreview(false);
+      setIsEditing(false);
+      
+      // Then clean up the URL and state after a short delay
+      setTimeout(() => {
+        if (!isMounted.current) return;
+        
+        setViewingOrder(null);
+        setSearchParams({});
+      }, 300);
+    } catch (error) {
+      console.error('Error in handleDialogClose:', error);
+      // Tente limpar tudo de uma vez se houver erro
+      if (isMounted.current) {
+        setDialogOpen(false);
+        setShowPDFPreview(false);
+        setIsEditing(false);
+        setViewingOrder(null);
+        setSearchParams({});
+      }
+    }
   };
 
   const handleStartEditing = () => {
@@ -194,26 +227,34 @@ export const OrdersPage = () => {
 
   // Improved order update handling
   const handleOrderUpdated = () => {
-    if (!isMounted.current) return;
-    
-    setIsEditing(false);
-    // Update the view with the latest order data
-    if (viewingOrder) {
-      const updatedOrder = customers.find(c => c.id === viewingOrder.customerId)
-        ?.orders.find(o => o.id === viewingOrder.id);
+    try {
+      if (!isMounted.current) return;
       
-      if (updatedOrder && isMounted.current) {
-        // Create a proper Order object without customerName property
-        const updatedOrderForState: Order = {
-          id: updatedOrder.id,
-          customerId: viewingOrder.customerId,
-          products: updatedOrder.products,
-          status: updatedOrder.status,
-          total: updatedOrder.total,
-          createdAt: updatedOrder.createdAt
-        };
+      setIsEditing(false);
+      // Update the view with the latest order data
+      if (viewingOrder) {
+        const updatedOrder = customers.find(c => c.id === viewingOrder.customerId)
+          ?.orders.find(o => o.id === viewingOrder.id);
         
-        setViewingOrder(updatedOrderForState);
+        if (updatedOrder && isMounted.current) {
+          // Create a proper Order object without customerName property
+          const updatedOrderForState: Order = {
+            id: updatedOrder.id,
+            customerId: viewingOrder.customerId,
+            products: updatedOrder.products || [], // Garante que products nunca é undefined
+            status: updatedOrder.status,
+            total: updatedOrder.total,
+            createdAt: updatedOrder.createdAt instanceof Date ? 
+              updatedOrder.createdAt : new Date(updatedOrder.createdAt)
+          };
+          
+          setViewingOrder(updatedOrderForState);
+        }
+      }
+    } catch (error) {
+      console.error('Error in handleOrderUpdated:', error);
+      if (isMounted.current) {
+        setIsEditing(false);
       }
     }
   };
@@ -275,9 +316,9 @@ export const OrdersPage = () => {
                 <OrderCard
                   key={order.id}
                   order={order}
-                  customerName={order.customerName}
+                  customerName={order.customerName || ''}
                   onClick={() => {
-                    handleViewOrder(order, order.customerName);
+                    handleViewOrder(order, order.customerName || '');
                     if (isMounted.current) {
                       setDialogOpen(true);
                     }
@@ -321,7 +362,9 @@ export const OrdersPage = () => {
                 <DialogTitle>Editar Pedido</DialogTitle>
                 <DialogDescription>
                   Editar pedido de {customerName} realizado em {
-                    new Date(viewingOrder.createdAt).toLocaleString('pt-BR')
+                    viewingOrder.createdAt instanceof Date ?
+                      viewingOrder.createdAt.toLocaleString('pt-BR') :
+                      new Date(viewingOrder.createdAt).toLocaleString('pt-BR')
                   }
                 </DialogDescription>
               </DialogHeader>
@@ -338,15 +381,16 @@ export const OrdersPage = () => {
               <DialogHeader>
                 <DialogTitle>Detalhes do Pedido</DialogTitle>
                 <DialogDescription>
-                  Pedido de {customerName} realizado em {viewingOrder && 
-                    new Date(viewingOrder.createdAt).toLocaleString('pt-BR')
-                  }
+                  Pedido de {customerName} realizado em {viewingOrder && (
+                    viewingOrder.createdAt instanceof Date ?
+                      viewingOrder.createdAt.toLocaleString('pt-BR') :
+                      new Date(viewingOrder.createdAt).toLocaleString('pt-BR')
+                  )}
                 </DialogDescription>
               </DialogHeader>
               
               {viewingOrder && (
                 <>
-                  {/* ... keep existing code (order header) */}
                   <div className="flex flex-col md:flex-row justify-between mb-6">
                     <div>
                       <p className="font-medium">ID do Pedido:</p>
@@ -374,7 +418,6 @@ export const OrdersPage = () => {
                     </div>
                   </div>
                   
-                  {/* ... keep existing code (products table) */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="font-medium">Produtos no Pedido</h3>
@@ -398,7 +441,7 @@ export const OrdersPage = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {viewingOrder.products.map((item, index) => (
+                          {(viewingOrder.products || []).map((item, index) => (
                             <tr key={`${item.productId}-${index}`} className="border-t">
                               <td className="p-2">
                                 <div className="flex items-center">

@@ -1,6 +1,5 @@
-
-import { useState, useRef } from 'react';
-import { useDataStore, Product } from '@/stores';
+import { useState, useRef, useEffect } from 'react';
+import { Product } from '@/types/products';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,9 +10,10 @@ import { toast } from 'sonner';
 import { Package, Search, Plus, Edit, Trash, Image as ImageIcon, Upload } from 'lucide-react';
 import { ProductImageCarousel } from '@/components/ProductImageCarousel';
 import { formatPriceDisplay, handlePriceInput } from '@/components/PriceFormatter';
+import { useProductStore } from '@/stores/useProductStore';
 
 export const ProductsPage = () => {
-  const { products, addProduct, updateProduct, deleteProduct, uploadProductImage } = useDataStore();
+  const { products, addProduct, updateProduct, deleteProduct, uploadProductImage, loadProducts } = useProductStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [isEditingProduct, setIsEditingProduct] = useState<string | null>(null);
@@ -29,6 +29,14 @@ export const ProductsPage = () => {
     stock: 0,
     images: ['/placeholder.svg']
   });
+  
+  // Carregar produtos quando a página for montada
+  useEffect(() => {
+    loadProducts().catch(error => {
+      console.error("Erro ao carregar produtos:", error);
+      toast.error("Erro ao carregar produtos");
+    });
+  }, [loadProducts]);
   
   // Filtrar produtos de acordo com a pesquisa
   const filteredProducts = products.filter(product => {
@@ -145,7 +153,7 @@ export const ProductsPage = () => {
       finalProduct.images = processedImages;
       
       // Adiciona o produto com as imagens processadas
-      addProduct(finalProduct);
+      await addProduct(finalProduct);
       
       // Reseta o formulário
       setNewProduct({
@@ -216,7 +224,7 @@ export const ProductsPage = () => {
       finalProduct.images = processedImages;
       
       // Atualiza o produto
-      updateProduct(isEditingProduct, finalProduct);
+      await updateProduct(isEditingProduct, finalProduct);
       
       // Reseta o formulário
       setNewProduct({
@@ -239,10 +247,15 @@ export const ProductsPage = () => {
     }
   };
   
-  const confirmDeleteProduct = () => {
+  const confirmDeleteProduct = async () => {
     if (productToDelete) {
-      deleteProduct(productToDelete.id);
-      setProductToDelete(null);
+      try {
+        await deleteProduct(productToDelete.id);
+        setProductToDelete(null);
+      } catch (error) {
+        console.error('Erro ao excluir produto:', error);
+        toast.error('Erro ao excluir produto');
+      }
     }
   };
   

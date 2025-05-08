@@ -1,20 +1,29 @@
+
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { Product } from '../types/products';
 import { generateId } from '../utils/idGenerator';
-import { uploadProductImage } from '../integrations/supabase/storage';
+import { 
+  uploadProductImage, 
+  saveProductToDatabase, 
+  fetchProductsFromDatabase,
+  updateProductInDatabase,
+  deleteProductFromDatabase
+} from '../integrations/supabase/storage';
 
 interface ProductStore {
   products: Product[];
+  isLoading: boolean;
   
-  addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => void;
-  updateProduct: (id: string, productData: Partial<Product>) => void;
-  deleteProduct: (id: string) => void;
+  loadProducts: () => Promise<void>;
+  addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Promise<void>;
+  updateProduct: (id: string, productData: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
   uploadProductImage: (productId: string, file: File | string) => Promise<string>;
 }
 
 export const useProductStore = create<ProductStore>((set, get) => {
-  // Initialize products from localStorage
+  // Inicializa produtos do localStorage como fallback
   const loadInitialProducts = (): Product[] => {
     try {
       const storedData = localStorage.getItem('products');
@@ -32,77 +41,147 @@ export const useProductStore = create<ProductStore>((set, get) => {
 
   return {
     products: loadInitialProducts(),
+    isLoading: false,
     
-    addProduct: (productData) => set((state) => {
+    loadProducts: async () => {
+      set({ isLoading: true });
       try {
-        const newProduct: Product = {
+        const products = await fetchProductsFromDatabase();
+        
+        // Fallback para localStorage se não conseguir carregar do banco
+        if (products.length === 0) {
+          const localProducts = loadInitialProducts();
+          set({ products: localProducts, isLoading: false });
+          return;
+        }
+        
+        // Atualiza o estado com os produtos do banco
+        set({ products, isLoading: false });
+        
+        // Atualiza também o localStorage como backup
+        try {
+          localStorage.setItem('products', JSON.stringify(products));
+        } catch (storageError) {
+          console.error('Failed to save products to localStorage:', storageError);
+        }
+      } catch (error) {
+        console.error('Error loading products:', error);
+        set({ isLoading: false });
+        toast.error('Erro ao carregar produtos');
+      }
+    },
+    
+    addProduct: async (productData) => {
+      try {
+        // Tenta salvar no banco de dados primeiro
+        const newProduct = await saveProductToDatabase(productData);
+        
+        if (newProduct) {
+          // Se salvou no banco, atualiza o estado
+          set((state) => {
+            const updatedProducts = [...state.products, newProduct];
+            
+            // Backup no localStorage
+            try {
+              localStorage.setItem('products', JSON.stringify(updatedProducts));
+            } catch (storageError) {
+              console.error('Failed to save products to localStorage:', storageError);
+            }
+            
+            return { products: updatedProducts };
+          });
+          
+          toast.success('Produto adicionado com sucesso');
+          return;
+        }
+        
+        // Fallback para apenas localStorage se falhou no banco
+        const fallbackProduct: Product = {
           id: generateId(),
           ...productData,
           createdAt: new Date()
         };
         
-        const updatedProducts = [...state.products, newProduct];
+        set((state) => {
+          const updatedProducts = [...state.products, fallbackProduct];
+          
+          try {
+            localStorage.setItem('products', JSON.stringify(updatedProducts));
+          } catch (storageError) {
+            console.error('Failed to save products to localStorage:', storageError);
+          }
+          
+          return { products: updatedProducts };
+        });
         
-        // Use try-catch for localStorage to prevent unhandled exceptions
-        try {
-          localStorage.setItem('products', JSON.stringify(updatedProducts));
-        } catch (storageError) {
-          console.error('Failed to save products to localStorage:', storageError);
-          // Continue with the operation even if localStorage fails
-        }
-        
-        toast.success('Produto adicionado com sucesso');
-        return { products: updatedProducts };
+        toast.success('Produto adicionado localmente');
       } catch (error) {
         console.error('Error adding product:', error);
         toast.error('Erro ao adicionar produto');
-        return state;
       }
-    }),
+    },
     
-    updateProduct: (id, productData) => set((state) => {
+    updateProduct: async (id, productData) => {
       try {
-        const updatedProducts = state.products.map((product) => 
-          product.id === id ? { ...product, ...productData } : product
-        );
+        // Tenta atualizar no banco de dados primeiro
+        const success = await updateProductInDatabase(id, productData);
         
-        // Use try-catch for localStorage to prevent unhandled exceptions
-        try {
-          localStorage.setItem('products', JSON.stringify(updatedProducts));
-        } catch (storageError) {
-          console.error('Failed to save updated products to localStorage:', storageError);
-          // Continue with the operation even if localStorage fails
+        // Atualiza o estado local independentemente do resultado do banco
+        set((state) => {
+          const updatedProducts = state.products.map((product) => 
+            product.id === id ? { ...product, ...productData } : product
+          );
+          
+          // Backup no localStorage
+          try {
+            localStorage.setItem('products', JSON.stringify(updatedProducts));
+          } catch (storageError) {
+            console.error('Failed to save updated products to localStorage:', storageError);
+          }
+          
+          return { products: updatedProducts };
+        });
+        
+        if (success) {
+          toast.success('Produto atualizado com sucesso');
+        } else {
+          toast.success('Produto atualizado localmente');
         }
-        
-        toast.success('Produto atualizado com sucesso');
-        return { products: updatedProducts };
       } catch (error) {
         console.error('Error updating product:', error);
         toast.error('Erro ao atualizar produto');
-        return state;
       }
-    }),
+    },
     
-    deleteProduct: (id) => set((state) => {
+    deleteProduct: async (id) => {
       try {
-        const updatedProducts = state.products.filter((product) => product.id !== id);
+        // Tenta excluir do banco de dados primeiro
+        const success = await deleteProductFromDatabase(id);
         
-        // Use try-catch for localStorage to prevent unhandled exceptions
-        try {
-          localStorage.setItem('products', JSON.stringify(updatedProducts));
-        } catch (storageError) {
-          console.error('Failed to save products after deletion to localStorage:', storageError);
-          // Continue with the operation even if localStorage fails
+        // Atualiza o estado local independentemente do resultado do banco
+        set((state) => {
+          const updatedProducts = state.products.filter((product) => product.id !== id);
+          
+          // Backup no localStorage
+          try {
+            localStorage.setItem('products', JSON.stringify(updatedProducts));
+          } catch (storageError) {
+            console.error('Failed to save products after deletion to localStorage:', storageError);
+          }
+          
+          return { products: updatedProducts };
+        });
+        
+        if (success) {
+          toast.success('Produto removido com sucesso');
+        } else {
+          toast.success('Produto removido localmente');
         }
-        
-        toast.success('Produto removido com sucesso');
-        return { products: updatedProducts };
       } catch (error) {
         console.error('Error deleting product:', error);
         toast.error('Erro ao remover produto');
-        return state;
       }
-    }),
+    },
     
     uploadProductImage: async (productId: string, file: File | string) => {
       try {
@@ -112,7 +191,7 @@ export const useProductStore = create<ProductStore>((set, get) => {
         
         // Use simplified approach - just create blob URL if it's a File
         if (fileToUpload instanceof File) {
-          publicUrl = URL.createObjectURL(fileToUpload);
+          publicUrl = await uploadProductImage(productId, fileToUpload);
         } else {
           // If it's already a string URL, just use it
           publicUrl = fileToUpload;
@@ -134,13 +213,11 @@ export const useProductStore = create<ProductStore>((set, get) => {
               localStorage.setItem('products', JSON.stringify(updatedProducts));
             } catch (storageError) {
               console.error('Failed to save products with image to localStorage:', storageError);
-              // Continue with the operation even if localStorage fails
             }
             
             return { products: updatedProducts };
           } catch (error) {
             console.error('Error updating product with image:', error);
-            // Don't update state if there was an error
             return state;
           }
         });
