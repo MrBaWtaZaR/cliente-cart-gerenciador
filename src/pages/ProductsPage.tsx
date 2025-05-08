@@ -22,6 +22,9 @@ export const ProductsPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addFileInputRef = useRef<HTMLInputElement>(null);
   
+  // Controle de montagem do componente
+  const isMounted = useRef(true);
+  
   const [newProduct, setNewProduct] = useState({
     name: '',
     description: '',
@@ -33,9 +36,34 @@ export const ProductsPage = () => {
   // Carregar produtos quando a página for montada
   useEffect(() => {
     loadProducts().catch(error => {
-      console.error("Erro ao carregar produtos:", error);
-      toast.error("Erro ao carregar produtos");
+      if (isMounted.current) {
+        console.error("Erro ao carregar produtos:", error);
+        toast.error("Erro ao carregar produtos");
+      }
     });
+    
+    // Limpar URLs de blob ao desmontar o componente
+    return () => {
+      isMounted.current = false;
+      
+      // Limpar blobs temporários
+      Object.keys(window).forEach(key => {
+        if (typeof key === 'string' && key.startsWith('tempFile_blob:')) {
+          try {
+            URL.revokeObjectURL(key.replace('tempFile_', ''));
+            delete (window as any)[key];
+          } catch (e) {
+            console.error('Erro ao limpar blob URL:', e);
+          }
+        }
+      });
+      
+      // Resetar estados para evitar memória residual
+      setIsAddingProduct(false);
+      setIsEditingProduct(null);
+      setProductToDelete(null);
+      setSelectedProduct(null);
+    };
   }, [loadProducts]);
   
   // Filtrar produtos de acordo com a pesquisa
@@ -53,25 +81,31 @@ export const ProductsPage = () => {
     // Validar inputs numéricos
     if (name === 'price') {
       handlePriceInput(e as React.ChangeEvent<HTMLInputElement>, (numValue) => {
-        setNewProduct(prev => ({
-          ...prev,
-          price: numValue
-        }));
+        if (isMounted.current) {
+          setNewProduct(prev => ({
+            ...prev,
+            price: numValue
+          }));
+        }
       });
     } else if (name === 'stock') {
       const numValue = parseInt(value);
-      setNewProduct(prev => ({
-        ...prev,
-        [name]: isNaN(numValue) ? 0 : numValue
-      }));
+      if (isMounted.current) {
+        setNewProduct(prev => ({
+          ...prev,
+          [name]: isNaN(numValue) ? 0 : numValue
+        }));
+      }
     } else {
-      setNewProduct(prev => ({ ...prev, [name]: value }));
+      if (isMounted.current) {
+        setNewProduct(prev => ({ ...prev, [name]: value }));
+      }
     }
   };
   
   const handleAddProductFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0 || !isMounted.current) return;
     
     const newImages = [...newProduct.images.filter(img => img !== '/placeholder.svg')];
     
@@ -85,14 +119,16 @@ export const ProductsPage = () => {
         const tempUrl = URL.createObjectURL(file);
         newImages.push(tempUrl);
         
-        // Store the File object for later upload
+        // Store the File object for later upload with a clearer key name
         (window as any)[`tempFile_${tempUrl}`] = file;
       }
       
-      setNewProduct(prev => ({
-        ...prev,
-        images: newImages.length ? newImages : ['/placeholder.svg']
-      }));
+      if (isMounted.current) {
+        setNewProduct(prev => ({
+          ...prev,
+          images: newImages.length ? newImages : ['/placeholder.svg']
+        }));
+      }
       
       if (addFileInputRef.current) addFileInputRef.current.value = '';
       toast.dismiss();
@@ -155,17 +191,19 @@ export const ProductsPage = () => {
       // Adiciona o produto com as imagens processadas
       await addProduct(finalProduct);
       
-      // Reseta o formulário
-      setNewProduct({
-        name: '',
-        description: '',
-        price: 0,
-        stock: 0,
-        images: ['/placeholder.svg']
-      });
-      
-      // Fecha o modal
-      setIsAddingProduct(false);
+      if (isMounted.current) {
+        // Reseta o formulário
+        setNewProduct({
+          name: '',
+          description: '',
+          price: 0,
+          stock: 0,
+          images: ['/placeholder.svg']
+        });
+        
+        // Fecha o modal
+        setIsAddingProduct(false);
+      }
       
       toast.dismiss();
       toast.success('Produto adicionado com sucesso');
@@ -177,7 +215,7 @@ export const ProductsPage = () => {
   };
   
   const handleEditProduct = async () => {
-    if (!isEditingProduct) return;
+    if (!isEditingProduct || !isMounted.current) return;
     
     if (!newProduct.name || newProduct.price <= 0) {
       toast.error('Preencha os campos obrigatórios');
@@ -226,17 +264,19 @@ export const ProductsPage = () => {
       // Atualiza o produto
       await updateProduct(isEditingProduct, finalProduct);
       
-      // Reseta o formulário
-      setNewProduct({
-        name: '',
-        description: '',
-        price: 0,
-        stock: 0,
-        images: ['/placeholder.svg']
-      });
-      
-      // Fecha o modal de edição
-      setIsEditingProduct(null);
+      if (isMounted.current) {
+        // Reseta o formulário
+        setNewProduct({
+          name: '',
+          description: '',
+          price: 0,
+          stock: 0,
+          images: ['/placeholder.svg']
+        });
+        
+        // Fecha o modal de edição
+        setIsEditingProduct(null);
+      }
       
       toast.dismiss();
       toast.success('Produto atualizado com sucesso');
@@ -248,7 +288,7 @@ export const ProductsPage = () => {
   };
   
   const confirmDeleteProduct = async () => {
-    if (productToDelete) {
+    if (productToDelete && isMounted.current) {
       try {
         await deleteProduct(productToDelete.id);
         setProductToDelete(null);
@@ -261,7 +301,7 @@ export const ProductsPage = () => {
   
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, productId: string) => {
     const files = event.target.files;
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0 || !isMounted.current) return;
     
     toast.loading(`Enviando ${files.length} imagem(s)...`);
     
@@ -270,7 +310,7 @@ export const ProductsPage = () => {
         const file = files[i];
         const url = await uploadProductImage(productId, file);
         
-        if (isEditingProduct === productId) {
+        if (isEditingProduct === productId && isMounted.current) {
           setNewProduct(prev => ({
             ...prev,
             images: [...prev.images.filter(img => img !== '/placeholder.svg'), url]
@@ -300,14 +340,16 @@ export const ProductsPage = () => {
   };
   
   const handleEditClick = (product: Product) => {
-    setIsEditingProduct(product.id);
-    setNewProduct({
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      stock: product.stock,
-      images: product.images
-    });
+    if (isMounted.current) {
+      setIsEditingProduct(product.id);
+      setNewProduct({
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        stock: product.stock,
+        images: product.images
+      });
+    }
   };
   
   return (

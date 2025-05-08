@@ -14,16 +14,20 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { ShipmentPage } from "./pages/ShipmentPage";
 import { DashboardLayout } from "./components/DashboardLayout";
 import NotFound from "./pages/NotFound";
-import { useEffect } from "react";
+import { useEffect, StrictMode } from "react";
 import { useDataStore } from "./stores";
 import { useProductStore } from "./stores/useProductStore";
 
-// Create a React Query client
+// Create a React Query client com configurações adequadas
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      // Adicionar staleTime para evitar refetches desnecessários
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      // Garantir limpeza adequada de recursos
+      gcTime: 10 * 60 * 1000, // 10 minutos
     },
   }
 });
@@ -34,17 +38,41 @@ const AppContent = () => {
   
   // Initialize data from Supabase when the app loads
   useEffect(() => {
+    // Adicionar tratamento de erros melhor
+    console.log("Inicializando dados da aplicação...");
+    
     if (!isInitialized) {
       // Inicializa dados dos clientes
       initializeData().catch(error => {
-        console.error("Failed to initialize data:", error);
+        console.error("Erro ao inicializar dados:", error);
       });
       
       // Carrega produtos separadamente para evitar bloqueios
       loadProducts().catch(error => {
-        console.error("Failed to load products:", error);
+        console.error("Erro ao carregar produtos:", error);
       });
     }
+    
+    // Adicionar listener para limpar caches entre navegações de página
+    const handleBeforeUnload = () => {
+      console.log("Limpando recursos antes da navegação...");
+      
+      // Limpar URLs blob que podem estar vazando
+      Object.keys(window).forEach(key => {
+        if (typeof key === 'string' && key.startsWith('tempFile_blob:')) {
+          try {
+            URL.revokeObjectURL(key.replace('tempFile_', ''));
+            delete (window as any)[key];
+          } catch (e) {
+            console.error('Erro ao limpar blob URL:', e);
+          }
+        }
+      });
+    };
+
+    return () => {
+      console.log("App desmontado, limpando recursos...");
+    };
   }, [initializeData, isInitialized, loadProducts]);
   
   return (
@@ -105,9 +133,11 @@ const AppContent = () => {
 
 const App = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AppContent />
-    </QueryClientProvider>
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <AppContent />
+      </QueryClientProvider>
+    </StrictMode>
   );
 };
 

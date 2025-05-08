@@ -40,10 +40,22 @@ export const OrdersPage = () => {
   
   // Prevent state updates after component unmounts
   const isMounted = useRef(true);
+  const pdfRef = useRef<HTMLDivElement>(null);
   
+  // Setup cleanup on component unmount
   useEffect(() => {
     return () => {
+      console.log("OrdersPage desmontando, limpando recursos...");
       isMounted.current = false;
+      
+      // Garante que as dialogs estejam fechadas
+      setDialogOpen(false);
+      setDeleteDialogOpen(false);
+      setShowPDFPreview(false);
+      
+      // Limpa estados para liberar memória
+      setViewingOrder(null);
+      setCustomerInfo(null);
     };
   }, []);
 
@@ -60,6 +72,7 @@ export const OrdersPage = () => {
   useEffect(() => {
     const viewOrderId = searchParams.get('view');
     if (viewOrderId && !dialogOpen) {
+      console.log("Tentando abrir pedido do URL:", viewOrderId);
       const orderToView = allOrders.find(order => order.id === viewOrderId);
       if (orderToView) {
         handleViewOrder(orderToView, orderToView.customerName);
@@ -97,6 +110,7 @@ export const OrdersPage = () => {
   // Improved view order function
   const handleViewOrder = (order: any, customerName: string) => {
     try {
+      console.log("Visualizando pedido:", order.id);
       const customer = customers.find(c => c.id === order.customerId);
       
       if (!isMounted.current) return;
@@ -105,7 +119,7 @@ export const OrdersPage = () => {
       const orderForState = {
         id: order.id,
         customerId: order.customerId,
-        products: order.products || [], // Garante que products nunca é undefined
+        products: order.products || [], 
         status: order.status,
         total: order.total,
         createdAt: order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt)
@@ -134,13 +148,13 @@ export const OrdersPage = () => {
     } catch (error) {
       console.error('Error in handleViewOrder:', error);
       // Em caso de erro, limpa o estado para evitar renderizações com dados inválidos
-      setViewingOrder(null);
-      setCustomerName('');
-      setCustomerInfo(null);
+      if (isMounted.current) {
+        setViewingOrder(null);
+        setCustomerName('');
+        setCustomerInfo(null);
+      }
     }
   };
-  
-  const pdfRef = useRef<HTMLDivElement>(null);
   
   // Updated PDF printing with correct type for contentRef
   const handlePrintPDF = useReactToPrint({
@@ -149,11 +163,14 @@ export const OrdersPage = () => {
       return new Promise<void>((resolve) => {
         try {
           if (isMounted.current) {
+            console.log("Preparando para impressão...");
             setShowPDFPreview(true);
           }
+          
+          // Aumentar o tempo para garantir que o PDF está pronto
           setTimeout(() => {
             resolve();
-          }, 400); // Increased delay for better reliability
+          }, 500);
         } catch (error) {
           console.error('Error in onBeforePrint:', error);
           resolve(); // Resolve anyway to avoid hanging
@@ -162,6 +179,7 @@ export const OrdersPage = () => {
     },
     onAfterPrint: () => {
       try {
+        console.log("Impressão concluída");
         if (isMounted.current) {
           setShowPDFPreview(false);
         }
@@ -169,23 +187,29 @@ export const OrdersPage = () => {
         console.error('Error in onAfterPrint:', error);
       }
     },
-    // Fix: Changed to provide the direct ref object instead of a function
+    // Fix: Changed to provide the direct ref object
     contentRef: pdfRef,
+    removeAfterPrint: true,
   });
 
   // Pre-render the PDF content when viewing order changes
   useEffect(() => {
     if (viewingOrder && !showPDFPreview && isMounted.current) {
       try {
+        console.log("Pré-renderizando PDF");
         setShowPDFPreview(true);
         // Small timeout to ensure the content is rendered
         const timer = setTimeout(() => {
           if (isMounted.current) {
             setShowPDFPreview(false);
+            console.log("Pré-renderização concluída");
           }
-        }, 400); // Increased delay for better reliability
+        }, 500);
         
-        return () => clearTimeout(timer);
+        return () => {
+          clearTimeout(timer);
+          console.log("Limpando timer de pré-renderização");
+        };
       } catch (error) {
         console.error('Error in PDF preview effect:', error);
         if (isMounted.current) {
@@ -198,6 +222,7 @@ export const OrdersPage = () => {
   // Improved dialog close handling
   const handleDialogClose = () => {
     try {
+      console.log("Fechando diálogo de pedido");
       if (!isMounted.current) return;
       
       // First close the dialog UI
@@ -209,8 +234,12 @@ export const OrdersPage = () => {
       setTimeout(() => {
         if (!isMounted.current) return;
         
+        // Limpar estados para evitar problemas ao reabrir
         setViewingOrder(null);
+        setCustomerInfo(null);
+        setCustomerName('');
         setSearchParams({});
+        console.log("Estado de visualização limpo");
       }, 300);
     } catch (error) {
       console.error('Error in handleDialogClose:', error);
@@ -261,7 +290,7 @@ export const OrdersPage = () => {
           const updatedOrderForState = {
             id: updatedOrder.id,
             customerId: viewingOrder.customerId,
-            products: updatedOrder.products || [], // Garante que products nunca é undefined
+            products: updatedOrder.products || [],
             status: updatedOrder.status,
             total: updatedOrder.total,
             createdAt: updatedOrder.createdAt instanceof Date ? 
@@ -371,8 +400,12 @@ export const OrdersPage = () => {
       >
         <DialogContent 
           className="max-w-3xl" 
-          onInteractOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => {
+            console.log("Dialog click outside bloqueado");
+            e.preventDefault();
+          }}
           onEscapeKeyDown={(e) => {
+            console.log("Dialog escape bloqueado");
             e.preventDefault();
             handleDialogClose();
           }}
@@ -554,7 +587,14 @@ export const OrdersPage = () => {
       </Dialog>
       
       {/* Alert Dialog for delete confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog 
+        open={deleteDialogOpen} 
+        onOpenChange={(open) => {
+          if (isMounted.current) {
+            setDeleteDialogOpen(open);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Pedido</AlertDialogTitle>
@@ -578,14 +618,16 @@ export const OrdersPage = () => {
           display: showPDFPreview ? 'block' : 'none', 
           position: 'absolute', 
           left: '-9999px', 
-          visibility: showPDFPreview ? 'visible' : 'hidden' 
+          visibility: showPDFPreview ? 'visible' : 'hidden',
+          pointerEvents: 'none' // Evita interações com o PDF escondido
         }}>
-          <OrderPDF 
-            ref={pdfRef} 
-            order={viewingOrder} 
-            customerName={customerName} 
-            customerInfo={customerInfo} 
-          />
+          <div ref={pdfRef}>
+            <OrderPDF 
+              order={viewingOrder} 
+              customerName={customerName} 
+              customerInfo={customerInfo} 
+            />
+          </div>
         </div>
       )}
     </div>
