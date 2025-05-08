@@ -189,7 +189,6 @@ export const OrdersPage = () => {
     },
     // Fix: Changed to provide the direct ref object
     contentRef: pdfRef,
-    removeAfterPrint: true,
   });
 
   // Pre-render the PDF content when viewing order changes
