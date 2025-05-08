@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -349,6 +350,14 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         throw shipmentError;
       }
 
+      if (!shipmentData) {
+        console.log("Nenhum envio encontrado no servidor");
+        set({ shipments: [] });
+        return [];
+      }
+
+      console.log(`Dados brutos de envios: ${shipmentData.length} registros`, shipmentData);
+
       // Transform the data to match our Shipment interface
       const shipments: Shipment[] = await Promise.all(shipmentData.map(async (shipment) => {
         // Get customers for this shipment
@@ -373,6 +382,8 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
       }));
       
       console.log("Encontrados", shipments.length, "envios");
+      
+      // Important: Update the state with the new data
       set({ shipments });
       
       return shipments;

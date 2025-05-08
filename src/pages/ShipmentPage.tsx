@@ -32,7 +32,9 @@ export const ShipmentPage = () => {
 
   // Set up component unmount
   useEffect(() => {
+    console.log("Component mounting...");
     return () => {
+      console.log("App desmontado, limpando recursos...");
       isMountedRef.current = false;
     };
   }, []);
@@ -160,7 +162,7 @@ export const ShipmentPage = () => {
       // Reset selection
       setSelectedCustomers([]);
       
-      // Fetch updated shipments
+      // Explicitly fetch updated shipments to ensure UI is up to date
       await getShipments();
       console.log("Shipment created and shipments refreshed");
       toast.success('Envio criado com sucesso!');
