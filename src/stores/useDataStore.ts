@@ -63,7 +63,8 @@ interface DataStore {
   isLoading: boolean;
   
   initializeData: () => Promise<void>;
-  refreshAll: () => Promise<void>; // Function to refresh all data
+  refreshAll: () => Promise<void>;
+  syncOrders: () => Promise<boolean>; // New function to synchronize orders
   
   // Customer store functions
   addCustomer: typeof customerStore.addCustomer;
@@ -103,6 +104,21 @@ export const useDataStore = create<DataStore>((set, get) => {
     shipments: [],
     isInitialized: false,
     isLoading: false,
+    
+    // Add sync orders function that uses customerStore's syncOrdersWithSupabase
+    syncOrders: async () => {
+      try {
+        set({ isLoading: true });
+        const result = await useCustomerStore.getState().syncOrdersWithSupabase();
+        set({ isLoading: false });
+        return result;
+      } catch (error) {
+        console.error('Error synchronizing orders:', error);
+        set({ isLoading: false });
+        toast.error('Erro ao sincronizar pedidos');
+        return false;
+      }
+    },
     
     // Improved refreshAll function with better debouncing
     refreshAll: async () => {
@@ -221,7 +237,7 @@ export const useDataStore = create<DataStore>((set, get) => {
           );
           
           return {
-            id: localCustomer?.id || generateId(),
+            id: localCustomer?.id || customer.id || generateId(),
             name: customer.name,
             email: customer.email,
             phone: customer.phone,
@@ -233,9 +249,27 @@ export const useDataStore = create<DataStore>((set, get) => {
             tourCity: customer.tour_city || undefined,
             tourState: customer.tour_state || undefined,
             tourDepartureTime: customer.tour_departure_time || undefined,
-            orders: localCustomer?.orders || []
+            orders: [] // We'll load orders separately for better performance
           };
         });
+        
+        // Now fetch all orders for these customers
+        await Promise.all(customers.map(async (customer) => {
+          try {
+            const customerOrders = await fetchOrdersForCustomer(customer.id);
+            if (customerOrders.length > 0) {
+              customer.orders = customerOrders;
+            } else {
+              // If no orders found in Supabase, use local data if available
+              const localCustomer = storedCustomers.find(c => c.id === customer.id);
+              if (localCustomer && localCustomer.orders && localCustomer.orders.length > 0) {
+                customer.orders = localCustomer.orders;
+              }
+            }
+          } catch (error) {
+            console.error(`Error loading orders for customer ${customer.id}:`, error);
+          }
+        }));
         
         // Save updated customers to localStorage
         localStorage.setItem('customers', JSON.stringify(customers));
@@ -265,6 +299,61 @@ export const useDataStore = create<DataStore>((set, get) => {
       }
     }
   };
+  
+  // Helper function to fetch orders for a customer from Supabase
+  async function fetchOrdersForCustomer(customerId: string): Promise<Order[]> {
+    try {
+      // Fetch orders
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('customer_id', customerId)
+        .order('created_at', { ascending: false });
+
+      if (ordersError) {
+        console.error('Error fetching orders from Supabase:', ordersError);
+        return [];
+      }
+
+      // For each order, fetch its products
+      const orders: Order[] = [];
+      
+      for (const orderData of ordersData) {
+        const { data: productsData, error: productsError } = await supabase
+          .from('order_products')
+          .select('*')
+          .eq('order_id', orderData.id);
+
+        if (productsError) {
+          console.error(`Error fetching products for order ${orderData.id}:`, productsError);
+          continue;
+        }
+
+        // Transform the data into our app's format
+        const order: Order = {
+          id: orderData.id,
+          customerId: orderData.customer_id,
+          status: orderData.status as Order['status'],
+          total: orderData.total,
+          createdAt: new Date(orderData.created_at),
+          products: productsData.map(product => ({
+            productId: product.product_id || '',
+            productName: product.product_name,
+            quantity: product.quantity,
+            price: product.price,
+            images: [] // Default empty array, will be populated from local if available
+          }))
+        };
+
+        orders.push(order);
+      }
+
+      return orders;
+    } catch (error) {
+      console.error('Error in fetchOrdersForCustomer:', error);
+      return [];
+    }
+  }
   
   // Combine with other stores
   return {

@@ -5,13 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShoppingCart, Search, Filter, Printer, Edit, Trash2 } from 'lucide-react';
+import { ShoppingCart, Search, Filter, Printer, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { OrderPDF } from '@/components/OrderPDF';
 import { DateFilter } from '@/components/DateFilter';
 import { OrderCard } from '@/components/OrderCard';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { EditOrderForm } from '@/components/EditOrderForm';
+import { SyncButton } from '@/components/ui/sync-button';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -315,6 +316,13 @@ export const OrdersPage = () => {
         </h1>
         
         <div className="flex items-center space-x-2">
+          <SyncButton 
+            syncType="orders" 
+            className="flex items-center text-xs sm:text-sm"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" /> Sincronizar Pedidos
+          </SyncButton>
+          
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[160px] bg-white shadow-sm">
               <Filter className="h-4 w-4 mr-2" />
