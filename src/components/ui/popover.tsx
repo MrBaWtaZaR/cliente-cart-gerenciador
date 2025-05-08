@@ -17,15 +17,31 @@ const PopoverContent = React.forwardRef<
       ref={ref}
       align={align}
       sideOffset={sideOffset}
+      // Update the onOpenAutoFocus handler
       onOpenAutoFocus={(e) => {
+        e.preventDefault();
         if (props.onOpenAutoFocus) {
           props.onOpenAutoFocus(e);
-        } else {
-          e.preventDefault();
         }
       }}
+      // Update the onCloseAutoFocus handler
       onCloseAutoFocus={(e) => {
         e.preventDefault();
+        if (props.onCloseAutoFocus) {
+          props.onCloseAutoFocus(e);
+        }
+      }}
+      // Add onEscapeKeyDown to prevent focus issues
+      onEscapeKeyDown={(e) => {
+        if (props.onEscapeKeyDown) {
+          props.onEscapeKeyDown(e);
+        }
+      }}
+      // Add onInteractOutside for better focus management
+      onInteractOutside={(e) => {
+        if (props.onInteractOutside) {
+          props.onInteractOutside(e);
+        }
       }}
       className={cn(
         "z-50 w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",

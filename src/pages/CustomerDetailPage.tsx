@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDataStore, Customer } from '@/lib/data';
@@ -53,10 +52,26 @@ export const CustomerDetailPage = () => {
     }
   };
 
+  const handleOpenDeleteDialog = () => {
+    setIsDeleting(true);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setIsDeleting(false);
+  };
+
+  const handleOpenAddOrderDialog = () => {
+    setIsAddingOrder(true);
+  };
+
+  const handleCloseAddOrderDialog = () => {
+    setIsAddingOrder(false);
+  };
+
   const confirmDelete = () => {
     if (customerId) {
       deleteCustomer(customerId);
-      setIsDeleting(false);
+      handleCloseDeleteDialog();
       navigate('/dashboard/customers');
       toast.success('Cliente excluído com sucesso!');
     }
@@ -257,7 +272,7 @@ export const CustomerDetailPage = () => {
                 <h3 className="text-lg font-semibold">Pedidos</h3>
                 <Button 
                   size="sm" 
-                  onClick={() => setIsAddingOrder(true)} 
+                  onClick={handleOpenAddOrderDialog}
                   className="ml-auto"
                 >
                   <Plus className="h-4 w-4 mr-2" /> Adicionar Pedido
@@ -289,7 +304,7 @@ export const CustomerDetailPage = () => {
                 <h3 className="text-lg font-semibold">Pedidos</h3>
                 <Button 
                   size="sm" 
-                  onClick={() => setIsAddingOrder(true)}
+                  onClick={handleOpenAddOrderDialog}
                 >
                   <Plus className="h-4 w-4 mr-2" /> Adicionar Pedido
                 </Button>
@@ -301,7 +316,7 @@ export const CustomerDetailPage = () => {
       </Card>
 
       <Dialog open={isDeleting} onOpenChange={setIsDeleting}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <Trash className="h-5 w-5 mr-2 text-destructive" /> Confirmar Exclusão
@@ -312,7 +327,7 @@ export const CustomerDetailPage = () => {
           </DialogHeader>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleting(false)}>
+            <Button variant="outline" onClick={handleCloseDeleteDialog}>
               Cancelar
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
@@ -323,7 +338,7 @@ export const CustomerDetailPage = () => {
       </Dialog>
       
       <Dialog open={isAddingOrder} onOpenChange={setIsAddingOrder}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <Plus className="h-5 w-5 mr-2" /> Adicionar Pedido
@@ -335,12 +350,12 @@ export const CustomerDetailPage = () => {
           
           <AddOrderForm 
             customerId={customer.id} 
-            onSuccess={() => setIsAddingOrder(false)} 
+            onSuccess={handleCloseAddOrderDialog} 
           />
         </DialogContent>
       </Dialog>
 
-      <Button variant="destructive" onClick={() => setIsDeleting(true)}>
+      <Button variant="destructive" onClick={handleOpenDeleteDialog}>
         <Trash className="h-4 w-4 mr-2" /> Excluir Cliente
       </Button>
     </div>

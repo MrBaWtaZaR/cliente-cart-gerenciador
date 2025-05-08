@@ -28,6 +28,15 @@ export const OrdersPage = () => {
   const [showPDFPreview, setShowPDFPreview] = useState<boolean>(false);
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  
+  // Prevent state updates after component unmounts
+  const isMounted = useRef(true);
+  
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Get all orders
   const allOrders = customers.flatMap(customer => 
@@ -45,7 +54,9 @@ export const OrdersPage = () => {
       const orderToView = allOrders.find(order => order.id === viewOrderId);
       if (orderToView) {
         handleViewOrder(orderToView, orderToView.customerName);
-        setDialogOpen(true);
+        if (isMounted.current) {
+          setDialogOpen(true);
+        }
       }
     }
   }, [searchParams, allOrders, dialogOpen]);
@@ -69,14 +80,16 @@ export const OrdersPage = () => {
     updateOrderStatus(customerId, orderId, newStatus);
     
     // Update status in current view if it's open
-    if (viewingOrder && viewingOrder.id === orderId) {
+    if (viewingOrder && viewingOrder.id === orderId && isMounted.current) {
       setViewingOrder({ ...viewingOrder, status: newStatus });
     }
   };
 
-  // Fix the handleViewOrder function to correctly set the viewingOrder state
+  // Improved view order function
   const handleViewOrder = (order: Order & { customerName?: string }, customerName: string) => {
     const customer = customers.find(c => c.id === order.customerId);
+    
+    if (!isMounted.current) return;
     
     // Create a new order object without the customerName property
     const orderForState: Order = {
@@ -112,36 +125,46 @@ export const OrdersPage = () => {
   
   const pdfRef = useRef<HTMLDivElement>(null);
   
-  // Fix the useReactToPrint hook
+  // Improved PDF printing
   const handlePrintPDF = useReactToPrint({
     documentTitle: `Pedido-${viewingOrder?.id || ''}`,
     onBeforePrint: () => {
       return new Promise<void>((resolve) => {
-        setShowPDFPreview(true);
+        if (isMounted.current) {
+          setShowPDFPreview(true);
+        }
         setTimeout(() => {
           resolve();
-        }, 100);
+        }, 200); // Increased delay for better reliability
       });
     },
     onAfterPrint: () => {
-      setShowPDFPreview(false);
+      if (isMounted.current) {
+        setShowPDFPreview(false);
+      }
     },
     contentRef: pdfRef,
   });
 
   // Pre-render the PDF content when viewing order changes
   useEffect(() => {
-    if (viewingOrder && !showPDFPreview) {
+    if (viewingOrder && !showPDFPreview && isMounted.current) {
       setShowPDFPreview(true);
       // Small timeout to ensure the content is rendered
-      setTimeout(() => {
-        setShowPDFPreview(false);
-      }, 100);
+      const timer = setTimeout(() => {
+        if (isMounted.current) {
+          setShowPDFPreview(false);
+        }
+      }, 200); // Increased delay for better reliability
+      
+      return () => clearTimeout(timer);
     }
-  }, [viewingOrder]);
+  }, [viewingOrder, showPDFPreview]);
 
-  // Handle dialog close - completely rewritten for simplicity and reliability
+  // Improved dialog close handling
   const handleDialogClose = () => {
+    if (!isMounted.current) return;
+    
     // First close the dialog UI
     setDialogOpen(false);
     setShowPDFPreview(false);
@@ -149,29 +172,37 @@ export const OrdersPage = () => {
     
     // Then clean up the URL and state after a short delay
     setTimeout(() => {
+      if (!isMounted.current) return;
+      
       setViewingOrder(null);
       setSearchParams({});
     }, 300);
   };
 
   const handleStartEditing = () => {
-    setIsEditing(true);
+    if (isMounted.current) {
+      setIsEditing(true);
+    }
   };
 
   const handleCancelEditing = () => {
-    setIsEditing(false);
+    if (isMounted.current) {
+      setIsEditing(false);
+    }
   };
 
-  // Fix the handleOrderUpdated function to correctly set the viewingOrder state
+  // Improved order update handling
   const handleOrderUpdated = () => {
+    if (!isMounted.current) return;
+    
     setIsEditing(false);
     // Update the view with the latest order data
     if (viewingOrder) {
       const updatedOrder = customers.find(c => c.id === viewingOrder.customerId)
         ?.orders.find(o => o.id === viewingOrder.id);
       
-      if (updatedOrder) {
-        // Fix: Create a proper Order object without customerName property
+      if (updatedOrder && isMounted.current) {
+        // Create a proper Order object without customerName property
         const updatedOrderForState: Order = {
           id: updatedOrder.id,
           customerId: viewingOrder.customerId,
@@ -246,7 +277,9 @@ export const OrdersPage = () => {
                   customerName={order.customerName}
                   onClick={() => {
                     handleViewOrder(order, order.customerName);
-                    setDialogOpen(true);
+                    if (isMounted.current) {
+                      setDialogOpen(true);
+                    }
                   }}
                 />
               ))}
@@ -262,18 +295,25 @@ export const OrdersPage = () => {
         </CardContent>
       </Card>
 
-      {/* Modal para ver detalhes do pedido - completely rewritten for reliability */}
+      {/* Improved order dialog with better focus management */}
       <Dialog 
         open={dialogOpen} 
         onOpenChange={(open) => {
           if (!open) {
             handleDialogClose();
-          } else {
+          } else if (isMounted.current) {
             setDialogOpen(open);
           }
         }}
       >
-        <DialogContent className="max-w-3xl">
+        <DialogContent 
+          className="max-w-3xl" 
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => {
+            e.preventDefault();
+            handleDialogClose();
+          }}
+        >
           {isEditing && viewingOrder ? (
             <>
               <DialogHeader>
@@ -305,6 +345,7 @@ export const OrdersPage = () => {
               
               {viewingOrder && (
                 <>
+                  {/* ... keep existing code (order header) */}
                   <div className="flex flex-col md:flex-row justify-between mb-6">
                     <div>
                       <p className="font-medium">ID do Pedido:</p>
@@ -332,6 +373,7 @@ export const OrdersPage = () => {
                     </div>
                   </div>
                   
+                  {/* ... keep existing code (products table) */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="font-medium">Produtos no Pedido</h3>
@@ -430,9 +472,14 @@ export const OrdersPage = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Container escondido para o PDF */}
+      {/* Improved PDF container */}
       {viewingOrder && customerInfo && (
-        <div style={{ display: showPDFPreview ? 'block' : 'none', position: 'absolute', left: '-9999px' }}>
+        <div style={{ 
+          display: showPDFPreview ? 'block' : 'none', 
+          position: 'absolute', 
+          left: '-9999px', 
+          visibility: showPDFPreview ? 'visible' : 'hidden' 
+        }}>
           <OrderPDF 
             ref={pdfRef} 
             order={viewingOrder} 
