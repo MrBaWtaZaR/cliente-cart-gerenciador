@@ -198,10 +198,22 @@ export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
                   <h3 className="font-bold text-2xl text-blue-800">{customer.tourName || "Excursão"}</h3>
                 </div>
                 
-                {/* Informações em duas colunas */}
+                {/* Informações em duas colunas - REORGANIZADAS */}
                 <div className="flex flex-row p-3 flex-1">
-                  {/* Coluna 1: Dados da excursão */}
+                  {/* Coluna 1: AGORA DADOS PESSOAIS (movidos para cima) */}
                   <div className="w-1/2 space-y-2">
+                    <div>
+                      <p className="font-bold text-lg text-blue-700">Nome:</p>
+                      <p className="truncate text-2xl font-bold">{customer.name}</p>
+                    </div>
+                    <div>
+                      <p className="font-bold text-lg text-blue-700">Telefone:</p>
+                      <p className="text-2xl font-bold">{formatPhone(customer.phone)}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Coluna 2: AGORA DADOS DA EXCURSÃO (movidos para baixo) */}
+                  <div className="w-1/2 border-l border-blue-200 pl-4 space-y-2">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <p className="font-bold text-lg text-blue-700">Setor:</p>
@@ -219,18 +231,6 @@ export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
                     <div>
                       <p className="font-bold text-lg text-blue-700">Cidade/UF:</p>
                       <p className="truncate text-2xl font-bold">{[customer.tourCity, customer.tourState].filter(Boolean).join('/')}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Coluna 2: Dados pessoais */}
-                  <div className="w-1/2 border-l border-blue-200 pl-4 space-y-2">
-                    <div>
-                      <p className="font-bold text-lg text-blue-700">Nome:</p>
-                      <p className="truncate text-2xl font-bold">{customer.name}</p>
-                    </div>
-                    <div>
-                      <p className="font-bold text-lg text-blue-700">Telefone:</p>
-                      <p className="text-2xl font-bold">{formatPhone(customer.phone)}</p>
                     </div>
                   </div>
                 </div>

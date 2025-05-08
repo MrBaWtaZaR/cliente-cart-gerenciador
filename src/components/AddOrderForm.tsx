@@ -50,6 +50,12 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
     }, 0);
   };
 
+  // Função para calcular o subtotal de um item específico
+  const calculateItemSubtotal = (productId: string, quantity: number) => {
+    const product = products.find(p => p.id === productId);
+    return product ? (product.price * quantity) : 0;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -59,28 +65,36 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
       return;
     }
 
-    const orderProducts = orderItems.map(item => {
-      const product = products.find(p => p.id === item.productId)!;
-      return {
-        productId: product.id,
-        productName: product.name,
-        quantity: item.quantity,
-        price: product.price,
-        images: product.images
-      };
-    });
+    try {
+      const orderProducts = orderItems.map(item => {
+        const product = products.find(p => p.id === item.productId);
+        if (!product) {
+          throw new Error(`Produto não encontrado: ${item.productId}`);
+        }
+        return {
+          productId: product.id,
+          productName: product.name,
+          quantity: item.quantity,
+          price: product.price,
+          images: product.images || []
+        };
+      });
 
-    const total = calculateTotal();
+      const total = calculateTotal();
 
-    addOrder({
-      customerId,
-      products: orderProducts,
-      status,
-      total
-    });
+      addOrder({
+        customerId,
+        products: orderProducts,
+        status,
+        total
+      });
 
-    toast.success('Pedido adicionado com sucesso!');
-    onSuccess();
+      toast.success('Pedido adicionado com sucesso!');
+      onSuccess();
+    } catch (error) {
+      console.error("Erro ao adicionar pedido:", error);
+      toast.error("Erro ao adicionar pedido. Por favor, tente novamente.");
+    }
   };
 
   return (
@@ -140,7 +154,7 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
 
             {item.productId && (
               <div className="text-sm text-right">
-                Subtotal: R$ {(products.find(p => p.id === item.productId)?.price || 0 * item.quantity).toFixed(2)}
+                Subtotal: R$ {calculateItemSubtotal(item.productId, item.quantity).toFixed(2)}
               </div>
             )}
           </div>
