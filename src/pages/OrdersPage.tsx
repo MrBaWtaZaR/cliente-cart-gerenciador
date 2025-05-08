@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useCustomerStore } from '@/stores';
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,7 @@ import { DateFilter } from '@/components/DateFilter';
 import { OrderCard } from '@/components/OrderCard';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { EditOrderForm } from '@/components/EditOrderForm';
+import { toast } from 'sonner';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -156,6 +156,11 @@ export const OrdersPage = () => {
       
       // Update URL to include the order ID for direct linking
       setSearchParams({ view: order.id });
+      
+      // Make sure the dialog is opened
+      if (isMounted.current) {
+        setDialogOpen(true);
+      }
     } catch (error) {
       console.error('Error in handleViewOrder:', error);
       // Em caso de erro, limpa o estado para evitar renderizações com dados inválidos
