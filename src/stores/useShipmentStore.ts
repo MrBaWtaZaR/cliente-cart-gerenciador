@@ -9,12 +9,24 @@ import { generateId } from '../utils/idGenerator';
 interface ShipmentStore {
   shipments: Shipment[];
   
-  addShipment: (customerIds: string[]) => Promise<Shipment>;
-  updateShipment: (shipmentId: string, customerIds: string[]) => Promise<Shipment>;
+  addShipment: (customerIds: string[]) => Promise<Shipment | null>;
+  updateShipment: (shipmentId: string, customerIds: string[]) => Promise<Shipment | null>;
   deleteShipment: (shipmentId: string) => Promise<void>;
   getShipments: () => Promise<Shipment[]>;
   getShipmentCustomers: (shipmentId: string) => Promise<Customer[]>;
 }
+
+// Helper function to safely import useDataStore to avoid circular dependencies
+const getCustomersFromStore = async (): Promise<Customer[]> => {
+  try {
+    // Dynamically import to avoid circular dependency
+    const storesModule = await import('../stores');
+    return storesModule.useDataStore.getState().customers || [];
+  } catch (error) {
+    console.error('Error accessing data store:', error);
+    return [];
+  }
+};
 
 export const useShipmentStore = create<ShipmentStore>((set, get) => ({
   shipments: [],
@@ -48,16 +60,8 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
       
       console.log('Created shipment:', shipmentData);
       
-      // Get customers from the main data store
-      let customers = [];
-      try {
-        // Import dynamically to avoid circular dependency
-        const { useDataStore } = await import('../lib/data');
-        customers = useDataStore.getState().customers;
-      } catch (error) {
-        console.error('Error accessing data store, using empty customers array:', error);
-        customers = [];
-      }
+      // Get customers from store using our safe helper function
+      const customers = await getCustomersFromStore();
       
       // Map local customer names to database customer IDs
       const localCustomers = customers.filter(c => customerIds.includes(c.id));
@@ -69,7 +73,7 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
           .from('customers')
           .select('id')
           .eq('name', localCustomer.name)
-          .single();
+          .maybeSingle();
           
         if (error || !dbCustomer) {
           console.error(`No customer found in DB with name: ${localCustomer.name}`, error);
@@ -172,16 +176,8 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         throw deleteError;
       }
       
-      // Get customers from the main data store
-      let customers = [];
-      try {
-        // Import dynamically to avoid circular dependency
-        const { useDataStore } = await import('../lib/data');
-        customers = useDataStore.getState().customers;
-      } catch (error) {
-        console.error('Error accessing data store, using empty customers array:', error);
-        customers = [];
-      }
+      // Get customers using our safe helper function
+      const customers = await getCustomersFromStore();
       
       // Map local customer names to database customer IDs
       const localCustomers = customers.filter(c => customerIds.includes(c.id));
@@ -192,7 +188,7 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
           .from('customers')
           .select('id')
           .eq('name', localCustomer.name)
-          .single();
+          .maybeSingle();
           
         if (error || !dbCustomer) {
           console.error(`No customer found in DB with name: ${localCustomer.name}`, error);
@@ -386,16 +382,8 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
         return [];
       }
 
-      // Get customers from the main data store for orders
-      let localCustomers = [];
-      try {
-        // Import dynamically to avoid circular dependency
-        const { useDataStore } = await import('../lib/data');
-        localCustomers = useDataStore.getState()?.customers || [];
-      } catch (error) {
-        console.error('Error accessing data store:', error);
-        localCustomers = [];
-      }
+      // Get customers from store using our safe helper function
+      const localCustomers = await getCustomersFromStore();
 
       // Map the customers with their orders from local store
       const mappedCustomers: Customer[] = customerData.map(customer => {

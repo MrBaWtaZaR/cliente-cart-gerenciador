@@ -14,43 +14,6 @@ import { useShipmentStore } from './useShipmentStore';
 // Load initial data
 const { customers: initialCustomers, products: initialProducts } = loadInitialData();
 
-// Get initial store states to access function types correctly
-const customerStore = useCustomerStore.getState();
-const productStore = useProductStore.getState();
-const shipmentStore = useShipmentStore.getState();
-
-interface DataStore {
-  customers: Customer[];
-  products: Product[];
-  shipments: Shipment[];
-  isInitialized: boolean;
-  isLoading: boolean;
-  
-  initializeData: () => Promise<void>;
-  
-  // Add customer store functions
-  addCustomer: typeof customerStore.addCustomer;
-  updateCustomer: typeof customerStore.updateCustomer;
-  deleteCustomer: typeof customerStore.deleteCustomer;
-  addOrder: typeof customerStore.addOrder;
-  updateOrderStatus: typeof customerStore.updateOrderStatus;
-  updateOrder: typeof customerStore.updateOrder;
-  deleteOrder: typeof customerStore.deleteOrder;
-  
-  // Add product store functions
-  addProduct: typeof productStore.addProduct;
-  updateProduct: typeof productStore.updateProduct;
-  deleteProduct: typeof productStore.deleteProduct;
-  uploadProductImage: typeof productStore.uploadProductImage;
-  
-  // Add shipment store functions
-  addShipment: typeof shipmentStore.addShipment;
-  updateShipment: typeof shipmentStore.updateShipment;
-  deleteShipment: typeof shipmentStore.deleteShipment;
-  getShipments: typeof shipmentStore.getShipments;
-  getShipmentCustomers: typeof shipmentStore.getShipmentCustomers;
-}
-
 // Helper function to get stored data
 const getStoredData = () => {
   try {
@@ -86,6 +49,44 @@ const getStoredData = () => {
 // Load stored data 
 const storedData = getStoredData();
 
+// Get initial store states
+const customerStore = useCustomerStore.getState();
+const productStore = useProductStore.getState();
+const shipmentStore = useShipmentStore.getState();
+
+// Define the DataStore interface
+interface DataStore {
+  customers: Customer[];
+  products: Product[];
+  shipments: Shipment[];
+  isInitialized: boolean;
+  isLoading: boolean;
+  
+  initializeData: () => Promise<void>;
+  
+  // Customer store functions
+  addCustomer: typeof customerStore.addCustomer;
+  updateCustomer: typeof customerStore.updateCustomer;
+  deleteCustomer: typeof customerStore.deleteCustomer;
+  addOrder: typeof customerStore.addOrder;
+  updateOrderStatus: typeof customerStore.updateOrderStatus;
+  updateOrder: typeof customerStore.updateOrder;
+  deleteOrder: typeof customerStore.deleteOrder;
+  
+  // Product store functions  
+  addProduct: typeof productStore.addProduct;
+  updateProduct: typeof productStore.updateProduct;
+  deleteProduct: typeof productStore.deleteProduct;
+  uploadProductImage: typeof productStore.uploadProductImage;
+  
+  // Shipment store functions
+  addShipment: typeof shipmentStore.addShipment;
+  updateShipment: typeof shipmentStore.updateShipment;
+  deleteShipment: typeof shipmentStore.deleteShipment;
+  getShipments: typeof shipmentStore.getShipments;
+  getShipmentCustomers: typeof shipmentStore.getShipmentCustomers;
+}
+
 export const useDataStore = create<DataStore>((set, get) => {
   // Create base store
   const dataStore = {
@@ -101,10 +102,6 @@ export const useDataStore = create<DataStore>((set, get) => {
       
       set({ isLoading: true });
       try {
-        // Setup storage buckets
-        const { setupStorage } = await import('../integrations/supabase/storage');
-        await setupStorage();
-        
         // Fetch customers from Supabase
         const { data: customerData, error: customerError } = await supabase
           .from('customers')
@@ -155,17 +152,17 @@ export const useDataStore = create<DataStore>((set, get) => {
           };
         });
         
-        // Transform shipments to our app format
-        const shipments: Shipment[] = await Promise.all(shipmentData.map(async (shipment) => {
-          const fetchedCustomers = await shipmentStore.getShipmentCustomers(shipment.id);
-          
-          return {
-            id: shipment.id,
-            name: shipment.name,
-            createdAt: new Date(shipment.created_at),
-            customers: fetchedCustomers
-          };
-        }));
+        // Save updated customers to localStorage
+        localStorage.setItem('customers', JSON.stringify(customers));
+        
+        // Get shipment store
+        let shipments: Shipment[] = [];
+        try {
+          shipments = await shipmentStore.getShipments();
+        } catch (error) {
+          console.error('Error getting shipments:', error);
+          // Continue with empty shipments array
+        }
         
         // Set data in store
         set({
@@ -175,9 +172,6 @@ export const useDataStore = create<DataStore>((set, get) => {
           isInitialized: true,
           isLoading: false
         });
-        
-        // Save customers to localStorage
-        localStorage.setItem('customers', JSON.stringify(customers));
         
         console.log('Data initialized from Supabase', { customers, shipments });
       } catch (error) {
