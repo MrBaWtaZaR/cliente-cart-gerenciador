@@ -163,31 +163,46 @@ export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
         {customerPairs.map((pair, pairIndex) => (
           <div key={pairIndex} className={`grid grid-cols-2 gap-4 mb-8 ${pairIndex > 0 ? 'mt-8 page-break-before' : ''}`}>
             {pair.map((customer, idx) => (
-              <div key={idx} className="border-2 border-dashed border-gray-300 p-4 rounded-lg">
-                <div className="text-center mb-2 pb-2 border-b border-gray-200">
-                  <h3 className="font-bold">{customer.tourName || "Excursão"}</h3>
+              <div key={idx} className="border-2 border-dashed border-gray-300 p-3 rounded-lg">
+                <div className="text-center mb-2 pb-1 border-b border-gray-200">
+                  <h3 className="font-bold text-sm">{customer.tourName || "Excursão"}</h3>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <p><strong>Setor:</strong></p>
-                    <p>{customer.tourSector || "-"}</p>
+                
+                {/* Informações em duas colunas */}
+                <div className="flex flex-row space-x-2">
+                  {/* Coluna 1: Dados da excursão */}
+                  <div className="w-1/2 text-xs space-y-1">
+                    <div className="grid grid-cols-2 gap-1">
+                      <div>
+                        <p className="font-medium">Setor:</p>
+                        <p className="truncate">{customer.tourSector || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium">Vaga:</p>
+                        <p>{customer.tourSeatNumber || "-"}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-medium">Horário:</p>
+                      <p>{customer.tourDepartureTime || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Cidade/UF:</p>
+                      <p className="truncate">{[customer.tourCity, customer.tourState].filter(Boolean).join('/')}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p><strong>Vaga:</strong></p>
-                    <p>{customer.tourSeatNumber || "-"}</p>
+                  
+                  {/* Coluna 2: Dados pessoais */}
+                  <div className="w-1/2 border-l pl-2 text-xs space-y-1">
+                    <div>
+                      <p className="font-medium">Nome:</p>
+                      <p className="truncate font-semibold">{customer.name}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Telefone:</p>
+                      <p>{formatPhone(customer.phone)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p><strong>Horário:</strong></p>
-                    <p>{customer.tourDepartureTime || "-"}</p>
-                  </div>
-                  <div>
-                    <p><strong>Cidade/Estado:</strong></p>
-                    <p>{[customer.tourCity, customer.tourState].filter(Boolean).join('/')}</p>
-                  </div>
-                </div>
-                <div className="mt-3 pt-2 border-t border-gray-200">
-                  <p><strong>Nome:</strong> {customer.name}</p>
-                  <p><strong>Telefone:</strong> {formatPhone(customer.phone)}</p>
                 </div>
               </div>
             ))}
