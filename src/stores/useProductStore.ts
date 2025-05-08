@@ -43,7 +43,14 @@ export const useProductStore = create<ProductStore>((set, get) => {
         };
         
         const updatedProducts = [...state.products, newProduct];
-        localStorage.setItem('products', JSON.stringify(updatedProducts));
+        
+        // Use try-catch for localStorage to prevent unhandled exceptions
+        try {
+          localStorage.setItem('products', JSON.stringify(updatedProducts));
+        } catch (storageError) {
+          console.error('Failed to save products to localStorage:', storageError);
+          // Continue with the operation even if localStorage fails
+        }
         
         toast.success('Produto adicionado com sucesso');
         return { products: updatedProducts };
@@ -60,7 +67,13 @@ export const useProductStore = create<ProductStore>((set, get) => {
           product.id === id ? { ...product, ...productData } : product
         );
         
-        localStorage.setItem('products', JSON.stringify(updatedProducts));
+        // Use try-catch for localStorage to prevent unhandled exceptions
+        try {
+          localStorage.setItem('products', JSON.stringify(updatedProducts));
+        } catch (storageError) {
+          console.error('Failed to save updated products to localStorage:', storageError);
+          // Continue with the operation even if localStorage fails
+        }
         
         toast.success('Produto atualizado com sucesso');
         return { products: updatedProducts };
@@ -75,7 +88,13 @@ export const useProductStore = create<ProductStore>((set, get) => {
       try {
         const updatedProducts = state.products.filter((product) => product.id !== id);
         
-        localStorage.setItem('products', JSON.stringify(updatedProducts));
+        // Use try-catch for localStorage to prevent unhandled exceptions
+        try {
+          localStorage.setItem('products', JSON.stringify(updatedProducts));
+        } catch (storageError) {
+          console.error('Failed to save products after deletion to localStorage:', storageError);
+          // Continue with the operation even if localStorage fails
+        }
         
         toast.success('Produto removido com sucesso');
         return { products: updatedProducts };
@@ -104,13 +123,18 @@ export const useProductStore = create<ProductStore>((set, get) => {
             fileToUpload = new File([blob], fileName, { type: blob.type });
           } catch (error) {
             console.error('Erro ao converter blob URL para arquivo:', error);
-            throw new Error('Não foi possível processar a imagem. Por favor, tente novamente.');
+            // Return the original blob URL as fallback
+            return file;
           }
         } else if (fileToUpload instanceof File) {
           // Se for um File object, pegamos o nome diretamente
           fileName = fileToUpload.name;
         } else {
           // Se for uma string que não é blob URL (como uma URL regular)
+          // Return it as is if it's already a remote URL
+          if (typeof file === 'string' && !file.startsWith('blob:')) {
+            return file;
+          }
           // Geramos um nome de arquivo baseado no timestamp
           fileName = `image_${Date.now()}.jpg`;
         }
@@ -119,7 +143,12 @@ export const useProductStore = create<ProductStore>((set, get) => {
         let publicUrl = '';
         
         if (fileToUpload instanceof File) {
-          publicUrl = await uploadProductImage(productId, fileToUpload);
+          try {
+            publicUrl = await uploadProductImage(productId, fileToUpload);
+          } catch (uploadError) {
+            console.error('Upload failed, using local URL as fallback:', uploadError);
+            publicUrl = typeof file === 'string' ? file : URL.createObjectURL(fileToUpload);
+          }
         } else {
           // Se por algum motivo ainda temos uma string, retornamos ela como URL
           publicUrl = fileToUpload;
@@ -137,11 +166,17 @@ export const useProductStore = create<ProductStore>((set, get) => {
               return product;
             });
             
-            localStorage.setItem('products', JSON.stringify(updatedProducts));
+            try {
+              localStorage.setItem('products', JSON.stringify(updatedProducts));
+            } catch (storageError) {
+              console.error('Failed to save products with image to localStorage:', storageError);
+              // Continue with the operation even if localStorage fails
+            }
+            
             return { products: updatedProducts };
           } catch (error) {
             console.error('Error updating product with image:', error);
-            // Don't update state if there was an error storing to localStorage
+            // Don't update state if there was an error
             return state;
           }
         });

@@ -7,7 +7,10 @@ import { BrowserRouter } from 'react-router-dom';
 import { setupStorage } from './integrations/supabase/storage';
 
 // Configure storage before rendering the application
-setupStorage().catch(console.error);
+// But don't block rendering if it fails
+setupStorage().catch(error => {
+  console.error('Failed to setup storage, continuing with app initialization:', error);
+});
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
