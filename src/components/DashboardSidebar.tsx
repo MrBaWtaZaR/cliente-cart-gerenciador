@@ -90,6 +90,7 @@ export const DashboardSidebar = () => {
           "bg-sidebar h-full fixed left-0 top-0 bottom-0 w-64 shadow-xl transition-transform duration-300 ease-in-out z-40",
           isMobile && !isOpen ? "-translate-x-full" : "translate-x-0"
         )}
+        style={{ width: '16rem' }}
       >
         <div className="flex flex-col h-full">
           <div className="p-6 border-b border-sidebar-border">

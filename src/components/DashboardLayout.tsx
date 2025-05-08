@@ -11,6 +11,7 @@ export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { initializeData, refreshAll } = useDataStore();
+  const isMobile = useIsMobile();
 
   // Load data on component mount
   useEffect(() => {
@@ -44,7 +45,7 @@ export function DashboardLayout() {
   return (
     <div className="flex h-screen overflow-hidden">
       <DashboardSidebar />
-      <div className="flex-1 overflow-auto p-6 bg-slate-50 min-h-screen">
+      <div className={`flex-1 overflow-auto p-6 bg-slate-50 min-h-screen ${isMobile ? 'ml-0' : 'ml-0 md:ml-64'}`}>
         <Outlet />
       </div>
       <Toaster richColors position="top-right" />
