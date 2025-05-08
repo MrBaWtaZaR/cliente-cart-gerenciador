@@ -63,7 +63,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       try {
         const clickableElements = document.querySelectorAll('button, a, [role="button"]');
         clickableElements.forEach(el => {
-          if (el.parentNode && document.body.contains(el)) {
+          if (el.parentNode && document.contains(el)) {
             try {
               const clone = el.cloneNode(false); // Clone without children
               while (el.firstChild) {
@@ -82,6 +82,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       // Execute cleanup in multiple phases with increasing delays
       cleanupDOM();
       
+      // Use window.setTimeout to ensure it works correctly with React
       cleanupTimerRef.current = window.setTimeout(() => {
         performDOMCleanup();
       }, 50);

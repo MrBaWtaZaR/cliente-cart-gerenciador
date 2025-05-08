@@ -56,9 +56,26 @@ export const OrdersPage = () => {
     
     window.addEventListener('beforeunload', handleBeforeUnload);
     
+    // Register for cleanup events
+    const cleanupHandler = () => {
+      console.log("OrdersPage cleanup event triggered");
+      if (isMounted()) {
+        setDialogOpen(false);
+        setDeleteDialogOpen(false);
+        setShowPDFPreview(false);
+        setViewingOrder(null); 
+        cleanupDOM();
+      }
+    };
+    
+    window.addEventListener('app-cleanup', cleanupHandler);
+    window.addEventListener('route-changed', cleanupHandler);
+    
     return () => {
       console.log("OrdersPage unmounting, cleaning resources...");
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('app-cleanup', cleanupHandler);
+      window.removeEventListener('route-changed', cleanupHandler);
       
       // Force close all dialogs
       setDialogOpen(false);
@@ -74,7 +91,7 @@ export const OrdersPage = () => {
       setTimeout(cleanupDOM, 50);
       setTimeout(cleanupDOM, 150);
     };
-  }, [cleanupDOM]);
+  }, [cleanupDOM, isMounted]);
 
   // Update the printable content status when PDF ref changes
   useEffect(() => {
@@ -94,7 +111,7 @@ export const OrdersPage = () => {
   useEffect(() => {
     try {
       const viewOrderId = searchParams.get('view');
-      if (viewOrderId && !dialogOpen) {
+      if (viewOrderId && !dialogOpen && isMounted()) {
         console.log("Trying to open order from URL:", viewOrderId);
         const orderToView = allOrders.find(order => order.id === viewOrderId);
         if (orderToView) {
@@ -107,7 +124,7 @@ export const OrdersPage = () => {
     } catch (error) {
       console.error("Error processing URL parameters:", error);
     }
-  }, [searchParams, allOrders, dialogOpen]);
+  }, [searchParams, allOrders, dialogOpen, isMounted]);
 
   // Filter orders based on applied filters
   const filteredOrders = React.useMemo(() => {
@@ -236,7 +253,6 @@ export const OrdersPage = () => {
         console.error('Error in onAfterPrint:', error);
       }
     },
-    // Fix: Changed to provide the direct ref object
     contentRef: pdfRef,
   });
 
@@ -681,15 +697,15 @@ export const OrdersPage = () => {
         <div 
           style={{ 
             display: showPDFPreview ? 'block' : 'none', 
-            position: 'fixed',  // Changed from 'absolute' to 'fixed'
-            top: '-9999px',     // Position far off-screen in both directions
-            left: '-9999px',    // to prevent React rendering issues
+            position: 'fixed',
+            top: '-9999px',
+            left: '-9999px',
             width: '100%',
             height: '0',
             overflow: 'hidden',
             visibility: showPDFPreview ? 'visible' : 'hidden',
             pointerEvents: 'none',
-            zIndex: -1          // Ensure it's behind everything
+            zIndex: -1
           }}
           className="shipment-print-container"
           aria-hidden="true"

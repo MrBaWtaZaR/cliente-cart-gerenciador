@@ -83,7 +83,8 @@ export const useSafeUnmount = () => {
               
               // APPROACH 3: Clone and replace approach to detach all event listeners
               const parent = el.parentNode;
-              if (parent && document.body.contains(parent) && document.body.contains(el)) {
+              // Check if parent is still connected to document and still contains el
+              if (parent && document.body.contains(parent) && parent.contains(el)) {
                 try {
                   // Create an empty clone (no children or event listeners)
                   const clone = el.cloneNode(false);
@@ -93,7 +94,7 @@ export const useSafeUnmount = () => {
                   
                   // Remove the clone after a brief delay
                   setTimeout(() => {
-                    if (clone.parentNode && document.body.contains(clone)) {
+                    if (clone.parentNode && document.contains(clone)) {
                       clone.parentNode.removeChild(clone);
                     }
                   }, 0);
@@ -101,7 +102,7 @@ export const useSafeUnmount = () => {
                   // If replacement fails, try direct removal
                   console.warn("Clone replacement failed, trying direct removal:", err);
                   
-                  if (el.parentNode && document.body.contains(el)) {
+                  if (el.parentNode && document.contains(el)) {
                     try {
                       el.parentNode.removeChild(el);
                     } catch (removalErr) {
@@ -144,7 +145,7 @@ export const useSafeUnmount = () => {
             }
             
             setTimeout(() => {
-              if (child.parentNode && document.body.contains(child)) {
+              if (child.parentNode && document.contains(child)) {
                 try {
                   child.parentNode.removeChild(child);
                 } catch (err) {
@@ -164,7 +165,7 @@ export const useSafeUnmount = () => {
         const animatingElements = document.querySelectorAll('.animate-in, .animate-out, [data-state="open"], [data-state="closed"]');
         
         animatingElements.forEach(el => {
-          if (el instanceof HTMLElement && document.body.contains(el)) {
+          if (el instanceof HTMLElement && document.contains(el)) {
             // Force animations to end immediately
             el.style.animation = 'none';
             el.style.transition = 'none';
@@ -186,7 +187,7 @@ export const useSafeUnmount = () => {
         const possibleProblemNodes = document.querySelectorAll('.dialog-overlay, .dialog-content, .dropdown-content, .popover');
         
         possibleProblemNodes.forEach(node => {
-          if (node.parentNode && document.body.contains(node)) {
+          if (node.parentNode && document.contains(node)) {
             // Clone without children or event listeners then immediately remove
             const clone = node.cloneNode(false);
             node.parentNode.replaceChild(clone, node);
@@ -289,7 +290,7 @@ export const performDOMCleanup = () => {
       try {
         const elements = document.querySelectorAll(selector);
         elements.forEach(el => {
-          if (!el || !el.parentNode || !document.body.contains(el)) return;
+          if (!el || !el.parentNode || !document.contains(el)) return;
           
           if (el instanceof HTMLElement) {
             // First hide it
@@ -305,7 +306,7 @@ export const performDOMCleanup = () => {
           
           // Then try to remove it
           setTimeout(() => {
-            if (el.parentNode && document.body.contains(el)) {
+            if (el.parentNode && document.contains(el)) {
               try {
                 el.parentNode.removeChild(el);
               } catch (err) {
@@ -324,7 +325,7 @@ export const performDOMCleanup = () => {
     try {
       const clickableElements = document.querySelectorAll('button, a, [role="button"]');
       clickableElements.forEach(el => {
-        if (el.parentNode && document.body.contains(el) && el.hasAttribute('data-being-removed')) {
+        if (el.parentNode && document.contains(el) && el.hasAttribute('data-being-removed')) {
           try {
             const clone = el.cloneNode(true);
             el.parentNode.replaceChild(clone, el);
@@ -348,9 +349,12 @@ export const performDOMCleanup = () => {
 
 // Utility function to clean up a specific element safely
 export const safeRemoveElement = (element: Element) => {
-  if (!element || !element.parentNode || !document.body.contains(element)) return;
+  if (!element || !element.parentNode) return;
   
   try {
+    // Check if element is still in DOM
+    if (!document.contains(element)) return;
+    
     if (element instanceof HTMLElement) {
       element.style.visibility = 'hidden';
       element.style.display = 'none';
@@ -362,7 +366,7 @@ export const safeRemoveElement = (element: Element) => {
     }
     
     // Then try to remove the element itself
-    if (element.parentNode && document.body.contains(element)) {
+    if (element.parentNode && document.contains(element)) {
       element.parentNode.removeChild(element);
     }
   } catch (err) {
@@ -370,7 +374,7 @@ export const safeRemoveElement = (element: Element) => {
     
     // Fall back to clone and replace if direct removal fails
     try {
-      if (element.parentNode && document.body.contains(element)) {
+      if (element.parentNode && document.contains(element)) {
         const clone = element.cloneNode(false); // Empty clone
         element.parentNode.replaceChild(clone, element);
         
