@@ -1,5 +1,5 @@
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import { DashboardSidebar } from './DashboardSidebar';
 import { AuthGuard } from './AuthGuard';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -12,6 +12,7 @@ interface DashboardLayoutProps {
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const isMobile = useIsMobile();
   const { refreshAll, isInitialized } = useDataStore();
+  const unmountingRef = useRef(false);
   
   // Initialize data when dashboard mounts
   useEffect(() => {
@@ -20,48 +21,107 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     if (!isInitialized) {
       refreshAll();
     }
-  }, [refreshAll, isInitialized]);
+    
+    // Função para limpar elementos órfãos no DOM
+    const cleanupOrphanedElements = () => {
+      try {
+        // Limpar tooltips
+        document.querySelectorAll('[role="tooltip"]').forEach(el => {
+          if (el && el.parentNode) {
+            try {
+              el.parentNode.removeChild(el);
+            } catch (e) {
+              // Ignore errors if element was already removed
+            }
+          }
+        });
+        
+        // Limpar dialogs
+        document.querySelectorAll('[role="dialog"]').forEach(el => {
+          if (el && el.parentNode) {
+            try {
+              el.parentNode.removeChild(el);
+            } catch (e) {
+              // Ignore errors if element was already removed
+            }
+          }
+        });
+        
+        // Limpar portals
+        document.querySelectorAll('[data-portal]').forEach(el => {
+          if (el && el.parentNode) {
+            try {
+              el.parentNode.removeChild(el);
+            } catch (e) {
+              // Ignore errors if element was already removed
+            }
+          }
+        });
+        
+        // Limpar popups e menus flutuantes
+        document.querySelectorAll('.radix-popup').forEach(el => {
+          if (el && el.parentNode) {
+            try {
+              el.parentNode.removeChild(el);
+            } catch (e) {
+              // Ignore errors if element was already removed
+            }
+          }
+        });
+        
+        // Limpar outros elementos que podem causar problemas
+        [
+          '[data-floating]', 
+          '[data-state="open"]', 
+          '.popover-content', 
+          '.tooltip-content',
+          '.dropdown-menu-content',
+          '.react-flow__node',
+          '.react-flow__edge',
+          '[aria-live="polite"]',
+          '[aria-live="assertive"]'
+        ].forEach(selector => {
+          document.querySelectorAll(selector).forEach(el => {
+            if (el && el.parentNode && unmountingRef.current) {
+              try {
+                el.parentNode.removeChild(el);
+              } catch (e) {
+                // Ignore errors if element was already removed
+              }
+            }
+          });
+        });
+      } catch (error) {
+        console.error('Error cleaning up DOM elements:', error);
+      }
+    };
   
-  // Add cleanup effect when layout unmounts
-  useEffect(() => {
+    // Registrar evento global para limpeza quando necessário
+    window.addEventListener('app-cleanup', cleanupOrphanedElements);
+  
     return () => {
       console.log("App desmontado, limpando recursos...");
+      unmountingRef.current = true;
       
-      // Clean any portal elements that might be orphaned
-      const portals = document.querySelectorAll('[data-portal]');
-      portals.forEach(portal => {
-        if (portal && portal.parentNode) {
-          try {
-            portal.parentNode.removeChild(portal);
-          } catch (e) {
-            // Ignore errors if element was already removed
-          }
-        }
-      });
+      // Disparar evento de limpeza global
+      window.dispatchEvent(new CustomEvent('app-cleanup'));
+      window.removeEventListener('app-cleanup', cleanupOrphanedElements);
       
-      // Clean up tooltips
-      document.querySelectorAll('[role="tooltip"]').forEach(el => {
-        if (el && el.parentNode) {
-          try {
-            el.parentNode.removeChild(el);
-          } catch (e) {
-            // Ignore errors if element was already removed
-          }
-        }
-      });
+      // Executar limpeza imediatamente
+      cleanupOrphanedElements();
       
-      // Clean up dialogs
-      document.querySelectorAll('[role="dialog"]').forEach(el => {
-        if (el && el.parentNode) {
-          try {
-            el.parentNode.removeChild(el);
-          } catch (e) {
-            // Ignore errors if element was already removed
-          }
-        }
-      });
+      // Executar limpeza novamente após um pequeno delay para garantir que elementos assíncronos sejam limpos
+      setTimeout(() => {
+        cleanupOrphanedElements();
+      }, 0);
+      
+      // E mais uma vez após um delay maior para garantir que tudo seja limpo
+      setTimeout(() => {
+        cleanupOrphanedElements();
+        unmountingRef.current = false;
+      }, 50);
     };
-  }, []);
+  }, [refreshAll, isInitialized]);
 
   return (
     <AuthGuard>

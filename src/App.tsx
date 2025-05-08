@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { CustomersPage } from "./pages/CustomersPage";
@@ -14,10 +14,11 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { ShipmentPage } from "./pages/ShipmentPage";
 import { DashboardLayout } from "./components/DashboardLayout";
 import NotFound from "./pages/NotFound";
-import { useEffect, StrictMode } from "react";
+import { useEffect, StrictMode, useState, useCallback } from "react";
 import { useDataStore } from "./stores";
 import { useProductStore } from "./stores/useProductStore";
 import Index from "./pages/Index";
+import { safeCleanupDOM } from "./components/ShipmentSafeUnmount";
 
 // Create a React Query client with appropriate configurations
 const queryClient = new QueryClient({
@@ -31,33 +32,130 @@ const queryClient = new QueryClient({
   }
 });
 
-// Component to handle cleanup on route changes
+// Componente aprimorado para lidar com limpeza em mudanças de rota
 const RouteChangeHandler = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [isNavigating, setIsNavigating] = useState(false);
+  const previousPathRef = useRef(location.pathname);
   
-  useEffect(() => {
-    // Perform cleanup when route changes
-    return () => {
-      // Clean up any global event listeners or refs that might be causing issues
-      const cleanupBlobURLs = () => {
-        Object.keys(window).forEach(key => {
-          if (typeof key === 'string' && key.startsWith('tempFile_blob:')) {
+  // Esta função robusta lida com limpeza do DOM
+  const cleanupDOM = useCallback(() => {
+    // Limpar qualquer listener ou ref que possa estar causando problemas
+    const cleanupBlobURLs = () => {
+      Object.keys(window).forEach(key => {
+        if (typeof key === 'string' && key.startsWith('tempFile_blob:')) {
+          try {
+            URL.revokeObjectURL(key.replace('tempFile_', ''));
+            delete (window as any)[key];
+          } catch (e) {
+            console.error('Erro ao limpar blob URL:', e);
+          }
+        }
+      });
+    };
+    
+    // Chama a função utilitária de limpeza segura do DOM
+    safeCleanupDOM();
+    
+    cleanupBlobURLs();
+    
+    // Limpar elementos órfãos no DOM
+    try {
+      // Lista de seletores para limpar
+      const selectorsToClean = [
+        '[role="tooltip"]',
+        '[role="dialog"]',
+        '[data-portal]',
+        '.radix-popup',
+        '[data-floating]', 
+        '[data-state="open"]', 
+        '.popover-content', 
+        '.tooltip-content',
+        '.dropdown-menu-content',
+        '.react-flow__node',
+        '.react-flow__edge',
+        '[aria-live="polite"]',
+        '[aria-live="assertive"]'
+      ];
+      
+      // Limpar todos os seletores especificados
+      selectorsToClean.forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => {
+          if (el && el.parentNode) {
             try {
-              URL.revokeObjectURL(key.replace('tempFile_', ''));
-              delete (window as any)[key];
+              el.parentNode.removeChild(el);
             } catch (e) {
-              console.error('Error cleaning up blob URL:', e);
+              // Ignorar erros se o elemento já foi removido
             }
           }
         });
-      };
+      });
       
-      cleanupBlobURLs();
+      // Garantir que elementos de modal são removidos
+      document.querySelectorAll('body > [role="presentation"]').forEach(el => {
+        if (el && el.parentNode) {
+          try {
+            el.parentNode.removeChild(el);
+          } catch (e) {
+            // Ignorar erros se o elemento já foi removido
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Erro ao limpar elementos do DOM durante navegação:', error);
+    }
+    
+    // Forçar qualquer microtask pendente a completar para garantir que a limpeza termine
+    setTimeout(() => {}, 0);
+  }, []);
+  
+  // Efeito quando a rota muda
+  useEffect(() => {
+    // Verifica se realmente mudou de rota
+    if (previousPathRef.current !== location.pathname) {
+      console.log(`Navegando de ${previousPathRef.current} para ${location.pathname}`);
+      setIsNavigating(true);
       
-      // Force any pending microtasks to complete to ensure cleanup finishes
-      setTimeout(() => {}, 0);
+      // Atualiza a referência da rota anterior
+      previousPathRef.current = location.pathname;
+      
+      // Realiza limpeza do DOM
+      cleanupDOM();
+      
+      // Pequeno delay para permitir que a navegação aconteça antes de desmarcar estado
+      setTimeout(() => {
+        setIsNavigating(false);
+      }, 300);
+      
+      // Dispara evento global de mudança de rota
+      window.dispatchEvent(new CustomEvent('route-changed', {
+        detail: { from: previousPathRef.current, to: location.pathname }
+      }));
+    }
+    
+    // Executa limpeza quando componente for desmontado
+    return () => {
+      cleanupDOM();
     };
-  }, [location.pathname]);
+  }, [location.pathname, cleanupDOM]);
+  
+  // Efeito para proteger contra navegação problemática
+  useEffect(() => {
+    // Se estiver navegando por muito tempo, algo está errado, force uma limpeza
+    let navigationTimeout: ReturnType<typeof setTimeout>;
+    if (isNavigating) {
+      navigationTimeout = setTimeout(() => {
+        setIsNavigating(false);
+        console.warn('Navegação parece travada, forçando limpeza do DOM');
+        cleanupDOM();
+      }, 3000);
+    }
+    
+    return () => {
+      if (navigationTimeout) clearTimeout(navigationTimeout);
+    };
+  }, [isNavigating, cleanupDOM]);
   
   return <>{children}</>;
 };
@@ -82,9 +180,20 @@ const AppContent = () => {
       });
     }
     
+    // Add listeners for cleanup events
+    const handleAppCleanup = () => {
+      safeCleanupDOM();
+    };
+    
+    window.addEventListener('app-cleanup', handleAppCleanup);
+    window.addEventListener('component-unmount', handleAppCleanup);
+    
     // Cleanup function when component unmounts
     return () => {
       console.log("App desmontado, limpando recursos...");
+      
+      window.removeEventListener('app-cleanup', handleAppCleanup);
+      window.removeEventListener('component-unmount', handleAppCleanup);
       
       // Clean up any blob URLs that might be leaking
       Object.keys(window).forEach(key => {
@@ -97,6 +206,9 @@ const AppContent = () => {
           }
         }
       });
+      
+      // Final cleanup
+      safeCleanupDOM();
     };
   }, [initializeData, isInitialized, loadProducts]);
   
