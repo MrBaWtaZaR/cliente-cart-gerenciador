@@ -13,14 +13,13 @@ export const setupStorage = async () => {
       return;
     }
     
-    // Não tenta criar buckets, apenas verifica se existem
+    // Verificar se o bucket de imagens de produtos existe
     const productImagesBucketExists = buckets.some(bucket => bucket.name === 'product-images');
     
     if (productImagesBucketExists) {
-      console.log('Bucket product-images found and will be used for uploads.');
+      console.log('Bucket product-images encontrado e será usado para uploads.');
     } else {
-      console.log('Bucket product-images not found. Using local storage as fallback.');
-      console.info('You may need to create the bucket manually in the Supabase console.');
+      console.error('Bucket product-images não encontrado. Utilize o painel do Supabase para criá-lo.');
     }
   } catch (err) {
     console.error('Error setting up storage:', err);
@@ -51,13 +50,23 @@ export const saveProductToDatabase = async (product: Omit<Product, 'id' | 'creat
       return null;
     }
     
-    // Salvar as imagens relacionadas ao produto
+    // Processa e salva as imagens relacionadas ao produto
+    const processedImages = [];
+    
     if (product.images && product.images.length > 0) {
       // Filtra placeholders
       const realImages = product.images.filter(img => img !== '/placeholder.svg');
       
       if (realImages.length > 0) {
         for (const imageUrl of realImages) {
+          if (imageUrl.startsWith('blob:')) {
+            // Esta é uma imagem temporária, precisa ser processada
+            continue;
+          }
+          
+          // Esta é uma URL já processada
+          processedImages.push(imageUrl);
+          
           // Salva a referência da imagem no banco de dados
           const { error: imageError } = await supabase
             .from('product_images_relation')
@@ -75,7 +84,7 @@ export const saveProductToDatabase = async (product: Omit<Product, 'id' | 'creat
     
     return {
       ...data,
-      images: product.images,
+      images: processedImages.length > 0 ? processedImages : ['/placeholder.svg'],
       createdAt: new Date(data.created_at)
     };
   } catch (err) {
@@ -211,19 +220,29 @@ export const deleteProductFromDatabase = async (id: string): Promise<boolean> =>
   }
 };
 
-// Função para fazer upload de uma imagem para o armazenamento local ou Supabase
+// Função para fazer upload de uma imagem para o bucket do Supabase
 export const uploadProductImage = async (productId: string, file: File): Promise<string> => {
   try {
-    // Cria um blob URL para exibição imediata
-    const blobUrl = URL.createObjectURL(file);
-    
-    // Se o arquivo for muito grande (> 5MB), retorna apenas o blob URL
-    if (file.size > 5 * 1024 * 1024) {
-      console.warn('File too large, using blob URL only:', file.size);
+    // Gera um nome de arquivo único com timestamp para evitar colisões
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${productId}_${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    // Faz o upload do arquivo para o Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('product-images')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error('Error uploading image to Supabase Storage:', uploadError);
+      // Se falhar o upload, cria um blob URL para exibição temporária
+      const blobUrl = URL.createObjectURL(file);
       return blobUrl;
     }
-    
-    return blobUrl;
+
+    // Se o upload for bem-sucedido, obtém a URL pública
+    const publicUrl = getStorageUrl('product-images', filePath);
+    return publicUrl;
   } catch (error) {
     console.error('Error in uploadProductImage:', error);
     // Se qualquer coisa falhar, retorna um placeholder

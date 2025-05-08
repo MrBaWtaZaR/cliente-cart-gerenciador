@@ -265,8 +265,8 @@ export const ProductsPage = () => {
     
     toast.loading(`Enviando ${files.length} imagem(s)...`);
     
-    for (let i = 0; i < files.length; i++) {
-      try {
+    try {
+      for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const url = await uploadProductImage(productId, file);
         
@@ -276,18 +276,19 @@ export const ProductsPage = () => {
             images: [...prev.images.filter(img => img !== '/placeholder.svg'), url]
           }));
         }
-      } catch (error) {
-        console.error("Erro ao fazer upload:", error);
-        toast.error("Erro ao fazer upload da imagem");
       }
+      
+      toast.dismiss();
+      toast.success("Imagens enviadas com sucesso");
+    } catch (error) {
+      console.error("Erro ao fazer upload:", error);
+      toast.dismiss();
+      toast.error("Erro ao fazer upload da imagem");
+    } finally {
+      // Limpar o input de arquivo
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (addFileInputRef.current) addFileInputRef.current.value = '';
     }
-    
-    toast.dismiss();
-    toast.success("Imagens enviadas com sucesso");
-    
-    // Limpar o input de arquivo
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (addFileInputRef.current) addFileInputRef.current.value = '';
   };
 
   const openFileUpload = (isAdding = false) => {

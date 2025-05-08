@@ -8,7 +8,8 @@ import {
   saveProductToDatabase, 
   fetchProductsFromDatabase,
   updateProductInDatabase,
-  deleteProductFromDatabase
+  deleteProductFromDatabase,
+  setupStorage
 } from '../integrations/supabase/storage';
 
 interface ProductStore {
@@ -46,6 +47,10 @@ export const useProductStore = create<ProductStore>((set, get) => {
     loadProducts: async () => {
       set({ isLoading: true });
       try {
+        // Inicializa o storage para garantir que o bucket existe
+        await setupStorage();
+        
+        // Busca produtos do banco de dados
         const products = await fetchProductsFromDatabase();
         
         // Fallback para localStorage se não conseguir carregar do banco
@@ -185,30 +190,34 @@ export const useProductStore = create<ProductStore>((set, get) => {
     
     uploadProductImage: async (productId: string, file: File | string) => {
       try {
-        // Se o arquivo for um blob URL, precisamos primeiro convertê-lo em um arquivo
-        let fileToUpload = file;
-        let publicUrl = '';
-        
-        // Use simplified approach - just create blob URL if it's a File
-        if (fileToUpload instanceof File) {
-          publicUrl = await uploadProductImage(productId, fileToUpload);
-        } else {
-          // If it's already a string URL, just use it
-          publicUrl = fileToUpload;
+        if (typeof file === 'string') {
+          // Se já é uma URL, apenas retorna
+          return file;
         }
         
-        set((state) => {
-          try {
+        if (!(file instanceof File)) {
+          throw new Error('Expected file to be a File object');
+        }
+        
+        // Faz o upload para o Supabase Storage
+        const publicUrl = await uploadProductImage(productId, file);
+        
+        // Se o upload for bem-sucedido, atualiza a imagem no estado
+        if (publicUrl && publicUrl !== '/placeholder.svg') {
+          set((state) => {
             const updatedProducts = state.products.map((product) => {
               if (product.id === productId) {
+                const updatedImages = [...(product.images || [])
+                  .filter(img => img !== '/placeholder.svg'), publicUrl];
                 return {
                   ...product,
-                  images: [...(product.images || []).filter(img => img !== '/placeholder.svg'), publicUrl]
+                  images: updatedImages
                 };
               }
               return product;
             });
             
+            // Atualiza o localStorage
             try {
               localStorage.setItem('products', JSON.stringify(updatedProducts));
             } catch (storageError) {
@@ -216,11 +225,8 @@ export const useProductStore = create<ProductStore>((set, get) => {
             }
             
             return { products: updatedProducts };
-          } catch (error) {
-            console.error('Error updating product with image:', error);
-            return state;
-          }
-        });
+          });
+        }
         
         toast.success('Imagem adicionada com sucesso');
         return publicUrl;
