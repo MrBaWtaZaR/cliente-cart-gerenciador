@@ -18,7 +18,7 @@ import { useEffect, StrictMode, useState, useCallback, useRef } from "react";
 import { useDataStore } from "./stores";
 import { useProductStore } from "./stores/useProductStore";
 import Index from "./pages/Index";
-import { performDOMCleanup } from "./components/DOMCleanupUtils";
+import { performDOMCleanup, safeCleanupDOM } from "./components/ShipmentSafeUnmount";
 
 // Create a React Query client with appropriate configurations
 const queryClient = new QueryClient({
