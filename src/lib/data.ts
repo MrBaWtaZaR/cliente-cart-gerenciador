@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,9 +46,17 @@ export interface OrderProduct {
   images: string[];
 }
 
+export interface Shipment {
+  id: string;
+  name?: string;
+  createdAt: Date;
+  customers: Customer[];
+}
+
 interface DataStore {
   customers: Customer[];
   products: Product[];
+  shipments: Shipment[];
   
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'orders'>) => void;
   updateCustomer: (id: string, customerData: Partial<Customer>) => void;
@@ -62,6 +69,10 @@ interface DataStore {
   
   addOrder: (order: Omit<Order, 'id' | 'createdAt'>) => void;
   updateOrderStatus: (customerId: string, orderId: string, status: Order['status']) => void;
+  
+  addShipment: (customerIds: string[]) => Promise<Shipment>;
+  getShipments: () => Promise<void>;
+  getShipmentCustomers: (shipmentId: string) => Promise<Customer[]>;
 }
 
 // Função para gerar IDs únicos
@@ -208,9 +219,10 @@ const loadInitialData = () => {
 
 const { customers: initialCustomers, products: initialProducts } = loadInitialData();
 
-export const useDataStore = create<DataStore>((set) => ({
+export const useDataStore = create<DataStore>((set, get) => ({
   customers: initialCustomers,
   products: initialProducts,
+  shipments: [],
   
   addCustomer: (customerData) => set((state) => {
     const newCustomer: Customer = {
@@ -364,5 +376,147 @@ export const useDataStore = create<DataStore>((set) => ({
     
     toast.success('Status do pedido atualizado');
     return { customers: updatedCustomers };
-  })
+  }),
+  
+  addShipment: async (customerIds) => {
+    try {
+      // Create a new shipment in Supabase
+      const { data: shipmentData, error: shipmentError } = await supabase
+        .from('shipments')
+        .insert({})
+        .select()
+        .single();
+        
+      if (shipmentError) {
+        throw shipmentError;
+      }
+      
+      // Create shipment-customer associations
+      const shipmentCustomers = customerIds.map(customerId => ({
+        shipment_id: shipmentData.id,
+        customer_id: customerId
+      }));
+      
+      const { error: associationError } = await supabase
+        .from('shipment_customers')
+        .insert(shipmentCustomers);
+        
+      if (associationError) {
+        throw associationError;
+      }
+
+      const selectedCustomers = get().customers.filter(customer => 
+        customerIds.includes(customer.id)
+      );
+
+      const newShipment: Shipment = {
+        id: shipmentData.id,
+        createdAt: new Date(shipmentData.created_at),
+        customers: selectedCustomers
+      };
+      
+      set(state => ({
+        shipments: [...state.shipments, newShipment]
+      }));
+      
+      toast.success('Envio criado com sucesso');
+      return newShipment;
+    } catch (error) {
+      console.error('Erro ao criar envio:', error);
+      toast.error('Erro ao criar envio');
+      throw error;
+    }
+  },
+  
+  getShipments: async () => {
+    try {
+      const { data: shipmentData, error: shipmentError } = await supabase
+        .from('shipments')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (shipmentError) {
+        throw shipmentError;
+      }
+
+      // Transform the data to match our Shipment interface
+      const shipments: Shipment[] = await Promise.all(shipmentData.map(async (shipment) => {
+        // Get customers for this shipment
+        const customers = await get().getShipmentCustomers(shipment.id);
+        
+        return {
+          id: shipment.id,
+          name: shipment.name,
+          createdAt: new Date(shipment.created_at),
+          customers: customers
+        };
+      }));
+      
+      set({ shipments });
+    } catch (error) {
+      console.error('Erro ao carregar envios:', error);
+      toast.error('Erro ao carregar histórico de envios');
+    }
+  },
+  
+  getShipmentCustomers: async (shipmentId) => {
+    try {
+      // Get the customer IDs associated with this shipment
+      const { data: associations, error: associationError } = await supabase
+        .from('shipment_customers')
+        .select('customer_id')
+        .eq('shipment_id', shipmentId);
+        
+      if (associationError) {
+        throw associationError;
+      }
+      
+      if (!associations || associations.length === 0) {
+        return [];
+      }
+      
+      // Get the customer data for those IDs
+      const customerIds = associations.map(assoc => assoc.customer_id);
+      const { data: customerData, error: customerError } = await supabase
+        .from('customers')
+        .select('*')
+        .in('id', customerIds);
+        
+      if (customerError) {
+        throw customerError;
+      }
+      
+      if (!customerData) {
+        return [];
+      }
+
+      // Map the customers with their orders from local store
+      const customers: Customer[] = customerData.map(customer => {
+        // Try to find matching customer in local store to get orders
+        const localCustomer = get().customers.find(c => c.id === customer.id);
+        
+        return {
+          id: customer.id,
+          name: customer.name,
+          email: customer.email,
+          phone: customer.phone,
+          address: customer.address || undefined,
+          createdAt: new Date(customer.created_at),
+          tourName: customer.tour_name || undefined,
+          tourSector: customer.tour_sector || undefined,
+          tourSeatNumber: customer.tour_seat_number || undefined,
+          tourCity: customer.tour_city || undefined,
+          tourState: customer.tour_state || undefined,
+          tourDepartureTime: customer.tour_departure_time || undefined,
+          orders: localCustomer?.orders || []
+        };
+      });
+      
+      return customers;
+    } catch (error) {
+      console.error('Erro ao carregar clientes do envio:', error);
+      toast.error('Erro ao carregar detalhes do envio');
+      return [];
+    }
+  }
 }));

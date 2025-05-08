@@ -12,7 +12,8 @@ import {
   ShoppingCart,
   Menu,
   X,
-  LogOut
+  LogOut,
+  Calendar
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -60,6 +61,11 @@ export const DashboardSidebar = () => {
       path: '/dashboard/orders', 
       icon: <ShoppingCart className="h-5 w-5" />, 
       label: 'Pedidos',
+    },
+    { 
+      path: '/dashboard/shipments', 
+      icon: <Calendar className="h-5 w-5" />, 
+      label: 'Preparando Envio',
     },
     { 
       path: '/dashboard/settings', 

@@ -78,6 +78,60 @@ export type Database = {
         }
         Relationships: []
       }
+      shipment_customers: {
+        Row: {
+          created_at: string
+          customer_id: string
+          id: string
+          shipment_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          id?: string
+          shipment_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          id?: string
+          shipment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_customers_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_customers_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipments: {
+        Row: {
+          created_at: string
+          id: string
+          name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

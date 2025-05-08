@@ -11,6 +11,7 @@ import { CustomerDetailPage } from "./pages/CustomerDetailPage";
 import { ProductsPage } from "./pages/ProductsPage";
 import { OrdersPage } from "./pages/OrdersPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { ShipmentPage } from "./pages/ShipmentPage";
 import { DashboardLayout } from "./components/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
@@ -53,6 +54,12 @@ const App = () => {
             <Route path="/dashboard/orders" element={
               <DashboardLayout>
                 <OrdersPage />
+              </DashboardLayout>
+            } />
+            
+            <Route path="/dashboard/shipments" element={
+              <DashboardLayout>
+                <ShipmentPage />
               </DashboardLayout>
             } />
             
