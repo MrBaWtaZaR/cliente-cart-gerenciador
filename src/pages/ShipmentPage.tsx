@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useDataStore, Customer, Shipment } from '@/lib/data';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +28,14 @@ export const ShipmentPage = () => {
 
   const tableRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
+
+  // Filter customers with pending orders only
+  const customersWithPendingOrders = useMemo(() => {
+    return customers.filter(customer => {
+      // Check if customer has at least one pending order
+      return customer.orders && customer.orders.some(order => order.status === 'pending');
+    });
+  }, [customers]);
 
   // Set up component unmount
   useEffect(() => {
@@ -404,7 +411,7 @@ export const ShipmentPage = () => {
             <DialogDescription>
               {isEditing 
                 ? 'Modifique os clientes que deseja incluir neste envio.' 
-                : 'Selecione os clientes que deseja incluir neste envio.'}
+                : 'Selecione os clientes que deseja incluir neste envio. Apenas clientes com pedidos pendentes são exibidos.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -413,13 +420,19 @@ export const ShipmentPage = () => {
               <span>Total selecionado: {selectedCustomers.length} clientes</span>
               <Button
                 size="sm"
-                onClick={() => setSelectedCustomers(
-                  selectedCustomers.length === customers.length 
-                    ? [] 
-                    : customers.map(c => c.id)
-                )}
+                onClick={() => {
+                  // Use filtered list for "select all" functionality when creating new shipment
+                  const availableCustomers = isEditing ? customers : customersWithPendingOrders;
+                  setSelectedCustomers(
+                    selectedCustomers.length === availableCustomers.length 
+                      ? [] 
+                      : availableCustomers.map(c => c.id)
+                  );
+                }}
               >
-                {selectedCustomers.length === customers.length ? 'Desmarcar todos' : 'Selecionar todos'}
+                {selectedCustomers.length === (isEditing ? customers.length : customersWithPendingOrders.length) 
+                  ? 'Desmarcar todos' 
+                  : 'Selecionar todos'}
               </Button>
             </div>
 
@@ -431,22 +444,47 @@ export const ShipmentPage = () => {
                     <th className="p-3 text-left">Nome</th>
                     <th className="p-3 text-left">Excursão</th>
                     <th className="p-3 text-left">Vaga</th>
+                    <th className="p-3 text-left">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {customers.map((customer) => (
-                    <tr key={customer.id} className="border-t">
-                      <td className="p-3">
-                        <Checkbox 
-                          checked={selectedCustomers.includes(customer.id)} 
-                          onCheckedChange={() => handleToggleCustomer(customer.id)}
-                        />
-                      </td>
-                      <td className="p-3">{customer.name}</td>
-                      <td className="p-3">{customer.tourName || '-'}</td>
-                      <td className="p-3">{customer.tourSeatNumber || '-'}</td>
-                    </tr>
-                  ))}
+                  {/* When editing, show all customers; when creating new, show only those with pending orders */}
+                  {(isEditing ? customers : customersWithPendingOrders).map((customer) => {
+                    // Find latest order status for display
+                    const latestOrder = customer.orders && customer.orders.length > 0 
+                      ? customer.orders.reduce((latest, current) => 
+                          new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+                        ) 
+                      : null;
+                    
+                    return (
+                      <tr key={customer.id} className="border-t">
+                        <td className="p-3">
+                          <Checkbox 
+                            checked={selectedCustomers.includes(customer.id)} 
+                            onCheckedChange={() => handleToggleCustomer(customer.id)}
+                          />
+                        </td>
+                        <td className="p-3">{customer.name}</td>
+                        <td className="p-3">{customer.tourName || '-'}</td>
+                        <td className="p-3">{customer.tourSeatNumber || '-'}</td>
+                        <td className="p-3">
+                          {latestOrder ? (
+                            <span className={
+                              latestOrder.status === 'pending' 
+                                ? 'text-yellow-600 font-medium' 
+                                : latestOrder.status === 'completed' 
+                                  ? 'text-green-600 font-medium' 
+                                  : 'text-red-600 font-medium'
+                            }>
+                              {latestOrder.status === 'pending' ? 'Pendente' : 
+                               latestOrder.status === 'completed' ? 'Confirmado' : 'Cancelado'}
+                            </span>
+                          ) : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
