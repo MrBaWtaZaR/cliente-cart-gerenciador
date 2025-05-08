@@ -1,47 +1,44 @@
-
 import { supabase, getStorageUrl } from './client';
 import { Product } from '../../types/products';
 
 // Função para verificar se o storage está disponível
 export const setupStorage = async () => {
   try {
-    // Verificar se os buckets existem
+    console.log('Checking Supabase storage availability...');
+    
+    // Attempt to list objects in the product-images bucket directly
+    // This is a more direct way to check if the bucket is accessible
+    const { data: objects, error: objError } = await supabase.storage
+      .from('product-images')
+      .list('', { limit: 1 });
+      
+    if (!objError) {
+      console.log('Bucket product-images está acessível.');
+      return true;
+    }
+    
+    // If that fails, try listing buckets to see if we can find it
     const { data: buckets, error } = await supabase.storage.listBuckets();
     
     if (error) {
       console.error('Error listing buckets:', error);
+      console.log('Using localStorage as fallback for image storage.');
       return false;
     }
     
-    // Verificar se o bucket de imagens de produtos existe
+    // Check if the product-images bucket exists
     const productImagesBucketExists = buckets.some(bucket => bucket.name === 'product-images');
     
     if (productImagesBucketExists) {
       console.log('Bucket product-images encontrado e pronto para uso.');
       return true;
     } else {
-      console.warn('Bucket product-images não encontrado apesar de ter sido criado. Tentando novamente...');
-      
-      // Try to check object permissions as a way to verify bucket exists
-      try {
-        const { data: objects, error: objError } = await supabase.storage
-          .from('product-images')
-          .list();
-          
-        if (!objError) {
-          console.log('Bucket product-images está acessível.');
-          return true;
-        } else {
-          console.error('Erro ao acessar bucket product-images:', objError);
-          return false;
-        }
-      } catch (err) {
-        console.error('Erro ao verificar bucket:', err);
-        return false;
-      }
+      console.log('Bucket product-images não encontrado. Using localStorage as fallback.');
+      return false;
     }
   } catch (err) {
     console.error('Error setting up storage:', err);
+    console.log('Using localStorage as fallback for image storage.');
     return false;
   }
 };

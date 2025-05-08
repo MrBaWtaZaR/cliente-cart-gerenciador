@@ -192,6 +192,8 @@ export const useProductStore = create<ProductStore>((set, get) => {
     },
     
     uploadProductImage: async (productId: string, file: File | string) => {
+      const { isStorageAvailable } = get();
+      
       try {
         if (typeof file === 'string') {
           // Se já é uma URL, apenas retorna
@@ -200,6 +202,14 @@ export const useProductStore = create<ProductStore>((set, get) => {
         
         if (!(file instanceof File)) {
           throw new Error('Expected file to be a File object');
+        }
+        
+        // If storage is not available, use local blob URL
+        if (!isStorageAvailable) {
+          console.log('Storage not available, using local blob URL');
+          const blobUrl = URL.createObjectURL(file);
+          toast.success('Imagem adicionada localmente');
+          return blobUrl;
         }
         
         // Faz o upload para o Supabase Storage
@@ -236,6 +246,12 @@ export const useProductStore = create<ProductStore>((set, get) => {
       } catch (error) {
         console.error('Erro ao fazer upload:', error);
         toast.error('Falha ao adicionar imagem');
+        
+        // Create a local blob URL as fallback
+        if (file instanceof File) {
+          const blobUrl = URL.createObjectURL(file);
+          return blobUrl;
+        }
         
         // Return placeholder in case of error
         return '/placeholder.svg';
