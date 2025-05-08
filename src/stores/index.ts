@@ -7,4 +7,4 @@ export { useShipmentStore } from './useShipmentStore';
 export type { Customer, Order, OrderProduct } from '../types/customers';
 export type { Product } from '../types/products';
 export type { Shipment } from '../types/shipments';
-export { saveOrderToSupabase, getOrdersFromSupabase, getAllOrdersFromSupabase, updateOrderStatusInSupabase, deleteOrderFromSupabase } from './orderSync';
+export { saveOrderToSupabase, getOrdersFromSupabase, getAllOrdersFromSupabase, updateOrderStatusInSupabase, deleteOrderFromSupabase, syncAllCustomerOrders } from './orderSync';

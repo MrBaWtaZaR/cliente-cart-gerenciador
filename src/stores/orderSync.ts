@@ -116,7 +116,8 @@ export const getOrdersFromSupabase = async (customerId: string): Promise<Order[]
         id: orderData.id,
         customerId: orderData.customer_id,
         products,
-        status: orderData.status,
+        // Ensure status is of the correct type
+        status: orderData.status as 'pending' | 'completed' | 'cancelled',
         total: orderData.total,
         createdAt: new Date(orderData.created_at)
       });
@@ -173,7 +174,8 @@ export const getAllOrdersFromSupabase = async (): Promise<{customerId: string, o
         id: orderData.id,
         customerId: orderData.customer_id,
         products,
-        status: orderData.status,
+        // Ensure status is of the correct type
+        status: orderData.status as 'pending' | 'completed' | 'cancelled',
         total: orderData.total,
         createdAt: new Date(orderData.created_at)
       };
@@ -245,4 +247,10 @@ export const deleteOrderFromSupabase = async (orderId: string): Promise<boolean>
     console.error('Error in deleteOrderFromSupabase:', error);
     return false;
   }
+};
+
+// Export the function for syncing all customer orders
+export const syncAllCustomerOrders = async () => {
+  console.log("This function is a placeholder and should be called from useCustomerStore");
+  return;
 };
