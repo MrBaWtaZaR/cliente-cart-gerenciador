@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useDataStore, Customer, Shipment } from '@/lib/data';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -433,6 +434,14 @@ export const ShipmentPage = () => {
   // Calculate if "new shipment" button should be disabled
   const isNewShipmentButtonDisabled = isLoading;
 
+  // Ensure proper cleanup when the component is about to unmount
+  useEffect(() => {
+    return () => {
+      // Reset any print refs that might be lingering
+      setPrintRefsExist(false);
+    };
+  }, [setPrintRefsExist]);
+
   return (
     <div className="container space-y-6">
       <div className="flex justify-between items-center">
@@ -815,11 +824,3 @@ export const ShipmentPage = () => {
     </div>
   );
 };
-
-// Ensure proper cleanup when the component is about to unmount
-useEffect(() => {
-  return () => {
-    // Reset any print refs that might be lingering
-    setPrintRefsExist(false);
-  };
-}, []);
