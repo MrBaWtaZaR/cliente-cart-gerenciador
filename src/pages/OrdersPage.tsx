@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useCustomerStore } from '@/stores';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,7 @@ import { OrderCard } from '@/components/OrderCard';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { EditOrderForm } from '@/components/EditOrderForm';
 import { SyncButton } from '@/components/ui/sync-button';
+import { toast } from '@/hooks/use-toast';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +30,8 @@ export const OrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { customers, updateOrderStatus, deleteOrder } = useCustomerStore();
   const navigate = useNavigate();
+  
+  // State variables
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
@@ -38,6 +42,7 @@ export const OrdersPage = () => {
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [isPdfLoading, setIsPdfLoading] = useState<boolean>(false);
   
   // Prevent state updates after component unmounts
   const isMounted = useRef(true);
@@ -49,25 +54,27 @@ export const OrdersPage = () => {
       console.log("OrdersPage desmontando, limpando recursos...");
       isMounted.current = false;
       
-      // Garante que as dialogs estejam fechadas
+      // Ensure dialogs are closed
       setDialogOpen(false);
       setDeleteDialogOpen(false);
       setShowPDFPreview(false);
       
-      // Limpa estados para liberar memória
+      // Clear states to free memory
       setViewingOrder(null);
       setCustomerInfo(null);
     };
   }, []);
 
-  // Get all orders
-  const allOrders = customers.flatMap(customer => 
-    (customer.orders || []).map(order => ({
-      ...order,
-      customerName: customer.name,
-      customerId: customer.id,
-    }))
-  );
+  // Get all orders with memoization to prevent unnecessary recalculations
+  const allOrders = React.useMemo(() => {
+    return customers.flatMap(customer => 
+      (customer.orders || []).map(order => ({
+        ...order,
+        customerName: customer.name,
+        customerId: customer.id,
+      }))
+    );
+  }, [customers]);
 
   // Check if we should open a specific order from URL parameters
   useEffect(() => {
@@ -75,41 +82,43 @@ export const OrdersPage = () => {
     if (viewOrderId && !dialogOpen) {
       console.log("Tentando abrir pedido do URL:", viewOrderId);
       const orderToView = allOrders.find(order => order.id === viewOrderId);
-      if (orderToView) {
+      if (orderToView && isMounted.current) {
         handleViewOrder(orderToView, orderToView.customerName);
-        if (isMounted.current) {
-          setDialogOpen(true);
-        }
+        setDialogOpen(true);
       }
     }
   }, [searchParams, allOrders, dialogOpen]);
 
-  // Filter orders based on applied filters
-  const filteredOrders = allOrders.filter(order => {
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = 
-      order.id.toLowerCase().includes(searchLower) ||
-      order.customerName.toLowerCase().includes(searchLower);
-    
-    // Filter by date if date filter is applied
-    const matchesDate = !dateFilter || 
-      (new Date(order.createdAt).toDateString() === dateFilter.toDateString());
-    
-    return matchesStatus && matchesSearch && matchesDate;
-  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  // Filter orders based on applied filters - memoized to avoid recalculation
+  const filteredOrders = React.useMemo(() => {
+    return allOrders
+      .filter(order => {
+        const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = 
+          order.id.toLowerCase().includes(searchLower) ||
+          order.customerName.toLowerCase().includes(searchLower);
+        
+        // Filter by date if date filter is applied
+        const matchesDate = !dateFilter || 
+          (new Date(order.createdAt).toDateString() === dateFilter.toDateString());
+        
+        return matchesStatus && matchesSearch && matchesDate;
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [allOrders, statusFilter, searchTerm, dateFilter]);
 
-  const handleUpdateOrderStatus = (customerId: string, orderId: string, newStatus: 'pending' | 'completed' | 'cancelled') => {
+  const handleUpdateOrderStatus = useCallback((customerId: string, orderId: string, newStatus: 'pending' | 'completed' | 'cancelled') => {
     updateOrderStatus(customerId, orderId, newStatus);
     
     // Update status in current view if it's open
     if (viewingOrder && viewingOrder.id === orderId && isMounted.current) {
-      setViewingOrder({ ...viewingOrder, status: newStatus });
+      setViewingOrder(prevState => ({ ...prevState, status: newStatus }));
     }
-  };
+  }, [updateOrderStatus, viewingOrder]);
 
   // Improved view order function
-  const handleViewOrder = (order: any, customerName: string) => {
+  const handleViewOrder = useCallback((order: any, customerName: string) => {
     try {
       console.log("Visualizando pedido:", order.id);
       const customer = customers.find(c => c.id === order.customerId);
@@ -148,32 +157,36 @@ export const OrdersPage = () => {
       setSearchParams({ view: order.id });
     } catch (error) {
       console.error('Error in handleViewOrder:', error);
-      // Em caso de erro, limpa o estado para evitar renderizações com dados inválidos
+      toast.error("Erro ao carregar detalhes do pedido");
+      // In case of error, clear the state to avoid rendering with invalid data
       if (isMounted.current) {
         setViewingOrder(null);
         setCustomerName('');
         setCustomerInfo(null);
       }
     }
-  };
+  }, [customers, setSearchParams]);
   
-  // Updated PDF printing with correct type for contentRef
+  // Updated PDF printing with deferred rendering
   const handlePrintPDF = useReactToPrint({
-    documentTitle: `Pedido-${viewingOrder?.id || ''}`,
+    documentTitle: `Pedido-${viewingOrder?.id?.substring(0, 8) || ''}`,
     onBeforePrint: () => {
       return new Promise<void>((resolve) => {
         try {
           if (isMounted.current) {
             console.log("Preparando para impressão...");
+            setIsPdfLoading(true);
             setShowPDFPreview(true);
           }
           
-          // Aumentar o tempo para garantir que o PDF está pronto
+          // Use a short timeout to ensure the PDF is ready
           setTimeout(() => {
+            setIsPdfLoading(false);
             resolve();
-          }, 500);
+          }, 300);
         } catch (error) {
           console.error('Error in onBeforePrint:', error);
+          setIsPdfLoading(false);
           resolve(); // Resolve anyway to avoid hanging
         }
       });
@@ -182,45 +195,22 @@ export const OrdersPage = () => {
       try {
         console.log("Impressão concluída");
         if (isMounted.current) {
-          setShowPDFPreview(false);
+          setTimeout(() => {
+            setShowPDFPreview(false);
+          }, 100);
         }
       } catch (error) {
         console.error('Error in onAfterPrint:', error);
-      }
-    },
-    // Fix: Changed to provide the direct ref object
-    contentRef: pdfRef,
-  });
-
-  // Pre-render the PDF content when viewing order changes
-  useEffect(() => {
-    if (viewingOrder && !showPDFPreview && isMounted.current) {
-      try {
-        console.log("Pré-renderizando PDF");
-        setShowPDFPreview(true);
-        // Small timeout to ensure the content is rendered
-        const timer = setTimeout(() => {
-          if (isMounted.current) {
-            setShowPDFPreview(false);
-            console.log("Pré-renderização concluída");
-          }
-        }, 500);
-        
-        return () => {
-          clearTimeout(timer);
-          console.log("Limpando timer de pré-renderização");
-        };
-      } catch (error) {
-        console.error('Error in PDF preview effect:', error);
         if (isMounted.current) {
           setShowPDFPreview(false);
         }
       }
-    }
-  }, [viewingOrder, showPDFPreview]);
+    },
+    contentRef: pdfRef,
+  });
 
   // Improved dialog close handling
-  const handleDialogClose = () => {
+  const handleDialogClose = useCallback(() => {
     try {
       console.log("Fechando diálogo de pedido");
       if (!isMounted.current) return;
@@ -234,7 +224,7 @@ export const OrdersPage = () => {
       setTimeout(() => {
         if (!isMounted.current) return;
         
-        // Limpar estados para evitar problemas ao reabrir
+        // Clear states to prevent issues when reopening
         setViewingOrder(null);
         setCustomerInfo(null);
         setCustomerName('');
@@ -243,7 +233,7 @@ export const OrdersPage = () => {
       }, 300);
     } catch (error) {
       console.error('Error in handleDialogClose:', error);
-      // Tente limpar tudo de uma vez se houver erro
+      // Try to clear everything at once if there's an error
       if (isMounted.current) {
         setDialogOpen(false);
         setShowPDFPreview(false);
@@ -252,34 +242,37 @@ export const OrdersPage = () => {
         setSearchParams({});
       }
     }
-  };
+  }, [setSearchParams]);
 
-  const handleDeleteOrder = () => {
+  const handleDeleteOrder = useCallback(() => {
     if (viewingOrder && viewingOrder.customerId) {
       deleteOrder(viewingOrder.customerId, viewingOrder.id);
       setDeleteDialogOpen(false);
       handleDialogClose();
+      toast.success("Pedido excluído com sucesso");
     }
-  };
+  }, [deleteOrder, viewingOrder, handleDialogClose]);
 
-  const handleStartEditing = () => {
+  const handleStartEditing = useCallback(() => {
     if (isMounted.current) {
       setIsEditing(true);
     }
-  };
+  }, []);
 
-  const handleCancelEditing = () => {
+  const handleCancelEditing = useCallback(() => {
     if (isMounted.current) {
       setIsEditing(false);
     }
-  };
+  }, []);
 
   // Improved order update handling
-  const handleOrderUpdated = () => {
+  const handleOrderUpdated = useCallback(() => {
     try {
       if (!isMounted.current) return;
       
       setIsEditing(false);
+      toast.success("Pedido atualizado com sucesso");
+      
       // Update the view with the latest order data
       if (viewingOrder) {
         const updatedOrder = customers.find(c => c.id === viewingOrder.customerId)
@@ -304,9 +297,10 @@ export const OrdersPage = () => {
       console.error('Error in handleOrderUpdated:', error);
       if (isMounted.current) {
         setIsEditing(false);
+        toast.error("Erro ao atualizar pedido");
       }
     }
-  };
+  }, [customers, viewingOrder]);
 
   return (
     <div className="space-y-6">
@@ -408,13 +402,23 @@ export const OrdersPage = () => {
         <DialogContent 
           className="max-w-3xl" 
           onInteractOutside={(e) => {
-            console.log("Dialog click outside bloqueado");
+            // No longer aggressively blocking clicks 
             e.preventDefault();
+            // Only prevent closing while editing or printing
+            if (isEditing || showPDFPreview) {
+              console.log("Dialog click outside blocked - editing or printing in progress");
+            } else {
+              handleDialogClose();
+            }
           }}
           onEscapeKeyDown={(e) => {
-            console.log("Dialog escape bloqueado");
-            e.preventDefault();
-            handleDialogClose();
+            // Only prevent escape while editing or printing
+            if (isEditing || showPDFPreview) {
+              console.log("Dialog escape blocked - editing or printing in progress");
+              e.preventDefault();
+            } else {
+              handleDialogClose();
+            }
           }}
         >
           {isEditing && viewingOrder ? (
@@ -450,7 +454,7 @@ export const OrdersPage = () => {
                 </DialogDescription>
               </DialogHeader>
               
-              {viewingOrder && (
+              {viewingOrder ? (
                 <>
                   <div className="flex flex-col md:flex-row justify-between mb-6">
                     <div>
@@ -513,7 +517,7 @@ export const OrdersPage = () => {
                                         alt={item.productName}
                                         className="w-full h-full object-cover"
                                         onError={(e) => {
-                                          // Se a imagem falhar, use o placeholder
+                                          // If the image fails, use a placeholder
                                           (e.target as HTMLImageElement).src = '/placeholder.svg';
                                         }}
                                       />
@@ -553,6 +557,10 @@ export const OrdersPage = () => {
                     </div>
                   </div>
                 </>
+              ) : (
+                <div className="py-10 text-center">
+                  <p>Carregando detalhes do pedido...</p>
+                </div>
               )}
               
               <DialogFooter className="flex justify-between items-center sm:space-x-2 flex-col sm:flex-row gap-2 sm:gap-0">
@@ -560,6 +568,7 @@ export const OrdersPage = () => {
                   variant="destructive" 
                   onClick={() => setDeleteDialogOpen(true)}
                   className="flex items-center"
+                  disabled={isPdfLoading || !viewingOrder}
                 >
                   <Trash2 className="h-4 w-4 mr-2" /> Excluir Pedido
                 </Button>
@@ -575,6 +584,7 @@ export const OrdersPage = () => {
                       variant="secondary"
                       onClick={handleStartEditing}
                       className="flex items-center"
+                      disabled={isPdfLoading || !viewingOrder}
                     >
                       <Edit className="h-4 w-4 mr-2" /> Editar
                     </Button>
@@ -582,8 +592,15 @@ export const OrdersPage = () => {
                       variant="default"
                       onClick={handlePrintPDF}
                       className="flex items-center"
+                      disabled={isPdfLoading || !viewingOrder}
                     >
-                      <Printer className="h-4 w-4 mr-2" /> Imprimir
+                      {isPdfLoading ? (
+                        <>Preparando...</>
+                      ) : (
+                        <>
+                          <Printer className="h-4 w-4 mr-2" /> Imprimir
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -619,14 +636,14 @@ export const OrdersPage = () => {
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Improved PDF container */}
-      {viewingOrder && customerInfo && (
+      {/* Improved PDF container that only renders when needed */}
+      {showPDFPreview && viewingOrder && customerInfo && (
         <div style={{ 
-          display: showPDFPreview ? 'block' : 'none', 
-          position: 'absolute', 
-          left: '-9999px', 
-          visibility: showPDFPreview ? 'visible' : 'hidden',
-          pointerEvents: 'none' // Evita interações com o PDF escondido
+          display: 'block',
+          position: 'absolute',
+          left: '-9999px',
+          visibility: 'hidden',
+          pointerEvents: 'none' // Prevent interactions with the hidden PDF
         }}>
           <div ref={pdfRef}>
             <OrderPDF 

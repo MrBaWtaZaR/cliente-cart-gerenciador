@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { memo } from 'react';
 import { Order } from '@/lib/data';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -20,7 +20,8 @@ interface OrderPDFProps {
   };
 }
 
-export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
+// Using memo to prevent unnecessary re-renders
+export const OrderPDF = memo(React.forwardRef<HTMLDivElement, OrderPDFProps>(
   ({ order, customerName, customerInfo }, ref) => {
     const currentDate = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
     const hasTourInfo = customerInfo.tourName || customerInfo.tourCity || customerInfo.tourState;
@@ -201,6 +202,6 @@ export const OrderPDF = React.forwardRef<HTMLDivElement, OrderPDFProps>(
       </div>
     );
   }
-);
+));
 
 OrderPDF.displayName = 'OrderPDF';
