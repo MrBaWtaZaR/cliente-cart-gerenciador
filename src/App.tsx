@@ -1,5 +1,4 @@
 
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -32,130 +31,60 @@ const queryClient = new QueryClient({
   }
 });
 
-// Componente aprimorado para lidar com limpeza em mudanças de rota
+// Improved route change handler with better cleanup logic
 const RouteChangeHandler = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const [isNavigating, setIsNavigating] = useState(false);
   const previousPathRef = useRef(location.pathname);
+  const cleanupInProgress = useRef(false);
   
-  // Esta função robusta lida com limpeza do DOM
+  // More robust DOM cleanup function with safeguards
   const cleanupDOM = useCallback(() => {
-    // Limpar qualquer listener ou ref que possa estar causando problemas
-    const cleanupBlobURLs = () => {
-      Object.keys(window).forEach(key => {
-        if (typeof key === 'string' && key.startsWith('tempFile_blob:')) {
-          try {
-            URL.revokeObjectURL(key.replace('tempFile_', ''));
-            delete (window as any)[key];
-          } catch (e) {
-            console.error('Erro ao limpar blob URL:', e);
-          }
-        }
-      });
-    };
+    // Prevent concurrent cleanup operations
+    if (cleanupInProgress.current) return;
+    cleanupInProgress.current = true;
     
-    // Chama a função utilitária de limpeza segura do DOM
+    // Use the enhanced safe cleanup utility
     safeCleanupDOM();
     
-    cleanupBlobURLs();
-    
-    // Limpar elementos órfãos no DOM
-    try {
-      // Lista de seletores para limpar
-      const selectorsToClean = [
-        '[role="tooltip"]',
-        '[role="dialog"]',
-        '[data-portal]',
-        '.radix-popup',
-        '[data-floating]', 
-        '[data-state="open"]', 
-        '.popover-content', 
-        '.tooltip-content',
-        '.dropdown-menu-content',
-        '.react-flow__node',
-        '.react-flow__edge',
-        '[aria-live="polite"]',
-        '[aria-live="assertive"]'
-      ];
-      
-      // Limpar todos os seletores especificados com validação extra
-      selectorsToClean.forEach(selector => {
-        document.querySelectorAll(selector).forEach(el => {
-          if (el && el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
-            try {
-              el.parentNode.removeChild(el);
-            } catch (e) {
-              // Ignorar erros se o elemento já foi removido
-            }
-          }
-        });
-      });
-      
-      // Garantir que elementos de modal são removidos
-      document.querySelectorAll('body > [role="presentation"]').forEach(el => {
-        if (el && el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
-          try {
-            el.parentNode.removeChild(el);
-          } catch (e) {
-            // Ignorar erros se o elemento já foi removido
-          }
+    // Cleanup blob URLs to prevent memory leaks
+    Object.keys(window).forEach(key => {
+      if (typeof key === 'string' && key.startsWith('tempFile_blob:')) {
+        try {
+          URL.revokeObjectURL(key.replace('tempFile_', ''));
+          delete (window as any)[key];
+        } catch (e) {
+          console.error('Error cleaning blob URL:', e);
         }
-      });
-    } catch (error) {
-      console.error('Erro ao limpar elementos do DOM durante navegação:', error);
-    }
+      }
+    });
     
-    // Forçar qualquer microtask pendente a completar para garantir que a limpeza termine
-    setTimeout(() => {}, 0);
+    // Reset the cleanup flag after a delay
+    setTimeout(() => {
+      cleanupInProgress.current = false;
+    }, 100);
   }, []);
   
-  // Efeito quando a rota muda
+  // Run cleanup when route changes
   useEffect(() => {
-    // Verifica se realmente mudou de rota
+    // Only run if we've actually changed routes
     if (previousPathRef.current !== location.pathname) {
-      console.log(`Navegando de ${previousPathRef.current} para ${location.pathname}`);
-      setIsNavigating(true);
+      console.log(`Navigating from ${previousPathRef.current} to ${location.pathname}`);
       
-      // Atualiza a referência da rota anterior
+      // Update previous path reference
       previousPathRef.current = location.pathname;
       
-      // Realiza limpeza do DOM
-      cleanupDOM();
+      // Perform DOM cleanup with debouncing
+      setTimeout(cleanupDOM, 0);
       
-      // Pequeno delay para permitir que a navegação aconteça antes de desmarcar estado
-      setTimeout(() => {
-        setIsNavigating(false);
-      }, 300);
-      
-      // Dispara evento global de mudança de rota
+      // Notify the application of route change
       window.dispatchEvent(new CustomEvent('route-changed', {
         detail: { from: previousPathRef.current, to: location.pathname }
       }));
     }
     
-    // Executa limpeza quando componente for desmontado
-    return () => {
-      cleanupDOM();
-    };
+    // Run cleanup when component unmounts
+    return cleanupDOM;
   }, [location.pathname, cleanupDOM]);
-  
-  // Efeito para proteger contra navegação problemática
-  useEffect(() => {
-    // Se estiver navegando por muito tempo, algo está errado, force uma limpeza
-    let navigationTimeout: ReturnType<typeof setTimeout>;
-    if (isNavigating) {
-      navigationTimeout = setTimeout(() => {
-        setIsNavigating(false);
-        console.warn('Navegação parece travada, forçando limpeza do DOM');
-        cleanupDOM();
-      }, 3000);
-    }
-    
-    return () => {
-      if (navigationTimeout) clearTimeout(navigationTimeout);
-    };
-  }, [isNavigating, cleanupDOM]);
   
   return <>{children}</>;
 };
@@ -232,7 +161,7 @@ const AppContent = () => {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </RouteChangeHandler>
-      <Toaster />
+      {/* Using only one toast system: Sonner */}
       <Sonner />
     </TooltipProvider>
   );

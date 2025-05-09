@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ShipmentTablePDF, ShipmentCardsPDF } from '@/components/ShipmentPDF';
 import { Plus, FileText, CreditCard, Calendar, Download, Eye, Trash2, Edit, Save } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { useReactToPrint } from 'react-to-print';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -44,9 +44,16 @@ export const ShipmentPage = () => {
     });
   }, [customers]);
 
-  // Update the print refs status
+  // Update the print refs status with proper cleanup
   useEffect(() => {
+    // Set the print refs status whenever refs change
     setPrintRefsExist(tableRef.current !== null || cardsRef.current !== null);
+    
+    // Clean up on component unmount
+    return () => {
+      // Explicitly set refs to not exist before unmounting
+      setPrintRefsExist(false);
+    };
   }, [tableRef.current, cardsRef.current, setPrintRefsExist]);
 
   // Fetch shipments when component mounts or when dependencies change
@@ -173,6 +180,14 @@ export const ShipmentPage = () => {
     onAfterPrint: () => {
       if (isMounted()) {
         toast.success('PDF da tabela gerado com sucesso');
+        
+        // Manual cleanup after printing to prevent memory leaks
+        setTimeout(() => {
+          if (isMounted()) {
+            setPrintRefsExist(false);
+            setTimeout(() => setPrintRefsExist(true), 100);
+          }
+        }, 500);
       }
     },
     contentRef: tableRef,
@@ -188,6 +203,14 @@ export const ShipmentPage = () => {
     onAfterPrint: () => {
       if (isMounted()) {
         toast.success('PDF dos cards gerado com sucesso');
+        
+        // Manual cleanup after printing to prevent memory leaks
+        setTimeout(() => {
+          if (isMounted()) {
+            setPrintRefsExist(false);
+            setTimeout(() => setPrintRefsExist(true), 100);
+          }
+        }, 500);
       }
     },
     contentRef: cardsRef,
@@ -792,3 +815,11 @@ export const ShipmentPage = () => {
     </div>
   );
 };
+
+// Ensure proper cleanup when the component is about to unmount
+useEffect(() => {
+  return () => {
+    // Reset any print refs that might be lingering
+    setPrintRefsExist(false);
+  };
+}, []);

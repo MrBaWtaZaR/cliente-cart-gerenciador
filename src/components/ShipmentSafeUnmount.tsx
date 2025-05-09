@@ -1,18 +1,42 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 
-// Hook utilitário aprimorado para desmontar componentes com segurança
+// Debounce helper to prevent multiple calls
+const debounce = (fn: Function, ms = 300) => {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return function(...args: any[]) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), ms);
+  };
+};
+
+// Safe DOM element check
+const isValidDOMNode = (node: any): node is Element => {
+  return (
+    node &&
+    node.nodeType === 1 && // Element node
+    typeof node.parentNode === 'object' &&
+    node.parentNode !== null &&
+    typeof node.parentNode.removeChild === 'function'
+  );
+};
+
+// Utility hook for safe component unmounting
 export const useShipmentSafeUnmount = () => {
   const isMountedRef = useRef(true);
   const printRefsExist = useRef(false);
   const unmountingRef = useRef(false);
+  const cleanupInProgressRef = useRef(false);
   
-  // Função de limpeza aprimorada para elementos do DOM
+  // Enhanced DOM element cleanup function
   const cleanupDomElements = useCallback(() => {
-    if (!unmountingRef.current) return;
+    // Prevent multiple concurrent cleanups
+    if (cleanupInProgressRef.current || !isMountedRef.current) return;
     
     try {
-      // Lista de seletores para limpar
+      cleanupInProgressRef.current = true;
+      
+      // List of selectors to clean
       const selectorsToClean = [
         '[role="tooltip"]',
         '[role="dialog"]',
@@ -23,73 +47,87 @@ export const useShipmentSafeUnmount = () => {
         '.popover-content',
         '.tooltip-content',
         '.dropdown-menu-content',
-        '.sonner-toast',
+        // Remove Sonner toast from this list since we'll use its API
         '[aria-live="polite"]',
         '[aria-live="assertive"]'
       ];
       
-      // Limpar todos os seletores especificados
+      // Clean all specified selectors
       selectorsToClean.forEach(selector => {
-        document.querySelectorAll(selector).forEach(el => {
-          if (el && el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+          if (isValidDOMNode(el)) {
             try {
-              el.parentNode.removeChild(el);
+              // Check if element is still in DOM before removing
+              if (document.body.contains(el)) {
+                el.parentNode.removeChild(el);
+              }
             } catch (e) {
-              // Ignorar erros se o elemento já foi removido
-              console.log(`Tentativa de remover elemento ${selector} falhou, provavelmente já removido`);
+              console.log(`Safe removal of ${selector} failed, element may already be removed`);
             }
           }
         });
       });
       
-      // Aplicar limpeza específica para elementos problemáticos
+      // Handle print containers specifically if they exist
       if (printRefsExist.current) {
-        document.querySelectorAll('.shipment-print-container').forEach(el => {
-          if (el && el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
+        const printContainers = document.querySelectorAll('.shipment-print-container');
+        printContainers.forEach(el => {
+          if (isValidDOMNode(el)) {
             try {
-              // Definir display none antes de remover pode ajudar
+              // Display none before removal can help with some edge cases
               (el as HTMLElement).style.display = 'none';
-              el.parentNode.removeChild(el);
+              
+              // Check if element is still in DOM before removing
+              if (document.body.contains(el)) {
+                el.parentNode.removeChild(el);
+              }
             } catch (e) {
-              // Ignorar erros
+              console.log("Print container removal failed, may already be removed");
             }
           }
         });
       }
     } catch (error) {
-      console.error('Erro ao limpar elementos do DOM:', error);
+      console.error('Error during DOM cleanup:', error);
+    } finally {
+      cleanupInProgressRef.current = false;
     }
   }, []);
+  
+  // Debounced version to prevent rapid consecutive calls
+  const debouncedCleanup = useCallback(
+    debounce(cleanupDomElements, 100),
+    [cleanupDomElements]
+  );
   
   useEffect(() => {
     isMountedRef.current = true;
     unmountingRef.current = false;
     
-    // Registrar evento global para limpeza quando necessário
-    window.addEventListener('component-unmount', cleanupDomElements);
+    // Register event for cleanup when needed
+    window.addEventListener('component-unmount', debouncedCleanup);
     
     return () => {
-      // Marcar componente como desmontado para evitar atualizações de estado
+      // Mark component as unmounted
       isMountedRef.current = false;
       unmountingRef.current = true;
       
-      // Disparar evento de limpeza global
+      // Trigger cleanup event
       window.dispatchEvent(new CustomEvent('component-unmount'));
-      window.removeEventListener('component-unmount', cleanupDomElements);
+      window.removeEventListener('component-unmount', debouncedCleanup);
       
-      // Executar limpeza imediatamente
+      // Execute cleanup immediately
       cleanupDomElements();
       
-      // Executar limpeza novamente após um pequeno delay
-      setTimeout(cleanupDomElements, 0);
-      
-      // E mais uma vez após um delay maior
+      // And again after a small delay to catch any lingering elements
       setTimeout(() => {
-        cleanupDomElements();
-        unmountingRef.current = false;
+        if (unmountingRef.current) {
+          cleanupDomElements();
+        }
       }, 50);
     };
-  }, [cleanupDomElements]);
+  }, [cleanupDomElements, debouncedCleanup]);
   
   return { 
     isMounted: () => isMountedRef.current,
@@ -97,22 +135,28 @@ export const useShipmentSafeUnmount = () => {
       printRefsExist.current = exists;
     },
     printRefsExist: () => printRefsExist.current,
-    forceCleanup: cleanupDomElements
+    forceCleanup: debouncedCleanup
   };
 };
 
-// Criar um contexto global para limpeza segura
+// Track cleanup operations globally
+let isGlobalCleanupRunning = false;
 let globalCleanupTimeout: ReturnType<typeof setTimeout> | null = null;
 
-// Função auxiliar que pode ser chamada de qualquer lugar para limpar o DOM
+// Global helper function for DOM cleanup
 export const safeCleanupDOM = () => {
-  // Limpar timeout anterior se existir
+  // Prevent concurrent cleanups
+  if (isGlobalCleanupRunning) return;
+  isGlobalCleanupRunning = true;
+  
+  // Clear any pending cleanup
   if (globalCleanupTimeout) {
     clearTimeout(globalCleanupTimeout);
+    globalCleanupTimeout = null;
   }
   
   try {
-    // Lista de seletores para limpar
+    // Selectors to clean
     const selectorsToClean = [
       '[role="tooltip"]',
       '[role="dialog"]',
@@ -123,42 +167,45 @@ export const safeCleanupDOM = () => {
       '.popover-content',
       '.tooltip-content',
       '.dropdown-menu-content',
-      '.sonner-toast',
+      // Removed Sonner toast from this list
       '[aria-live="polite"]',
       '[aria-live="assertive"]'
     ];
     
-    // Limpar todos os seletores especificados
+    // Safely clean all elements
     selectorsToClean.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => {
-        if (el && el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(el => {
+        if (isValidDOMNode(el)) {
           try {
-            el.parentNode.removeChild(el);
+            // Check if element is still in DOM before removing
+            if (document.body.contains(el)) {
+              el.parentNode.removeChild(el);
+            }
           } catch (e) {
-            // Ignorar erros
+            // Silently ignore - element might already be gone
           }
         }
       });
     });
   } catch (error) {
-    console.error('Erro na limpeza segura do DOM:', error);
-  }
-  
-  // Definir timeout para limpeza adicional após pequeno delay
-  globalCleanupTimeout = setTimeout(() => {
-    // Repetir processo para garantir limpeza completa
-    try {
-      document.querySelectorAll('[role="tooltip"], [role="dialog"], [data-portal]').forEach(el => {
-        if (el && el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
-          try {
+    console.error('Error in global DOM cleanup:', error);
+  } finally {
+    // Schedule a final cleanup after a delay and then reset the flag
+    globalCleanupTimeout = setTimeout(() => {
+      try {
+        const finalElements = document.querySelectorAll('[role="tooltip"], [role="dialog"], [data-portal]');
+        finalElements.forEach(el => {
+          if (isValidDOMNode(el) && document.body.contains(el)) {
             el.parentNode.removeChild(el);
-          } catch (e) {
-            // Ignorar erros
           }
-        }
-      });
-    } catch (error) {
-      console.error('Erro na limpeza segura do DOM (timeout):', error);
-    }
-  }, 50);
+        });
+      } catch (error) {
+        console.error('Error in delayed DOM cleanup:', error);
+      } finally {
+        isGlobalCleanupRunning = false;
+        globalCleanupTimeout = null;
+      }
+    }, 100);
+  }
 };
