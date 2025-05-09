@@ -1,17 +1,19 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Toaster } from "sonner";
 import { useDataStore } from "@/stores";
+import { safeCleanupDOM } from "./ShipmentSafeUnmount";
 
 export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { initializeData, refreshAll } = useDataStore();
   const isMobile = useIsMobile();
+  const isMounted = useRef(true);
 
   // Load data on component mount
   useEffect(() => {
@@ -22,23 +24,35 @@ export function DashboardLayout() {
 
     // Set up event listeners for data updates
     const handleDataUpdated = () => {
-      console.log("Data updated event received");
+      if (isMounted.current) {
+        console.log("Data updated event received");
+      }
     };
 
     // Handle online/offline status for sync
     const handleOnline = () => {
-      console.log("App is back online, refreshing data...");
-      refreshAll().catch((error) => {
-        console.error("Error refreshing data:", error);
-      });
+      if (isMounted.current) {
+        console.log("App is back online, refreshing data...");
+        refreshAll().catch((error) => {
+          console.error("Error refreshing data:", error);
+        });
+      }
     };
 
     window.addEventListener("data-updated", handleDataUpdated);
     window.addEventListener("online", handleOnline);
 
     return () => {
+      isMounted.current = false;
       window.removeEventListener("data-updated", handleDataUpdated);
       window.removeEventListener("online", handleOnline);
+      
+      // Perform a final cleanup of any hanging DOM elements
+      try {
+        safeCleanupDOM();
+      } catch (e) {
+        console.error("Cleanup error in DashboardLayout unmount:", e);
+      }
     };
   }, [initializeData, refreshAll]);
 

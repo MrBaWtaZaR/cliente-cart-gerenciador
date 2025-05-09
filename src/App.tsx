@@ -79,10 +79,10 @@ const RouteChangeHandler = ({ children }: { children: React.ReactNode }) => {
         '[aria-live="assertive"]'
       ];
       
-      // Limpar todos os seletores especificados
+      // Limpar todos os seletores especificados com validação extra
       selectorsToClean.forEach(selector => {
         document.querySelectorAll(selector).forEach(el => {
-          if (el && el.parentNode) {
+          if (el && el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
             try {
               el.parentNode.removeChild(el);
             } catch (e) {
@@ -94,7 +94,7 @@ const RouteChangeHandler = ({ children }: { children: React.ReactNode }) => {
       
       // Garantir que elementos de modal são removidos
       document.querySelectorAll('body > [role="presentation"]').forEach(el => {
-        if (el && el.parentNode) {
+        if (el && el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
           try {
             el.parentNode.removeChild(el);
           } catch (e) {

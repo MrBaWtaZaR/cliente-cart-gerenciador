@@ -31,7 +31,7 @@ export const useShipmentSafeUnmount = () => {
       // Limpar todos os seletores especificados
       selectorsToClean.forEach(selector => {
         document.querySelectorAll(selector).forEach(el => {
-          if (el && el.parentNode) {
+          if (el && el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
             try {
               el.parentNode.removeChild(el);
             } catch (e) {
@@ -45,7 +45,7 @@ export const useShipmentSafeUnmount = () => {
       // Aplicar limpeza específica para elementos problemáticos
       if (printRefsExist.current) {
         document.querySelectorAll('.shipment-print-container').forEach(el => {
-          if (el && el.parentNode) {
+          if (el && el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
             try {
               // Definir display none antes de remover pode ajudar
               (el as HTMLElement).style.display = 'none';
@@ -131,7 +131,7 @@ export const safeCleanupDOM = () => {
     // Limpar todos os seletores especificados
     selectorsToClean.forEach(selector => {
       document.querySelectorAll(selector).forEach(el => {
-        if (el && el.parentNode) {
+        if (el && el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
           try {
             el.parentNode.removeChild(el);
           } catch (e) {
@@ -149,7 +149,7 @@ export const safeCleanupDOM = () => {
     // Repetir processo para garantir limpeza completa
     try {
       document.querySelectorAll('[role="tooltip"], [role="dialog"], [data-portal]').forEach(el => {
-        if (el && el.parentNode) {
+        if (el && el.parentNode && el.parentNode.contains && el.parentNode.contains(el)) {
           try {
             el.parentNode.removeChild(el);
           } catch (e) {
