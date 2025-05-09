@@ -36,16 +36,34 @@ const AlertDialogContent = React.forwardRef<
       ref={ref}
       // Update onCloseAutoFocus handler with improved error handling
       onCloseAutoFocus={(e) => {
-        e.preventDefault();
-        
-        if (props.onCloseAutoFocus) {
-          props.onCloseAutoFocus(e);
+        try {
+          e.preventDefault();
+          
+          if (props.onCloseAutoFocus) {
+            props.onCloseAutoFocus(e);
+          }
+        } catch (error) {
+          console.error("AlertDialog onCloseAutoFocus error:", error);
         }
       }}
-      // Add onEscapeKeyDown to prevent focus issues
+      // Add onEscapeKeyDown with better error handling
       onEscapeKeyDown={(e) => {
-        if (props.onEscapeKeyDown) {
-          props.onEscapeKeyDown(e);
+        try {
+          if (props.onEscapeKeyDown) {
+            props.onEscapeKeyDown(e);
+          }
+        } catch (error) {
+          console.error("AlertDialog onEscapeKeyDown error:", error);
+        }
+      }}
+      // Add onPointerDownOutside for safe handling
+      onPointerDownOutside={(e) => {
+        try {
+          if (props.onPointerDownOutside) {
+            props.onPointerDownOutside(e);
+          }
+        } catch (error) {
+          console.error("AlertDialog onPointerDownOutside error:", error);
         }
       }}
       className={cn(

@@ -1,10 +1,19 @@
 
-// This file is kept for compatibility but no longer needed.
-// All toast functionality has been migrated to Sonner.
-import { toast } from "sonner";
+import { toast, Toaster as SonnerToaster } from "sonner";
 
 export { toast };
+
 export function Toaster() {
-  // Empty component for backward compatibility
-  return null;
+  return <SonnerToaster 
+    position="top-right"
+    closeButton
+    richColors
+    expand={false}
+    toastOptions={{
+      duration: 4000,
+    }}
+  />;
 }
+
+// Re-export for backward compatibility
+export const toast_legacy = toast;

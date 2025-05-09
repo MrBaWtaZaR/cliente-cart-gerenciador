@@ -40,18 +40,48 @@ const DialogContent = React.forwardRef<
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
         className
       )}
-      // Update the onCloseAutoFocus handler to safely handle events
+      // Update the onCloseAutoFocus handler with better error handling
       onCloseAutoFocus={(e) => {
-        e.preventDefault();
-        
-        if (props.onCloseAutoFocus) {
-          props.onCloseAutoFocus(e);
+        try {
+          // Prevent default focus behavior to avoid DOM issues
+          e.preventDefault();
+          
+          // Only call the handler if it exists and component is still mounted
+          if (props.onCloseAutoFocus) {
+            props.onCloseAutoFocus(e);
+          }
+        } catch (error) {
+          console.error("Dialog onCloseAutoFocus error:", error);
         }
       }}
-      // Add onEscapeKeyDown to prevent focus issues
+      // Add onEscapeKeyDown with error handling
       onEscapeKeyDown={(e) => {
-        if (props.onEscapeKeyDown) {
-          props.onEscapeKeyDown(e);
+        try {
+          if (props.onEscapeKeyDown) {
+            props.onEscapeKeyDown(e);
+          }
+        } catch (error) {
+          console.error("Dialog onEscapeKeyDown error:", error);
+        }
+      }}
+      // Add onPointerDownOutside to safely handle clicks outside
+      onPointerDownOutside={(e) => {
+        try {
+          if (props.onPointerDownOutside) {
+            props.onPointerDownOutside(e);
+          }
+        } catch (error) {
+          console.error("Dialog onPointerDownOutside error:", error);
+        }
+      }}
+      // Add onInteractOutside to safely handle interactions
+      onInteractOutside={(e) => {
+        try {
+          if (props.onInteractOutside) {
+            props.onInteractOutside(e);
+          }
+        } catch (error) {
+          console.error("Dialog onInteractOutside error:", error);
         }
       }}
       {...props}

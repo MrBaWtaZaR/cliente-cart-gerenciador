@@ -61,18 +61,36 @@ const SheetContent = React.forwardRef<
     <SheetPrimitive.Content
       ref={ref}
       className={cn(sheetVariants({ side }), className)}
-      // Update the onCloseAutoFocus handler
+      // Update the onCloseAutoFocus handler with better error handling
       onCloseAutoFocus={(e) => {
-        e.preventDefault();
-        
-        if (props.onCloseAutoFocus) {
-          props.onCloseAutoFocus(e);
+        try {
+          e.preventDefault();
+          
+          if (props.onCloseAutoFocus) {
+            props.onCloseAutoFocus(e);
+          }
+        } catch (error) {
+          console.error("Sheet onCloseAutoFocus error:", error);
         }
       }}
-      // Add onEscapeKeyDown to prevent focus issues
+      // Add onEscapeKeyDown with better error handling
       onEscapeKeyDown={(e) => {
-        if (props.onEscapeKeyDown) {
-          props.onEscapeKeyDown(e);
+        try {
+          if (props.onEscapeKeyDown) {
+            props.onEscapeKeyDown(e);
+          }
+        } catch (error) {
+          console.error("Sheet onEscapeKeyDown error:", error);
+        }
+      }}
+      // Add onPointerDownOutside for safe handling
+      onPointerDownOutside={(e) => {
+        try {
+          if (props.onPointerDownOutside) {
+            props.onPointerDownOutside(e);
+          }
+        } catch (error) {
+          console.error("Sheet onPointerDownOutside error:", error);
         }
       }}
       {...props}

@@ -17,24 +17,36 @@ const PopoverContent = React.forwardRef<
       ref={ref}
       align={align}
       sideOffset={sideOffset}
-      // Update the onOpenAutoFocus handler
+      // Update the onOpenAutoFocus handler with better error handling
       onOpenAutoFocus={(e) => {
-        e.preventDefault();
-        if (props.onOpenAutoFocus) {
-          props.onOpenAutoFocus(e);
+        try {
+          e.preventDefault();
+          if (props.onOpenAutoFocus) {
+            props.onOpenAutoFocus(e);
+          }
+        } catch (error) {
+          console.error("Popover onOpenAutoFocus error:", error);
         }
       }}
-      // Update the onCloseAutoFocus handler
+      // Update the onCloseAutoFocus handler with better error handling
       onCloseAutoFocus={(e) => {
-        e.preventDefault();
-        if (props.onCloseAutoFocus) {
-          props.onCloseAutoFocus(e);
+        try {
+          e.preventDefault();
+          if (props.onCloseAutoFocus) {
+            props.onCloseAutoFocus(e);
+          }
+        } catch (error) {
+          console.error("Popover onCloseAutoFocus error:", error);
         }
       }}
-      // Add onEscapeKeyDown to prevent focus issues
+      // Add onEscapeKeyDown with better error handling
       onEscapeKeyDown={(e) => {
-        if (props.onEscapeKeyDown) {
-          props.onEscapeKeyDown(e);
+        try {
+          if (props.onEscapeKeyDown) {
+            props.onEscapeKeyDown(e);
+          }
+        } catch (error) {
+          console.error("Popover onEscapeKeyDown error:", error);
         }
       }}
       className={cn(
