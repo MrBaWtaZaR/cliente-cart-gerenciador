@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Customer, Order, OrderProduct } from '../types/customers';
-import { generateId } from '../utils/idGenerator';
+import { generateId, isValidUUID } from '../utils/idGenerator';
 
 interface CustomerStore {
   customers: Customer[];
@@ -511,13 +511,16 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
   addOrder: (orderData) => set((state) => {
     try {
       const newOrder: Order = {
-        id: generateId(),
+        id: generateId(), // Now generating a valid UUID
         customerId: orderData.customerId,
         products: orderData.products,
         status: orderData.status,
         total: orderData.total,
         createdAt: new Date()
       };
+      
+      // Log the new order ID to verify it's a valid UUID
+      console.log('New Order ID (should be UUID):', newOrder.id, isValidUUID(newOrder.id));
       
       const updatedCustomers = state.customers.map((customer) => {
         if (customer.id === orderData.customerId) {

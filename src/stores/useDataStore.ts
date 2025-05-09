@@ -1,8 +1,7 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { generateId } from '../utils/idGenerator';
+import { generateId, isValidUUID } from '../utils/idGenerator';
 import { loadInitialData } from '../utils/sampleData';
 import { Customer, Order, OrderProduct } from '../types/customers';
 import { Product } from '../types/products';
@@ -302,12 +301,6 @@ export const useDataStore = create<DataStore>((set, get) => {
       }
     }
   };
-  
-  // Helper function to check if a string is a valid UUID
-  function isValidUUID(id: string) {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(id);
-  }
   
   // Helper function to fetch orders for a customer from Supabase
   async function fetchOrdersForCustomer(customerId: string): Promise<Order[]> {
