@@ -25,11 +25,7 @@ export const LoginPage = () => {
         navigate('/dashboard');
       }
     } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Ocorreu um erro ao fazer login.',
-        variant: 'destructive',
-      });
+      toast.error('Ocorreu um erro ao fazer login.');
     } finally {
       setIsLoading(false);
     }
