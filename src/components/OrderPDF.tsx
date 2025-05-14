@@ -4,6 +4,7 @@ import { Order } from '@/types/customers';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
+import { PrintablePDF } from './PrintablePDF';
 
 interface OrderPDFProps {
   order: Order;
@@ -59,62 +60,64 @@ class PDFErrorBoundary extends React.Component<
   }
 }
 
-// Image with fallback for PDF
-const SafeImage = memo(({ src, alt, className }: { src: string; alt: string; className?: string }) => {
-  const [imgSrc, setImgSrc] = useState<string>(src);
-  const [hasError, setHasError] = useState<boolean>(false);
+// Optimized image component for PDF printing
+const PrintableImage = memo(({ src, alt, className }: { src: string; alt: string; className?: string }) => {
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const imgRef = React.useRef<HTMLImageElement>(null);
   
-  // Force the image to load when printing
   useEffect(() => {
     // Preload image
     const img = new Image();
     img.src = src;
     
     img.onload = () => {
-      console.log(`Image loaded successfully: ${src}`);
-      setImgSrc(src);
-      setHasError(false);
+      console.log(`PDF Image loaded successfully: ${src}`);
+      setImgLoaded(true);
     };
     
     img.onerror = () => {
-      console.error(`Failed to load image: ${src}`);
-      if (!hasError) {
-        setHasError(true);
-        setImgSrc('/placeholder.svg');
-      }
+      console.error(`Failed to load PDF image: ${src}`);
+      // If the main image fails to load, try loading the placeholder
+      const placeholderImg = new Image();
+      placeholderImg.src = '/placeholder.svg';
+      placeholderImg.onload = () => {
+        console.log("Placeholder image loaded instead");
+        if (imgRef.current) {
+          imgRef.current.src = '/placeholder.svg';
+          setImgLoaded(true);
+        }
+      };
     };
-    
-    // Reset error state when src changes
-    if (src !== imgSrc && hasError) {
-      setImgSrc(src);
-      setHasError(false);
-    }
     
     return () => {
       img.onload = null;
       img.onerror = null;
     };
-  }, [src, hasError, imgSrc]);
+  }, [src]);
 
   return (
     <img
-      src={imgSrc}
+      ref={imgRef}
+      src={src}
       alt={alt}
-      className={className || ''}
-      loading="eager" // Changed from lazy to eager for PDF printing
+      className={`${className || ''} ${imgLoaded ? 'loaded' : 'loading'}`}
+      loading="eager"
+      style={{
+        maxWidth: '100%',
+        height: 'auto',
+        visibility: 'visible', // Always keep visible for printing
+      }}
       onError={() => {
-        if (!hasError) {
-          console.warn(`Failed to load image during render: ${src}, using placeholder instead`);
-          setHasError(true);
-          setImgSrc('/placeholder.svg');
+        console.warn(`Failed to load image during render: ${src}, using placeholder instead`);
+        if (imgRef.current) {
+          imgRef.current.src = '/placeholder.svg';
         }
       }}
-      style={{ maxWidth: '100%', height: 'auto' }}
     />
   );
 });
 
-SafeImage.displayName = 'SafeImage';
+PrintableImage.displayName = 'PrintableImage';
 
 // Optimized PDF content component with memo and useMemo
 const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFProps) => {
@@ -164,7 +167,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
         <div className="flex justify-between items-start">
           <div className="flex items-center">
             <div className="w-16 h-16 relative mr-4 flex-shrink-0">
-              <SafeImage 
+              <PrintableImage 
                 src="/lovable-uploads/918a2f2c-f5f0-4ea6-8676-f08b6d93bb99.png" 
                 alt="AF Consultoria" 
                 className="h-16 object-contain"
@@ -234,23 +237,23 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
       {/* Produtos com cores melhoradas para impressão */}
       <div className="mb-6">
         <h2 className="text-lg font-bold mb-3 text-blue-800">Itens do Pedido</h2>
-        <table className="w-full border-collapse print:border print:border-gray-300">
+        <table className="w-full border-collapse print:border print:border-gray-300" style={{borderCollapse: 'collapse'}}>
           <thead>
             <tr className="bg-blue-100 print:bg-blue-100">
-              <th className="py-2 px-3 text-left print:border print:border-gray-300">Produto</th>
-              <th className="py-2 px-3 text-center print:border print:border-gray-300">Quantidade</th>
-              <th className="py-2 px-3 text-right print:border print:border-gray-300">Preço Un.</th>
-              <th className="py-2 px-3 text-right print:border print:border-gray-300">Subtotal</th>
+              <th className="py-2 px-3 text-left print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>Produto</th>
+              <th className="py-2 px-3 text-center print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>Quantidade</th>
+              <th className="py-2 px-3 text-right print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>Preço Un.</th>
+              <th className="py-2 px-3 text-right print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>Subtotal</th>
             </tr>
           </thead>
           <tbody>
             {order.products && order.products.map((product, idx) => (
               <tr key={`${product.productId}-${idx}`} className="border-t print:border-t print:border-gray-300">
-                <td className="py-3 px-3 print:border print:border-gray-300">
+                <td className="py-3 px-3 print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>
                   <div className="flex items-center">
                     {product.images && product.images[0] && (
                       <div className="w-10 h-10 mr-3 bg-muted rounded overflow-hidden flex-shrink-0">
-                        <SafeImage
+                        <PrintableImage
                           src={product.images[0]}
                           alt={product.productName}
                           className="w-full h-full object-cover"
@@ -260,11 +263,11 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
                     <div>{product.productName}</div>
                   </div>
                 </td>
-                <td className="py-3 px-3 text-center print:border print:border-gray-300">{product.quantity}</td>
-                <td className="py-3 px-3 text-right print:border print:border-gray-300">
+                <td className="py-3 px-3 text-center print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>{product.quantity}</td>
+                <td className="py-3 px-3 text-right print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>
                   {formatCurrency.format(product.price)}
                 </td>
-                <td className="py-3 px-3 text-right print:border print:border-gray-300">
+                <td className="py-3 px-3 text-right print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>
                   {formatCurrency.format(product.price * product.quantity)}
                 </td>
               </tr>
@@ -272,21 +275,21 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
           </tbody>
           <tfoot>
             <tr className="font-bold">
-              <td colSpan={3} className="py-3 px-3 text-right print:border print:border-gray-300">Total:</td>
-              <td className="py-3 px-3 text-right print:border print:border-gray-300">
+              <td colSpan={3} className="py-3 px-3 text-right print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>Total:</td>
+              <td className="py-3 px-3 text-right print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>
                 {formatCurrency.format(order.total)}
               </td>
             </tr>
             <tr>
-              <td colSpan={3} className="py-3 px-3 text-right print:border print:border-gray-300">Serviço 10%:</td>
-              <td className="py-3 px-3 text-right print:border print:border-gray-300">
+              <td colSpan={3} className="py-3 px-3 text-right print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>Serviço 10%:</td>
+              <td className="py-3 px-3 text-right print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>
                 {formatCurrency.format(serviceFeeData.fee)}
                 {serviceFeeData.isMinimum && <span className="text-xs ml-1">*</span>}
               </td>
             </tr>
             <tr className="font-bold bg-blue-100 print:bg-blue-100">
-              <td colSpan={3} className="py-3 px-3 text-right print:border print:border-gray-300">Total com Serviço:</td>
-              <td className="py-3 px-3 text-right print:border print:border-gray-300">
+              <td colSpan={3} className="py-3 px-3 text-right print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>Total com Serviço:</td>
+              <td className="py-3 px-3 text-right print:border print:border-gray-300" style={{border: '1px solid #ddd'}}>
                 {formatCurrency.format(order.total + serviceFeeData.fee)}
               </td>
             </tr>
@@ -321,55 +324,21 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
 
 OrderPDFContent.displayName = 'OrderPDFContent';
 
-// Main OrderPDF component with error boundary
+// Main OrderPDF component with error boundary using new PrintablePDF
 export const OrderPDF = memo(React.forwardRef<HTMLDivElement, OrderPDFProps>(
   (props, ref) => {
     console.log("Rendering OrderPDF with ref:", ref ? "Ref exists" : "No ref");
     
-    // Add specific print styles for when this component is being printed
-    useEffect(() => {
-      // Create a style element for print-specific styles
-      const style = document.createElement('style');
-      style.type = 'text/css';
-      style.media = 'print';
-      
-      // Add print-specific styles
-      style.innerHTML = `
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          .pdf-container, .pdf-container * {
-            visibility: visible;
-          }
-          .pdf-container {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-          }
-          .pdf-container img {
-            display: block !important;
-            break-inside: avoid;
-          }
-        }
-      `;
-      
-      // Add the style to the head
-      document.head.appendChild(style);
-      
-      // Remove the style when component unmounts
-      return () => {
-        document.head.removeChild(style);
-      };
-    }, []);
-    
     return (
       <PDFErrorBoundary>
-        <div ref={ref} className="pdf-container print:p-0" data-pdf-root="true">
+        <PrintablePDF 
+          ref={ref} 
+          className="pdf-container"
+          onBeforePrint={() => console.log("PDF: Before print callback")}
+          onAfterPrint={() => console.log("PDF: After print callback")}
+        >
           <OrderPDFContent {...props} />
-        </div>
+        </PrintablePDF>
       </PDFErrorBoundary>
     );
   }

@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useCallback } from 'react';
 import { toast } from '@/components/ui/use-toast';
 
@@ -241,11 +240,19 @@ const isValidDOMNode = (node: any): node is Element => {
       return false;
     }
     
-    // Don't remove nodes that are part of active dialogs, modals or transitions
+    // NEVER remove nodes that are protected
     if (
       node.classList?.contains('actively-printing') || 
-      node.classList?.contains('actively-transitioning')
+      node.classList?.contains('actively-transitioning') ||
+      node.classList?.contains('protected-element') ||
+      node.getAttribute('data-no-cleanup') === 'true'
     ) {
+      return false;
+    }
+    
+    // Check if node or its parent is part of a printing container
+    const isPrintRelated = node.closest?.('.pdf-container, .printable-pdf-container, .shipment-print-container, [data-pdf-root="true"]');
+    if (isPrintRelated) {
       return false;
     }
     
@@ -372,6 +379,7 @@ export const safeCleanupDOM = (priority: number = 5) => {
   const cleanupManager = CleanupManager.getInstance();
   
   // More selective selectors that avoid active dialogs and modal elements
+  // and explicitly avoid elements related to printing
   const selectorsToClean = [
     { selector: '[role="tooltip"]', priority: priority + 1 },
     { selector: '[role="dialog"][data-state="closed"]', priority },
@@ -380,7 +388,7 @@ export const safeCleanupDOM = (priority: number = 5) => {
     { selector: '[data-floating]:not(:has(button:hover)):not([data-state="open"])', priority },
     { selector: '[data-state="closed"]', priority },
     { selector: '.popover-content:not(:has(input:focus)):not([data-state="open"])', priority },
-    { selector: '.tooltip-content:not(:hover)', priority: priority + 2 }, // Fix: Change to proper object syntax
+    { selector: '.tooltip-content:not(:hover)', priority: priority + 2 }, // Fixed: Using proper object format
     { selector: '.dropdown-menu-content:not(:has(*:hover)):not([data-state="open"])', priority }
   ];
   

@@ -166,7 +166,7 @@ export const OrdersPage = () => {
     }
   }, [customers, setSearchParams]);
   
-  // Fixed PDF printing with contentRef property instead of content function
+  // Fixed PDF printing with improved timing and error handling
   const handlePrintPDF = useReactToPrint({
     // Use contentRef property instead of content
     contentRef: pdfRef,
@@ -179,13 +179,20 @@ export const OrdersPage = () => {
             setIsPdfLoading(true);
             setShowPDFPreview(true);
             
-            // Mark the PDF as actively printing to prevent cleanup
+            // Notify the PDF component about printing and add protection
+            if (pdfRef.current && typeof pdfRef.current.notifyPrinting === 'function') {
+              pdfRef.current.notifyPrinting();
+            }
+            
+            // Ensure elements are set to print-optimized state
             if (pdfRef.current) {
               pdfRef.current.classList.add('actively-printing');
+              pdfRef.current.classList.add('protected-element');
+              pdfRef.current.setAttribute('data-no-cleanup', 'true');
             }
           }
-          // Resolve the promise after a short delay to ensure content is ready
-          setTimeout(resolve, 100);
+          // Increased delay to ensure content is fully rendered
+          setTimeout(resolve, 500);
         } catch (error) {
           console.error('Error in onBeforePrint:', error);
           resolve(); // Resolve anyway to avoid hanging
@@ -195,21 +202,54 @@ export const OrdersPage = () => {
     onAfterPrint: () => {
       try {
         console.log("Impressão concluída");
-        if (isMounted.current && pdfRef.current) {
-          // Remove the actively printing marker
-          pdfRef.current.classList.remove('actively-printing');
-          
-          setTimeout(() => {
+        if (isMounted.current) {
+          // Remove the protection classes after print is complete
+          if (pdfRef.current) {
+            pdfRef.current.classList.remove('actively-printing');
+            // Keep as protected for a little longer
+            setTimeout(() => {
+              if (pdfRef.current) {
+                pdfRef.current.classList.remove('protected-element');
+              }
+              
+              if (isMounted.current) {
+                setIsPdfLoading(false);
+                
+                // Keep the preview visible a bit longer to ensure full rendering
+                setTimeout(() => {
+                  if (isMounted.current) {
+                    setShowPDFPreview(false);
+                  }
+                }, 100);
+              }
+            }, 200);
+          } else {
+            setIsPdfLoading(false);
             setShowPDFPreview(false);
-          }, 100);
+          }
         }
       } catch (error) {
         console.error('Error in onAfterPrint:', error);
         if (isMounted.current) {
+          setIsPdfLoading(false);
           setShowPDFPreview(false);
         }
       }
     },
+    // Retries for print initialization
+    onPrintError: (error) => {
+      console.error("Print error:", error);
+      toast({
+        title: "Erro na impressão",
+        description: "Houve um problema ao preparar o documento. Tente novamente.",
+        variant: "destructive"
+      });
+      
+      if (isMounted.current) {
+        setIsPdfLoading(false);
+        // Keep the PDF visible for manual saving if needed
+      }
+    }
   });
 
   // Improved dialog close handling
@@ -639,20 +679,14 @@ export const OrdersPage = () => {
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Improved PDF container that only renders when needed */}
+      {/* Improved PDF container that renders better for printing */}
       {showPDFPreview && viewingOrder && customerInfo && (
         <div 
-          ref={pdfRef}
-          className="shipment-print-container"
-          style={{ 
-            display: 'block',
-            position: 'absolute',
-            left: '-9999px',
-            visibility: 'hidden',
-            pointerEvents: 'none' // Prevent interactions with the hidden PDF
-          }}
+          className="shipment-print-container protected-element"
+          data-no-cleanup="true"
         >
           <OrderPDF 
+            ref={pdfRef}
             order={viewingOrder} 
             customerName={customerName} 
             customerInfo={customerInfo} 
