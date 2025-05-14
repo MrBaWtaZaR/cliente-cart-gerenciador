@@ -240,11 +240,8 @@ export const OrdersPage = () => {
     // Retries for print initialization
     onPrintError: (error) => {
       console.error("Print error:", error);
-      toast({
-        title: "Erro na impressão",
-        description: "Houve um problema ao preparar o documento. Tente novamente.",
-        variant: "destructive"
-      });
+      // Fix: Update toast to use the correct API format
+      toast.error("Houve um problema ao preparar o documento. Tente novamente.");
       
       if (isMounted.current) {
         setIsPdfLoading(false);
