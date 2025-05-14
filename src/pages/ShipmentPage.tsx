@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useDataStore } from '@/lib/data';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -177,10 +178,14 @@ export const ShipmentPage = () => {
     contentRef: tableRef,
     documentTitle: `Tabela_de_Envio_${format(new Date(), 'dd-MM-yyyy')}`,
     onBeforePrint: () => {
-      if (tableRef.current) {
-        const container = tableRef.current;
-        container.classList.add('actively-printing');
-      }
+      return new Promise<void>((resolve) => {
+        if (tableRef.current) {
+          const container = tableRef.current;
+          container.classList.add('actively-printing');
+        }
+        // Use a short delay to ensure content is ready
+        setTimeout(resolve, 100);
+      });
     },
     onAfterPrint: () => {
       if (isMounted() && tableRef.current) {
@@ -196,9 +201,13 @@ export const ShipmentPage = () => {
     contentRef: cardsRef,
     documentTitle: `Cards_de_Envio_${format(new Date(), 'dd-MM-yyyy')}`,
     onBeforePrint: () => {
-      if (cardsRef.current) {
-        cardsRef.current.classList.add('actively-printing');
-      }
+      return new Promise<void>((resolve) => {
+        if (cardsRef.current) {
+          cardsRef.current.classList.add('actively-printing');
+        }
+        // Use a short delay to ensure content is ready
+        setTimeout(resolve, 100);
+      });
     },
     onAfterPrint: () => {
       if (isMounted() && cardsRef.current) {
