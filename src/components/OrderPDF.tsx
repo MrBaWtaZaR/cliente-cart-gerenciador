@@ -1,10 +1,9 @@
-
 import React, { memo, useMemo, useState, useEffect } from 'react';
 import { Order } from '@/types/customers';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
-import { PrintablePDF } from './PrintablePDF';
+import { PrintablePDF, PrintablePDFRef } from './PrintablePDF';
 
 interface OrderPDFProps {
   order: Order;
@@ -325,7 +324,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
 OrderPDFContent.displayName = 'OrderPDFContent';
 
 // Main OrderPDF component with error boundary using new PrintablePDF
-export const OrderPDF = memo(React.forwardRef<HTMLDivElement, OrderPDFProps>(
+export const OrderPDF = memo(React.forwardRef<PrintablePDFRef, OrderPDFProps>(
   (props, ref) => {
     console.log("Rendering OrderPDF with ref:", ref ? "Ref exists" : "No ref");
     

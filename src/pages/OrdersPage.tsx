@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { ShoppingCart, Search, Filter, Printer, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { OrderPDF } from '@/components/OrderPDF';
+import { PrintablePDFRef } from '@/components/PrintablePDF';
 import { DateFilter } from '@/components/DateFilter';
 import { OrderCard } from '@/components/OrderCard';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -45,7 +46,7 @@ export const OrdersPage = () => {
   
   // Prevent state updates after component unmounts
   const isMounted = useRef(true);
-  const pdfRef = useRef<HTMLDivElement>(null);
+  const pdfRef = useRef<PrintablePDFRef>(null);
   
   // Setup cleanup on component unmount
   useEffect(() => {
@@ -180,7 +181,7 @@ export const OrdersPage = () => {
             setShowPDFPreview(true);
             
             // Notify the PDF component about printing and add protection
-            if (pdfRef.current && typeof pdfRef.current.notifyPrinting === 'function') {
+            if (pdfRef.current) {
               pdfRef.current.notifyPrinting();
             }
             

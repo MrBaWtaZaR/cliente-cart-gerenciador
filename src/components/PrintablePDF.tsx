@@ -8,8 +8,13 @@ interface PrintablePDFProps {
   className?: string;
 }
 
+// Define a ref interface to expose custom methods
+export interface PrintablePDFRef extends HTMLDivElement {
+  notifyPrinting: () => void;
+}
+
 // This component creates a wrapper specifically optimized for reliable printing
-const PrintablePDF = forwardRef<HTMLDivElement, PrintablePDFProps>(
+const PrintablePDF = forwardRef<PrintablePDFRef, PrintablePDFProps>(
   ({ children, onBeforePrint, onAfterPrint, className = "" }, ref) => {
     const [isPrinting, setIsPrinting] = useState(false);
 
@@ -109,18 +114,27 @@ const PrintablePDF = forwardRef<HTMLDivElement, PrintablePDFProps>(
       setIsPrinting(true);
     };
 
+    // Create a ref object with the div element and our custom methods
+    const localRef = React.useRef<HTMLDivElement>(null);
+    
     // Expose the notify method to parent components
-    React.useImperativeHandle(ref, () => ({
-      notifyPrinting,
-      // Additional DOM methods from the div ref
-      ...(ref as any)?.current
-    }));
+    React.useImperativeHandle(ref, () => {
+      // Make sure localRef.current exists
+      if (!localRef.current) {
+        throw new Error('PrintablePDF ref not initialized');
+      }
+      
+      // Create an object that extends the div element with our custom method
+      return Object.assign(localRef.current, {
+        notifyPrinting
+      });
+    }, [localRef]);
 
     const allClassNames = `printable-pdf-container ${isPrinting ? 'actively-printing protected-element' : ''} ${className}`;
 
     return (
       <div 
-        ref={ref as React.RefObject<HTMLDivElement>}
+        ref={localRef}
         className={allClassNames}
         style={{ 
           // Only position offscreen when not printing
