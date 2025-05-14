@@ -28,9 +28,9 @@ export const ShipmentTablePDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
     const currentDate = format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 
     return (
-      <div ref={ref} className="bg-white p-8 max-w-4xl mx-auto text-black shipment-print-container">
-        {/* Cabeçalho com Logo */}
-        <div className="border-b-2 border-blue-800 pb-4 mb-6">
+      <div ref={ref} className="bg-white p-4 max-w-4xl mx-auto text-black shipment-print-container">
+        {/* Cabeçalho com Logo - Reduzido o padding para diminuir margem superior */}
+        <div className="border-b-2 border-blue-800 pb-2 mb-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
               <img 
@@ -49,98 +49,100 @@ export const ShipmentTablePDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
           </div>
         </div>
 
-        {/* Tabela de clientes */}
-        <div className="mb-6">
+        {/* Tabela de clientes - Modernizada com mais espaçamento e cores melhoradas */}
+        <div className="mb-4">
           <h2 className="text-lg font-bold mb-3 text-blue-800">Lista de Clientes para Envio</h2>
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-blue-100">
-                <th className="py-2 px-3 text-left">Nome</th>
-                <th className="py-2 px-3 text-right">V. da Compra</th>
-                <th className="py-2 px-3 text-right">10% Serviço</th>
-                <th className="py-2 px-3 text-right">Taxa Emb.</th>
-                <th className="py-2 px-3 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shipmentCustomers.map((customer, idx) => {
-                // Find the latest order for this customer
-                const latestOrder = customer.orders && customer.orders.length > 0 
-                  ? customer.orders.reduce((latest, current) => 
-                      new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-                    ) 
-                  : null;
-                
-                const orderTotal = latestOrder?.total || 0;
-                const serviceFee = calculateServiceFee(orderTotal);
-                const total = orderTotal + serviceFee;
+          <div className="overflow-hidden rounded-lg border border-blue-200 shadow-sm">
+            <table className="w-full border-collapse bg-white">
+              <thead>
+                <tr className="bg-blue-100">
+                  <th className="py-3 px-4 text-left font-medium text-blue-800 border-b border-blue-200">Nome</th>
+                  <th className="py-3 px-4 text-right font-medium text-blue-800 border-b border-blue-200">V. da Compra</th>
+                  <th className="py-3 px-4 text-right font-medium text-blue-800 border-b border-blue-200">10% Serviço</th>
+                  <th className="py-3 px-4 text-right font-medium text-blue-800 border-b border-blue-200">Taxa Emb.</th>
+                  <th className="py-3 px-4 text-right font-medium text-blue-800 border-b border-blue-200">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shipmentCustomers.map((customer, idx) => {
+                  // Find the latest order for this customer
+                  const latestOrder = customer.orders && customer.orders.length > 0 
+                    ? customer.orders.reduce((latest, current) => 
+                        new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+                      ) 
+                    : null;
+                  
+                  const orderTotal = latestOrder?.total || 0;
+                  const serviceFee = calculateServiceFee(orderTotal);
+                  const total = orderTotal + serviceFee;
 
-                return (
-                  <tr key={idx} className="border-b border-gray-200">
-                    <td className="py-3 px-3">{customer.name}</td>
-                    <td className="py-3 px-3 text-right">
-                      {formatCurrency(orderTotal)}
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      {formatCurrency(serviceFee)}
-                    </td>
-                    <td className="py-3 px-3 text-right"></td>
-                    <td className="py-3 px-3 text-right">
-                      {formatCurrency(total)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="font-bold bg-blue-100">
-                <td colSpan={1} className="py-3 px-3 text-left">Total:</td>
-                <td className="py-3 px-3 text-right">
-                  {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
-                    // Find the latest order for this customer
-                    const latestOrder = customer.orders && customer.orders.length > 0 
-                      ? customer.orders.reduce((latest, current) => 
-                          new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-                        ) 
-                      : null;
-                    
-                    return sum + (latestOrder?.total || 0);
-                  }, 0))}
-                </td>
-                <td className="py-3 px-3 text-right">
-                  {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
-                    // Find the latest order for this customer
-                    const latestOrder = customer.orders && customer.orders.length > 0 
-                      ? customer.orders.reduce((latest, current) => 
-                          new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-                        ) 
-                      : null;
-                    
-                    return sum + calculateServiceFee(latestOrder?.total || 0);
-                  }, 0))}
-                </td>
-                <td className="py-3 px-3 text-right"></td>
-                <td className="py-3 px-3 text-right">
-                  {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
-                    // Find the latest order for this customer
-                    const latestOrder = customer.orders && customer.orders.length > 0 
-                      ? customer.orders.reduce((latest, current) => 
-                          new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-                        ) 
-                      : null;
-                    
-                    const orderTotal = latestOrder?.total || 0;
-                    const serviceFee = calculateServiceFee(orderTotal);
-                    return sum + orderTotal + serviceFee;
-                  }, 0))}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+                  return (
+                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
+                      <td className="py-3 px-4 border-b border-blue-100">{customer.name}</td>
+                      <td className="py-3 px-4 text-right border-b border-blue-100">
+                        {formatCurrency(orderTotal)}
+                      </td>
+                      <td className="py-3 px-4 text-right border-b border-blue-100">
+                        {formatCurrency(serviceFee)}
+                      </td>
+                      <td className="py-3 px-4 text-right border-b border-blue-100"></td>
+                      <td className="py-3 px-4 text-right border-b border-blue-100 font-medium">
+                        {formatCurrency(total)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="font-bold bg-blue-100">
+                  <td colSpan={1} className="py-3 px-4 text-left">Total:</td>
+                  <td className="py-3 px-4 text-right">
+                    {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
+                      // Find the latest order for this customer
+                      const latestOrder = customer.orders && customer.orders.length > 0 
+                        ? customer.orders.reduce((latest, current) => 
+                            new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+                          ) 
+                        : null;
+                      
+                      return sum + (latestOrder?.total || 0);
+                    }, 0))}
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
+                      // Find the latest order for this customer
+                      const latestOrder = customer.orders && customer.orders.length > 0 
+                        ? customer.orders.reduce((latest, current) => 
+                            new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+                          ) 
+                        : null;
+                      
+                      return sum + calculateServiceFee(latestOrder?.total || 0);
+                    }, 0))}
+                  </td>
+                  <td className="py-3 px-4 text-right"></td>
+                  <td className="py-3 px-4 text-right">
+                    {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
+                      // Find the latest order for this customer
+                      const latestOrder = customer.orders && customer.orders.length > 0 
+                        ? customer.orders.reduce((latest, current) => 
+                            new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+                          ) 
+                        : null;
+                      
+                      const orderTotal = latestOrder?.total || 0;
+                      const serviceFee = calculateServiceFee(orderTotal);
+                      return sum + orderTotal + serviceFee;
+                    }, 0))}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </div>
 
         {/* Rodapé */}
-        <div className="mt-12 pt-4 border-t border-blue-800 text-center text-sm text-gray-600">
+        <div className="mt-6 pt-4 border-t border-blue-800 text-center text-sm text-gray-600">
           <p>AF Consultoria - Documento gerado em {currentDate}</p>
           <p>Este documento não possui valor fiscal</p>
           <p className="text-xs mt-2">* A taxa mínima de serviço é R$60,00 para compras iguais ou abaixo de R$600,00.</p>
