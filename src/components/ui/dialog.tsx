@@ -1,4 +1,3 @@
-
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
@@ -35,12 +34,21 @@ const DialogContent = React.forwardRef<
   // Track if this dialog is undergoing a transition
   const isTransitioningRef = React.useRef(false);
   const safeToRemoveRef = React.useRef(true);
+  const dialogId = React.useRef(`dialog-${Math.random().toString(36).substring(2, 9)}`);
   
   // Create a proper handler for open state changes using the correct types
   const handleOpenChange = React.useCallback((open: boolean) => {
     // Mark transition in progress
     isTransitioningRef.current = true;
     safeToRemoveRef.current = false;
+    
+    // Prevent navigation from removing this dialog during transitions
+    if (typeof window !== 'undefined') {
+      // Dispatch an event to let the app know a dialog state is changing
+      window.dispatchEvent(new CustomEvent('dialog-state-changing', {
+        detail: { dialogId: dialogId.current, open }
+      }));
+    }
     
     // Allow transition animations to complete before any DOM cleanup
     setTimeout(() => {
@@ -49,6 +57,13 @@ const DialogContent = React.forwardRef<
       // Add additional delay before allowing removal
       setTimeout(() => {
         safeToRemoveRef.current = true;
+        
+        // Let the app know the dialog transition is complete
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('dialog-transition-complete', {
+            detail: { dialogId: dialogId.current, open }
+          }));
+        }
       }, 100);
     }, 300); // Match animation duration
     
@@ -63,12 +78,25 @@ const DialogContent = React.forwardRef<
       }
     }
   }, [props.onChange]);
+  
+  // Set up effect to mark dialog element for protection
+  React.useEffect(() => {
+    return () => {
+      // Clean up any references to this dialog when unmounting
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('dialog-unmounted', {
+          detail: { dialogId: dialogId.current }
+        }));
+      }
+    };
+  }, []);
 
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         ref={ref}
+        data-dialog-id={dialogId.current}
         className={cn(
           "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
           className

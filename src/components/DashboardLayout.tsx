@@ -5,55 +5,88 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDataStore } from "@/stores";
-import { safeCleanupDOM } from "./ShipmentSafeUnmount";
+import { safeCleanupDOM, useShipmentSafeUnmount } from "./ShipmentSafeUnmount";
 
 export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { initializeData, refreshAll } = useDataStore();
   const isMobile = useIsMobile();
-  const isMounted = useRef(true);
+  const { isMounted, startNavigation, endNavigation } = useShipmentSafeUnmount();
+  const isMountedRef = useRef(true);
+  const navigationInProgressRef = useRef(false);
 
-  // Load data on component mount
+  // Load data on component mount and handle navigation cleanups
   useEffect(() => {
     // Initialize data from Supabase
     initializeData().catch((error) => {
       console.error("Error initializing data:", error);
     });
 
-    // Set up event listeners for data updates
+    // Set up event listeners for data updates and navigation
     const handleDataUpdated = () => {
-      if (isMounted.current) {
+      if (isMountedRef.current) {
         console.log("Data updated event received");
       }
     };
 
     // Handle online/offline status for sync
     const handleOnline = () => {
-      if (isMounted.current) {
+      if (isMountedRef.current) {
         console.log("App is back online, refreshing data...");
         refreshAll().catch((error) => {
           console.error("Error refreshing data:", error);
         });
       }
     };
+    
+    // Handle route changes for cleanup coordination
+    const handleRouteChange = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail) {
+        const { from, to } = customEvent.detail;
+        console.log(`Route changed from ${from} to ${to}`);
+        
+        if (!navigationInProgressRef.current) {
+          navigationInProgressRef.current = true;
+          startNavigation();
+          
+          // Mark navigation as complete after animations finish
+          setTimeout(() => {
+            navigationInProgressRef.current = false;
+            endNavigation();
+            
+            // Run a delayed cleanup with lower priority
+            setTimeout(() => {
+              safeCleanupDOM(4);
+            }, 200);
+          }, 400);
+        }
+      }
+    };
 
     window.addEventListener("data-updated", handleDataUpdated);
     window.addEventListener("online", handleOnline);
+    window.addEventListener("route-changed", handleRouteChange);
+    window.addEventListener("before-navigation", () => startNavigation());
+    window.addEventListener("after-navigation", () => endNavigation());
 
     return () => {
-      isMounted.current = false;
+      isMountedRef.current = false;
       window.removeEventListener("data-updated", handleDataUpdated);
       window.removeEventListener("online", handleOnline);
+      window.removeEventListener("route-changed", handleRouteChange);
+      window.removeEventListener("before-navigation", () => startNavigation());
+      window.removeEventListener("after-navigation", () => endNavigation());
       
       // Perform a final cleanup of any hanging DOM elements
       try {
-        safeCleanupDOM();
+        safeCleanupDOM(9); // High priority cleanup on unmount
       } catch (e) {
         console.error("Cleanup error in DashboardLayout unmount:", e);
       }
     };
-  }, [initializeData, refreshAll]);
+  }, [initializeData, refreshAll, startNavigation, endNavigation]);
 
   return (
     <div className="flex h-screen overflow-hidden">

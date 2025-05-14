@@ -11,8 +11,207 @@ const debounce = <T extends (...args: any[]) => any>(fn: T, ms = 300) => {
   };
 };
 
+// Global queue for cleanup operations with priority and timing control
+type CleanupOperation = {
+  id: string;
+  priority: number; // Higher = more important
+  selector: string;
+  timestamp: number;
+};
+
+// Singleton cleanup manager to coordinate all DOM cleanup activities
+class CleanupManager {
+  private static instance: CleanupManager;
+  private operationQueue: CleanupOperation[] = [];
+  private isProcessing = false;
+  private processingTimeout: NodeJS.Timeout | null = null;
+  private lockedElements = new WeakMap<Element, boolean>();
+  private navigationInProgress = false;
+  
+  // Operation throttling for safety
+  private lastOperationTime = 0;
+  private readonly MIN_OPERATION_INTERVAL = 100; // ms
+
+  private constructor() {}
+
+  public static getInstance(): CleanupManager {
+    if (!CleanupManager.instance) {
+      CleanupManager.instance = new CleanupManager();
+    }
+    return CleanupManager.instance;
+  }
+  
+  public startNavigation() {
+    this.navigationInProgress = true;
+    // During navigation, we'll be very conservative about what we clean
+    this.clearQueuedNonEssentialOperations();
+    
+    // Auto-reset after a reasonable time if not manually reset
+    setTimeout(() => {
+      if (this.navigationInProgress) {
+        this.endNavigation();
+      }
+    }, 1000);
+  }
+  
+  public endNavigation() {
+    this.navigationInProgress = false;
+  }
+  
+  public isNavigating(): boolean {
+    return this.navigationInProgress;
+  }
+  
+  // Remove all low-priority operations when navigation starts
+  private clearQueuedNonEssentialOperations() {
+    this.operationQueue = this.operationQueue.filter(op => op.priority > 8);
+  }
+
+  public queueCleanupOperation(selector: string, priority: number = 5): string {
+    const opId = `op-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    
+    const newOperation: CleanupOperation = {
+      id: opId,
+      priority,
+      selector,
+      timestamp: Date.now()
+    };
+    
+    this.operationQueue.push(newOperation);
+    
+    // Sort by priority (higher first) and then by timestamp (older first)
+    this.operationQueue.sort((a, b) => {
+      if (a.priority !== b.priority) return b.priority - a.priority;
+      return a.timestamp - b.timestamp;
+    });
+    
+    // Start processing if not already in progress
+    if (!this.isProcessing) {
+      this.processNextOperation();
+    }
+    
+    return opId;
+  }
+  
+  public cancelOperation(id: string): boolean {
+    const initialLength = this.operationQueue.length;
+    this.operationQueue = this.operationQueue.filter(op => op.id !== id);
+    return initialLength > this.operationQueue.length;
+  }
+  
+  public lockElement(element: Element): void {
+    if (!element) return;
+    this.lockedElements.set(element, true);
+    
+    // Auto-unlock after a safety timeout to prevent permanent locks
+    setTimeout(() => {
+      this.unlockElement(element);
+    }, 2000);
+  }
+  
+  public unlockElement(element: Element): void {
+    if (!element) return;
+    this.lockedElements.delete(element);
+  }
+  
+  public isElementLocked(element: Element): boolean {
+    return element && this.lockedElements.has(element);
+  }
+
+  private processNextOperation(): void {
+    if (this.operationQueue.length === 0) {
+      this.isProcessing = false;
+      return;
+    }
+    
+    this.isProcessing = true;
+    
+    // Throttle operations to prevent rapid DOM changes
+    const now = Date.now();
+    const timeSinceLastOp = now - this.lastOperationTime;
+    
+    if (timeSinceLastOp < this.MIN_OPERATION_INTERVAL) {
+      // Wait before processing the next operation
+      this.processingTimeout = setTimeout(() => {
+        this.processingTimeout = null;
+        this.executeNextOperation();
+      }, this.MIN_OPERATION_INTERVAL - timeSinceLastOp);
+      return;
+    }
+    
+    this.executeNextOperation();
+  }
+  
+  private executeNextOperation(): void {
+    if (this.operationQueue.length === 0) {
+      this.isProcessing = false;
+      return;
+    }
+    
+    const operation = this.operationQueue.shift();
+    if (!operation) {
+      this.processNextOperation();
+      return;
+    }
+    
+    try {
+      // Skip certain operations during navigation for safety
+      if (this.navigationInProgress && operation.priority < 8) {
+        this.processNextOperation();
+        return;
+      }
+      
+      // Process the cleanup operation
+      const elements = document.querySelectorAll(operation.selector);
+      let elementsProcessed = 0;
+      
+      elements.forEach(element => {
+        if (!this.isElementLocked(element) && safeRemoveElement(element)) {
+          elementsProcessed++;
+        }
+      });
+      
+      // Log detailed cleanup stats when debugging is enabled
+      if (elementsProcessed > 0 && window.DEBUG_DOM_CLEANUP) {
+        console.log(`Cleanup: Removed ${elementsProcessed}/${elements.length} elements with selector "${operation.selector}"`);
+      }
+      
+      this.lastOperationTime = Date.now();
+    } catch (error) {
+      console.error("Error processing cleanup operation:", error);
+    }
+    
+    // Continue with the next operation after a small delay
+    this.processingTimeout = setTimeout(() => {
+      this.processingTimeout = null;
+      this.processNextOperation();
+    }, this.MIN_OPERATION_INTERVAL);
+  }
+  
+  public cancelAllOperations(): void {
+    this.operationQueue = [];
+    if (this.processingTimeout) {
+      clearTimeout(this.processingTimeout);
+      this.processingTimeout = null;
+    }
+    this.isProcessing = false;
+  }
+}
+
 // DOM node registry to track which nodes are being processed
 const nodeRegistry = new WeakMap<Element, boolean>();
+
+// List of protected elements that should never be removed during page transitions
+const protectedElementTypes = new Set([
+  'dialog[data-state="open"]',
+  '[aria-modal="true"]',
+  '.actively-transitioning',
+  '.actively-printing',
+  '.root-layout',
+  '#root',
+  'body',
+  'html'
+]);
 
 // Improved DOM element check with better verification
 const isValidDOMNode = (node: any): node is Element => {
@@ -27,6 +226,11 @@ const isValidDOMNode = (node: any): node is Element => {
       return false;
     }
     
+    // If the node is locked for protection during transitions, skip it
+    if (CleanupManager.getInstance().isElementLocked(node)) {
+      return false;
+    }
+    
     // Check if node is detached or has a parentNode that's not valid
     if (!node.parentNode || !node.parentNode.nodeType) {
       return false;
@@ -37,7 +241,15 @@ const isValidDOMNode = (node: any): node is Element => {
       return false;
     }
     
-    // Don't remove nodes that are part of active dialogs or transitions
+    // Don't remove nodes that are part of active dialogs, modals or transitions
+    if (
+      node.classList?.contains('actively-printing') || 
+      node.classList?.contains('actively-transitioning')
+    ) {
+      return false;
+    }
+    
+    // Check if node is part of an open dialog
     const isActiveDialog = node.getAttribute('role') === 'dialog' && 
                           node.getAttribute('aria-modal') === 'true' &&
                           node.getAttribute('data-state') === 'open';
@@ -53,6 +265,20 @@ const isValidDOMNode = (node: any): node is Element => {
       if (!isInDocument) {
         return false;
       }
+      
+      // Check if node is in one of the protected types
+      for (const protectedSelector of protectedElementTypes) {
+        if (node.matches?.(protectedSelector) || node.closest?.(protectedSelector)) {
+          return false;
+        }
+      }
+      
+      // Check if node is a child in the DOM hierarchy and not just a reference
+      const parent = node.parentNode;
+      if (!Array.from(parent.childNodes).some(child => child === node)) {
+        return false;
+      }
+      
       return true;
     } catch (e) {
       // Fallback check for presence in DOM
@@ -82,6 +308,14 @@ const safeRemoveElement = (element: Element): boolean => {
       return false; // Never remove open modals
     }
     
+    // Skip removal during navigation unless it's a high-priority cleanup
+    if (CleanupManager.getInstance().isNavigating()) {
+      if (!element.classList.contains('safe-to-remove-during-navigation')) {
+        nodeRegistry.delete(element);
+        return false;
+      }
+    }
+    
     if (element.getAttribute('data-state') === 'open') {
       // Only remove if it's not a critical component
       const role = element.getAttribute('role');
@@ -96,7 +330,20 @@ const safeRemoveElement = (element: Element): boolean => {
       if (element.parentNode) {
         // Double-check the parent relationship before attempting removal
         if (Array.from(element.parentNode.childNodes).includes(element)) {
-          element.parentNode.removeChild(element);
+          // Hide before removing for better transitions
+          if (element instanceof HTMLElement) {
+            element.style.visibility = 'hidden';
+            element.style.pointerEvents = 'none';
+            
+            // Ensure we remove all event listeners that might reference this element
+            element.replaceWith(element.cloneNode(true));
+            
+            // Now remove safely
+            element.remove();
+          } else {
+            element.parentNode.removeChild(element);
+          }
+          
           setTimeout(() => nodeRegistry.delete(element), 100);
           return true;
         } else {
@@ -120,22 +367,28 @@ const safeRemoveElement = (element: Element): boolean => {
   }
 };
 
-// Mutex to prevent concurrent cleanups with timeouts
-let isGlobalCleanupRunning = false;
-let globalCleanupTimeout: ReturnType<typeof setTimeout> | null = null;
-const CLEANUP_LOCK_TIMEOUT = 300; // ms
-const CLEANUP_BATCH_DELAY = 50; // ms
-
-// List of protected elements that should never be removed during page transitions
-const protectedElementTypes = new Set([
-  'dialog[data-state="open"]',
-  '[aria-modal="true"]',
-  '.actively-transitioning',
-  '.root-layout',
-  '#root',
-  'body',
-  'html'
-]);
+// Enhanced global DOM cleanup with queue system
+export const safeCleanupDOM = (priority: number = 5) => {
+  const cleanupManager = CleanupManager.getInstance();
+  
+  // More selective selectors that avoid active dialogs and modal elements
+  const selectorsToClean = [
+    { selector: '[role="tooltip"]', priority: priority + 1 },
+    { selector: '[role="dialog"][data-state="closed"]', priority },
+    { selector: '[data-portal]:not(:has(*)):not([aria-modal="true"])', priority },
+    { selector: '.radix-popup:not(:has(*)):not([data-state="open"])', priority },
+    { selector: '[data-floating]:not(:has(button:hover)):not([data-state="open"])', priority },
+    { selector: '[data-state="closed"]', priority },
+    { selector: '.popover-content:not(:has(input:focus)):not([data-state="open"])', priority },
+    { selector: '.tooltip-content:not(:hover)', priority + 2 },
+    { selector: '.dropdown-menu-content:not(:has(*:hover)):not([data-state="open"])', priority }
+  ];
+  
+  // Queue all cleanup operations with appropriate priorities
+  selectorsToClean.forEach(({ selector, priority }) => {
+    cleanupManager.queueCleanupOperation(selector, priority);
+  });
+};
 
 // Utility hook for safe component unmounting
 export const useShipmentSafeUnmount = () => {
@@ -143,92 +396,18 @@ export const useShipmentSafeUnmount = () => {
   const printRefsExist = useRef(false);
   const unmountingRef = useRef(false);
   const cleanupInProgressRef = useRef(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const cleanupManager = CleanupManager.getInstance();
   
   // Enhanced DOM element cleanup function with more robust error handling
-  const cleanupDomElements = useCallback(() => {
+  const cleanupDomElements = useCallback((priority: number = 5) => {
     // Prevent multiple concurrent cleanups
-    if (cleanupInProgressRef.current || !isMountedRef.current || isGlobalCleanupRunning) return;
+    if (cleanupInProgressRef.current || !isMountedRef.current) return;
     
     try {
       // Set cleanup flag
       cleanupInProgressRef.current = true;
       
-      // Create abort controller for this cleanup operation
-      abortControllerRef.current = new AbortController();
-      const signal = abortControllerRef.current.signal;
-      
-      // More selective approach with additional protection for dialogs
-      const selectorsToClean = [
-        '[role="tooltip"]',
-        // Avoid removing active dialogs or modals
-        '[role="dialog"][data-state="closed"]', 
-        '[data-portal]:not(:has(*)):not([aria-modal="true"])', 
-        '.radix-popup:not(:has(*)):not([data-state="open"])', 
-        '[data-floating]:not(:has(button:hover)):not([data-state="open"])', 
-        // Only target elements that are explicitly closed
-        '[data-state="closed"]', 
-        '.popover-content:not(:has(input:focus)):not([data-state="open"])',
-        '.tooltip-content:not(:hover)',
-        '.dropdown-menu-content:not(:has(*:hover)):not([data-state="open"])',
-      ];
-      
-      // Process in batches with delay between each batch
-      const processBatch = (index: number) => {
-        // Check if cleanup was aborted
-        if (signal.aborted || index >= selectorsToClean.length) {
-          setTimeout(() => {
-            cleanupInProgressRef.current = false;
-            abortControllerRef.current = null;
-          }, 50);
-          return;
-        }
-        
-        // Process this batch
-        try {
-          const selector = selectorsToClean[index];
-          
-          // Check if we should skip based on protected types
-          let skipSelector = false;
-          for (const protectedType of protectedElementTypes) {
-            if (selector === protectedType) {
-              skipSelector = true;
-              break;
-            }
-          }
-          
-          if (!skipSelector) {
-            // Get elements but verify they're not protected first
-            const elements = document.querySelectorAll(selector);
-            elements.forEach(el => {
-              // Skip protected elements
-              for (const protectedType of protectedElementTypes) {
-                if (el.matches(protectedType) || el.closest(protectedType)) {
-                  return; // Skip this element
-                }
-              }
-              
-              // Skip if inside a dialog
-              if (el.closest('[aria-modal="true"][data-state="open"]')) return;
-              
-              // Use safe removal
-              safeRemoveElement(el);
-            });
-          }
-        } catch (err) {
-          // Silently continue to next batch
-        }
-        
-        // Process next batch after a delay
-        setTimeout(() => {
-          if (!signal.aborted) {
-            processBatch(index + 1);
-          }
-        }, CLEANUP_BATCH_DELAY);
-      };
-      
-      // Start processing batches
-      processBatch(0);
+      safeCleanupDOM(priority);
       
       // Only handle print containers if we know they exist
       if (printRefsExist.current) {
@@ -256,10 +435,6 @@ export const useShipmentSafeUnmount = () => {
     } finally {
       // Clear cleanup flag after a delay
       setTimeout(() => {
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
-          abortControllerRef.current = null;
-        }
         cleanupInProgressRef.current = false;
       }, 200);
     }
@@ -267,17 +442,24 @@ export const useShipmentSafeUnmount = () => {
   
   // Debounced version with longer delay to prevent rapid consecutive calls
   const debouncedCleanup = useCallback(
-    debounce(cleanupDomElements, 200),
+    debounce((priority: number = 5) => cleanupDomElements(priority), 300),
     [cleanupDomElements]
   );
   
   // Cancel ongoing cleanup operations
   const cancelCleanup = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
+    cleanupManager.cancelAllOperations();
     cleanupInProgressRef.current = false;
+  }, []);
+  
+  // Signal that navigation is starting
+  const startNavigation = useCallback(() => {
+    cleanupManager.startNavigation();
+  }, []);
+  
+  // Signal that navigation has completed
+  const endNavigation = useCallback(() => {
+    cleanupManager.endNavigation();
   }, []);
   
   useEffect(() => {
@@ -295,9 +477,13 @@ export const useShipmentSafeUnmount = () => {
           if (state === 'closed' && target.getAttribute('role') === 'dialog') {
             target.classList.add('actively-transitioning');
             
+            // Lock the element to prevent removal during transition
+            cleanupManager.lockElement(target);
+            
             // Remove the protection class after transition completes
             setTimeout(() => {
               target.classList.remove('actively-transitioning');
+              cleanupManager.unlockElement(target);
             }, 400); // Slightly longer than animation duration
           }
         }
@@ -312,7 +498,13 @@ export const useShipmentSafeUnmount = () => {
     });
     
     // Register event for cleanup when needed
-    window.addEventListener('component-unmount', debouncedCleanup);
+    window.addEventListener('component-unmount', () => debouncedCleanup(5));
+    window.addEventListener('before-navigation', () => startNavigation());
+    window.addEventListener('after-navigation', () => {
+      endNavigation();
+      // Delay cleanup after navigation completes
+      setTimeout(() => debouncedCleanup(3), 300);
+    });
     
     return () => {
       // Mark component as unmounted
@@ -322,28 +514,30 @@ export const useShipmentSafeUnmount = () => {
       // Disconnect observer
       observer.disconnect();
       
+      // Remove event listeners
+      window.removeEventListener('component-unmount', () => debouncedCleanup(5));
+      window.removeEventListener('before-navigation', () => startNavigation());
+      window.removeEventListener('after-navigation', () => endNavigation());
+      
       // Trigger cleanup event
       window.dispatchEvent(new CustomEvent('component-unmount'));
-      window.removeEventListener('component-unmount', debouncedCleanup);
       
       // Cancel any ongoing cleanup
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      cancelCleanup();
       
       // Execute cleanup after a small delay to ensure component is fully unmounted
       setTimeout(() => {
         if (unmountingRef.current) {
           // Run cleanup with protection against errors
           try {
-            cleanupDomElements();
+            cleanupDomElements(7); // Higher priority for unmount cleanup
           } catch (e) {
             console.error('Error in unmount cleanup:', e);
           }
         }
-      }, 50);
+      }, 100);
     };
-  }, [cleanupDomElements, debouncedCleanup, cancelCleanup]);
+  }, [cleanupDomElements, debouncedCleanup, cancelCleanup, startNavigation, endNavigation]);
   
   return { 
     isMounted: () => isMountedRef.current,
@@ -352,123 +546,20 @@ export const useShipmentSafeUnmount = () => {
     },
     printRefsExist: () => printRefsExist.current,
     forceCleanup: debouncedCleanup,
-    cancelCleanup
+    cancelCleanup,
+    startNavigation,
+    endNavigation
   };
 };
 
-// Global DOM cleanup registry to track what's being cleaned
-const cleanupRegistry = new Set<string>();
+// Signal window type augmentation for debuggability
+declare global {
+  interface Window {
+    DEBUG_DOM_CLEANUP?: boolean;
+  }
+}
 
-// Global helper function for DOM cleanup with enhanced safety and mutex lock
-export const safeCleanupDOM = () => {
-  // Prevent concurrent cleanups with mutex pattern
-  if (isGlobalCleanupRunning) return;
-  isGlobalCleanupRunning = true;
-  
-  // Generate a unique ID for this cleanup process
-  const cleanupId = `cleanup-${Date.now()}`;
-  cleanupRegistry.add(cleanupId);
-  
-  // Clear any pending cleanup
-  if (globalCleanupTimeout) {
-    clearTimeout(globalCleanupTimeout);
-    globalCleanupTimeout = null;
-  }
-  
-  try {
-    // Create abort controller for this cleanup
-    const abortController = new AbortController();
-    const signal = abortController.signal;
-    
-    // More selective selectors that avoid active dialogs and modal elements
-    const selectorsToClean = [
-      '[role="tooltip"]',
-      '[role="dialog"][data-state="closed"]', 
-      '[data-portal]:not(:has(*)):not([aria-modal="true"])', 
-      '.radix-popup:not(:has(*)):not([data-state="open"])', 
-      '[data-floating]:not(:has(button:hover)):not([data-state="open"])', 
-      '[data-state="closed"]',
-      '.popover-content:not(:has(input:focus)):not([data-state="open"])',
-      '.tooltip-content:not(:hover)',
-      '.dropdown-menu-content:not(:has(*:hover)):not([data-state="open"])',
-    ];
-    
-    // Process in batches with delay between each batch
-    const batchProcess = (index: number) => {
-      // Check if this cleanup was cancelled
-      if (signal.aborted || !cleanupRegistry.has(cleanupId)) {
-        isGlobalCleanupRunning = false;
-        return;
-      }
-      
-      if (index >= selectorsToClean.length) {
-        // Final cleanup after all batches complete
-        globalCleanupTimeout = setTimeout(() => {
-          isGlobalCleanupRunning = false;
-          globalCleanupTimeout = null;
-          cleanupRegistry.delete(cleanupId);
-        }, CLEANUP_LOCK_TIMEOUT);
-        return;
-      }
-      
-      try {
-        const selector = selectorsToClean[index];
-        
-        // Skip protected selectors
-        let shouldSkip = false;
-        for (const protectedType of protectedElementTypes) {
-          if (selector === protectedType) {
-            shouldSkip = true;
-            break;
-          }
-        }
-        
-        if (!shouldSkip) {
-          const elements = document.querySelectorAll(selector);
-          elements.forEach(el => {
-            // Skip elements in active dialogs or that match protected types
-            if (el.closest('[aria-modal="true"][data-state="open"]')) return;
-            
-            // Check against protected types
-            for (const protectedType of protectedElementTypes) {
-              if (el.matches(protectedType) || el.closest(protectedType)) {
-                return; // Skip this element
-              }
-            }
-            
-            safeRemoveElement(el);
-          });
-        }
-      } catch (error) {
-        // Continue to next batch even if this one fails
-      }
-      
-      // Process next batch after a small delay
-      setTimeout(() => {
-        if (!signal.aborted && cleanupRegistry.has(cleanupId)) {
-          batchProcess(index + 1);
-        } else {
-          isGlobalCleanupRunning = false;
-          cleanupRegistry.delete(cleanupId);
-        }
-      }, 20);
-    };
-    
-    // Start batch processing
-    batchProcess(0);
-    
-    // Set a timeout to abort if this takes too long
-    setTimeout(() => {
-      if (cleanupRegistry.has(cleanupId)) {
-        abortController.abort();
-        cleanupRegistry.delete(cleanupId);
-        isGlobalCleanupRunning = false;
-      }
-    }, 5000);
-  } catch (error) {
-    console.error('Error in global DOM cleanup:', error);
-    // Release mutex in case of error
-    cleanupRegistry.delete(cleanupId);
-    isGlobalCleanupRunning = false;
-  }
-};
+// Expose cleanup manager to window for debugging
+if (typeof window !== 'undefined') {
+  (window as any).CleanupManager = CleanupManager.getInstance();
+}

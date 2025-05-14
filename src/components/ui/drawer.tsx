@@ -38,6 +38,7 @@ const DrawerContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => {
   // Track open state
   const isTransitioningRef = React.useRef(false);
+  const drawerIdRef = React.useRef(`drawer-${Math.random().toString(36).substring(2, 9)}`);
   
   // Extract the onChange handler from props for proper typing
   const { onChange, ...restProps } = props;
@@ -48,15 +49,30 @@ const DrawerContent = React.forwardRef<
       // Track transition state
       isTransitioningRef.current = true;
       
+      // Notify the application of drawer state change
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('drawer-state-changing', {
+          detail: { drawerId: drawerIdRef.current, open }
+        }));
+      }
+      
       // Add the actively-transitioning class during animations
       const drawerElement = document.querySelector('[data-vaul-drawer-wrapper]');
       if (drawerElement instanceof HTMLElement) {
         drawerElement.classList.add('actively-transitioning');
+        drawerElement.setAttribute('data-drawer-id', drawerIdRef.current);
         
         // Remove class after transition completes
         setTimeout(() => {
           drawerElement.classList.remove('actively-transitioning');
           isTransitioningRef.current = false;
+          
+          // Notify that transition is complete
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('drawer-transition-complete', {
+              detail: { drawerId: drawerIdRef.current, open }
+            }));
+          }
         }, 500);
       }
       
@@ -72,12 +88,24 @@ const DrawerContent = React.forwardRef<
       isTransitioningRef.current = false;
     }
   }, [onChange]);
+  
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('drawer-unmounted', {
+          detail: { drawerId: drawerIdRef.current }
+        }));
+      }
+    };
+  }, []);
 
   return (
     <DrawerPortal>
       <DrawerOverlay />
       <DrawerPrimitive.Content
         ref={ref}
+        data-drawer-id={drawerIdRef.current}
         className={cn(
           "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
           className
