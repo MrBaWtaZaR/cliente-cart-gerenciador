@@ -196,6 +196,10 @@ export const OrdersPage = () => {
           setTimeout(resolve, 500);
         } catch (error) {
           console.error('Error in onBeforePrint:', error);
+          // Ensure setIsPdfLoading is reset if there's an error
+          if (isMounted.current) {
+            setIsPdfLoading(false);
+          }
           resolve(); // Resolve anyway to avoid hanging
         }
       });
@@ -207,12 +211,13 @@ export const OrdersPage = () => {
           // Remove the protection classes after print is complete
           if (pdfRef.current) {
             pdfRef.current.classList.remove('actively-printing');
-            // Reset loading state immediately
+            
+            // Reset loading state immediately to fix the button
             setIsPdfLoading(false);
             
             // Keep as protected for a little longer
             setTimeout(() => {
-              if (pdfRef.current) {
+              if (isMounted.current && pdfRef.current) {
                 pdfRef.current.classList.remove('protected-element');
               }
               
@@ -226,12 +231,14 @@ export const OrdersPage = () => {
               }
             }, 200);
           } else {
+            // If ref is not available, still reset the state
             setIsPdfLoading(false);
             setShowPDFPreview(false);
           }
         }
       } catch (error) {
         console.error('Error in onAfterPrint:', error);
+        // Always reset states on error
         if (isMounted.current) {
           setIsPdfLoading(false);
           setShowPDFPreview(false);
@@ -241,12 +248,11 @@ export const OrdersPage = () => {
     // Retries for print initialization
     onPrintError: (error) => {
       console.error("Print error:", error);
-      // Correto uso do toast
-      toast.error("Houve um problema ao preparar o documento. Tente novamente.");
-      
+      // Reset loading state immediately on error
       if (isMounted.current) {
         setIsPdfLoading(false);
         setShowPDFPreview(false);
+        toast.error("Houve um problema ao preparar o documento. Tente novamente.");
       }
     }
   });
