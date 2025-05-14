@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
@@ -57,15 +58,15 @@ const DrawerContent = React.forwardRef<
         }, 500);
       }
       
-      // Forward the open change if provided
-      if (props.onOpenChange) {
-        props.onOpenChange(open);
+      // Forward the open change if provided - use onChange instead of onOpenChange
+      if (props.onChange) {
+        props.onChange(open);
       }
     } catch (error) {
-      console.error("Drawer onOpenChange error:", error);
+      console.error("Drawer onChange error:", error);
       isTransitioningRef.current = false;
     }
-  }, [props.onOpenChange]);
+  }, [props.onChange]);
 
   return (
     <DrawerPortal>
@@ -91,8 +92,8 @@ const DrawerContent = React.forwardRef<
             e.preventDefault();
           }
         }}
-        // Use our safe open change handler
-        onOpenChange={handleOpenChange}
+        // Use our safe open change handler with onChange instead of onOpenChange
+        onChange={handleOpenChange}
         {...props}
       >
         <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
