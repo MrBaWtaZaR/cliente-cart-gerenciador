@@ -563,3 +563,4 @@ declare global {
 if (typeof window !== 'undefined') {
   (window as any).CleanupManager = CleanupManager.getInstance();
 }
+
