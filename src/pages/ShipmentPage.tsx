@@ -174,8 +174,8 @@ export const ShipmentPage = () => {
 
   // Fix react-to-print implementation
   const handlePrintTable = useReactToPrint({
-    // Use content function instead of contentRef
-    content: () => tableRef.current,
+    // Use contentRef instead of content
+    contentRef: tableRef,
     documentTitle: `Tabela_de_Envio_${format(new Date(), 'dd-MM-yyyy')}`,
     onBeforeGetContent: () => {
       return new Promise<void>((resolve) => {
@@ -196,8 +196,8 @@ export const ShipmentPage = () => {
 
   // Fix react-to-print implementation
   const handlePrintCards = useReactToPrint({
-    // Use content function instead of contentRef
-    content: () => cardsRef.current,
+    // Use contentRef instead of content
+    contentRef: cardsRef,
     documentTitle: `Cards_de_Envio_${format(new Date(), 'dd-MM-yyyy')}`,
     onBeforeGetContent: () => {
       return new Promise<void>((resolve) => {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useCustomerStore } from '@/stores';
 import { Button } from '@/components/ui/button';
@@ -167,10 +166,10 @@ export const OrdersPage = () => {
     }
   }, [customers, setSearchParams]);
   
-  // Fixed PDF printing with deferred rendering using content function
+  // Fixed PDF printing with contentRef property instead of content function
   const handlePrintPDF = useReactToPrint({
-    // Use content function instead of contentRef
-    content: () => pdfRef.current,
+    // Use contentRef property instead of content
+    contentRef: pdfRef,
     documentTitle: `Pedido-${viewingOrder?.id?.substring(0, 8) || ''}`,
     onBeforeGetContent: () => {
       return new Promise<void>((resolve) => {
