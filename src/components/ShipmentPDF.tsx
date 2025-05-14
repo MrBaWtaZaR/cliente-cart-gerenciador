@@ -23,7 +23,7 @@ const ShipmentImage = ({ src, alt, className = "" }) => {
   );
 };
 
-export const ShipmentTablePDF = React.forwardRef<HTMLDivElement, ShipmentPDFProps>(
+export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFProps>(
   ({ shipmentCustomers, date }, ref) => {
     // Function to calculate service fee (10% of total)
     const calculateServiceFee = (total: number) => {
@@ -176,7 +176,7 @@ export const ShipmentTablePDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
 
 ShipmentTablePDF.displayName = 'ShipmentTablePDF';
 
-export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProps>(
+export const ShipmentCardsPDF = React.forwardRef<PrintablePDFRef, ShipmentPDFProps>(
   ({ shipmentCustomers, date }, ref) => {
     // Function to format phone number
     const formatPhone = (phone: string) => {
@@ -189,6 +189,18 @@ export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
         return numbers.replace(/(\d{2})(\d{0,5})(\d{0,4})/, '($1) $2-$3');
       }
     };
+    
+    // Format city and state
+    const formatCityState = (city?: string, state?: string) => {
+      if (city && state) {
+        return `${city.toUpperCase()} - ${state.toUpperCase()}`;
+      } else if (city) {
+        return city.toUpperCase();
+      } else if (state) {
+        return state.toUpperCase();
+      }
+      return '-';
+    };
 
     // Group customers into pairs for 2 cards per page
     const customerPairs = [];
@@ -198,66 +210,65 @@ export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
 
     return (
       <PrintablePDF ref={ref} className="shipment-print-container">
-        <div className="bg-white mx-auto text-black">
+        <div className="bg-white mx-auto text-black font-[Montserrat]">
           {customerPairs.map((pair, pairIndex) => (
             <div 
               key={pairIndex} 
-              className={`grid grid-cols-1 gap-4 ${pairIndex > 0 ? 'page-break-before' : ''}`}
-              style={{ height: "297mm", padding: "10px" }}
+              className={`flex flex-col gap-6 items-center ${pairIndex > 0 ? 'page-break-before' : ''}`}
+              style={{ height: "297mm", padding: "16px" }}
             >
               {pair.map((customer, idx) => (
                 <div 
                   key={idx} 
-                  className="border-2 border-dashed border-blue-800 rounded-lg flex flex-col"
-                  style={{ height: "calc(50% - 10px)" }}
+                  className="w-4/5 h-[45%] border-2 border-[#1C3553] rounded-lg flex flex-col bg-white relative overflow-hidden"
                 >
-                  {/* Logo no topo do cartão */}
-                  <div className="bg-blue-50 p-2 flex justify-center border-b border-blue-200">
-                    <ShipmentImage 
-                      src="/lovable-uploads/918a2f2c-f5f0-4ea6-8676-f08b6d93bb99.png" 
-                      alt="AF Consultoria" 
-                      className="h-14"
-                    />
+                  {/* Volume indicator */}
+                  <div className="absolute top-3 left-3 w-12 h-12 rounded-full bg-[#1C3553] flex items-center justify-center">
+                    <p className="text-white font-bold text-sm">Vol. 01</p>
                   </div>
                   
-                  <div className="text-center p-2 pb-1 border-b border-blue-200">
-                    <h3 className="font-bold text-xl text-blue-800">{customer.tourName || "Excursão"}</h3>
-                  </div>
-                  
-                  {/* Informações em duas colunas */}
-                  <div className="flex flex-row p-3 flex-1">
-                    {/* Coluna 1: Dados da excursão */}
-                    <div className="w-1/2 space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <p className="font-bold text-sm text-blue-700">Setor:</p>
-                          <p className="truncate text-2xl font-bold">{customer.tourSector || "-"}</p>
-                        </div>
-                        <div>
-                          <p className="font-bold text-sm text-blue-700">Vaga:</p>
-                          <p className="text-2xl font-bold">{customer.tourSeatNumber || "-"}</p>
-                        </div>
+                  {/* Excursão section */}
+                  <div className="flex flex-col items-center pt-6 px-6">
+                    <h3 className="font-bold text-2xl uppercase mb-1">EXCURSÃO</h3>
+                    <h4 className="font-bold text-xl uppercase mb-2">{customer.tourName || "BENTO TURISMO"}</h4>
+                    
+                    <div className="flex justify-between w-full">
+                      <div className="flex flex-col">
+                        <p className="font-medium">
+                          <span className="font-bold">Setor:</span> {customer.tourSector || "-"}
+                        </p>
+                        <p className="font-medium">
+                          <span className="font-bold">Vaga:</span> {customer.tourSeatNumber || "-"}
+                        </p>
                       </div>
-                      <div>
-                        <p className="font-bold text-sm text-blue-700">Horário:</p>
-                        <p className="text-2xl font-bold">{customer.tourDepartureTime || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm text-blue-700">Cidade/UF:</p>
-                        <p className="truncate text-xl font-bold">{[customer.tourCity, customer.tourState].filter(Boolean).join('/')}</p>
+                      
+                      <div className="text-right">
+                        <p className="font-bold text-lg">{customer.tourDepartureTime || "-"}</p>
                       </div>
                     </div>
+                  </div>
+                  
+                  {/* Separating line */}
+                  <div className="w-full h-1 bg-[#1C3553] my-3"></div>
+                  
+                  {/* Cliente section */}
+                  <div className="flex flex-col items-center px-6 flex-grow">
+                    <h3 className="font-bold text-xl uppercase mb-1">CLIENTE</h3>
+                    <h4 className="font-bold text-xl uppercase mb-1">{customer.name}</h4>
+                    <p className="font-medium mb-3">{formatPhone(customer.phone)}</p>
                     
-                    {/* Coluna 2: Dados pessoais */}
-                    <div className="w-1/2 border-l border-blue-200 pl-4 space-y-2">
-                      <div>
-                        <p className="font-bold text-sm text-blue-700">Nome:</p>
-                        <p className="truncate text-xl font-bold">{customer.name}</p>
+                    <p className="font-bold text-xl uppercase underline">
+                      {formatCityState(customer.tourCity, customer.tourState)}
+                    </p>
+                  </div>
+                  
+                  {/* Footer with logo */}
+                  <div className="flex justify-end items-center p-3">
+                    <div className="flex flex-col items-center">
+                      <div className="w-12 h-12 rounded-full bg-[#1C3553] flex items-center justify-center mb-1">
+                        <p className="text-white font-bold text-sm">AF</p>
                       </div>
-                      <div>
-                        <p className="font-bold text-sm text-blue-700">Telefone:</p>
-                        <p className="text-xl font-bold">{formatPhone(customer.phone)}</p>
-                      </div>
+                      <p className="text-xs font-medium">@ANDRADEFLORASSESSORIA</p>
                     </div>
                   </div>
                 </div>
@@ -265,6 +276,8 @@ export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
             </div>
           ))}
           <style>{`
+            @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+            
             @media print {
               .page-break-before {
                 page-break-before: always;
@@ -275,6 +288,7 @@ export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
               }
               body {
                 margin: 0;
+                font-family: 'Montserrat', sans-serif;
               }
             }
           `}</style>
