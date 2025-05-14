@@ -37,15 +37,16 @@ const DialogContent = React.forwardRef<
   
   // Handle dialog open state changes
   const handleOpenChange = (open: boolean) => {
+    // Mark transition in progress
+    isTransitioningRef.current = true;
+    
+    // Allow transition animations to complete before any DOM cleanup
+    setTimeout(() => {
+      isTransitioningRef.current = false;
+    }, 300); // Match animation duration
+    
+    // Call the original onChange handler if provided
     if (props.onChange) {
-      // Mark transition in progress
-      isTransitioningRef.current = true;
-      
-      // Allow transition animations to complete before any DOM cleanup
-      setTimeout(() => {
-        isTransitioningRef.current = false;
-      }, 300); // Match animation duration
-      
       props.onChange(open);
     }
   };
@@ -121,7 +122,7 @@ const DialogContent = React.forwardRef<
           }
         }}
         // Use onChange for proper dialog state handling
-        onChange={(open) => handleOpenChange(open)}
+        onChange={handleOpenChange}
         {...props}
       >
         {children}
