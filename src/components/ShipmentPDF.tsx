@@ -1,9 +1,7 @@
-
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Customer } from '@/lib/data';
-import { Shipment } from '@/types/shipments';
 import { PrintablePDF, PrintablePDFRef } from './PrintablePDF';
 
 interface ShipmentPDFProps {
@@ -11,7 +9,6 @@ interface ShipmentPDFProps {
   date: Date;
 }
 
-// Reusable Image component for shipment PDFs
 const ShipmentImage = ({ src, alt, className = "" }) => {
   return (
     <img 
@@ -25,12 +22,10 @@ const ShipmentImage = ({ src, alt, className = "" }) => {
 
 export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFProps>(
   ({ shipmentCustomers, date }, ref) => {
-    // Function to calculate service fee (10% of total)
     const calculateServiceFee = (total: number) => {
       return Math.max(60, total * 0.1);
     };
 
-    // Function to format currency
     const formatCurrency = (value: number) => {
       return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
@@ -43,7 +38,6 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
     return (
       <PrintablePDF ref={ref} className="shipment-print-container">
         <div className="bg-white p-2 max-w-4xl mx-auto text-black print:w-full print:max-w-none">
-          {/* Cabeçalho com Logo - Reduzido o padding para diminuir margem superior */}
           <div className="border-b-2 border-blue-800 pb-2 mb-3">
             <div className="flex justify-between items-center">
               <div className="flex items-center">
@@ -65,7 +59,6 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
             </div>
           </div>
 
-          {/* Tabela de clientes - Modernizada com mais espaçamento e cores melhoradas */}
           <div className="mb-3">
             <h2 className="text-lg font-bold mb-2 text-blue-800 flex items-center">
               <span className="bg-blue-100 p-1 rounded-md mr-2 inline-flex items-center justify-center w-6 h-6 text-center">
@@ -74,7 +67,7 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
               Lista de Clientes para Envio
             </h2>
             <div className="overflow-hidden rounded-lg border border-blue-200 shadow-sm">
-              <table className="w-full border-collapse bg-white" style={{borderCollapse: 'collapse'}}>
+              <table className="w-full border-collapse bg-white">
                 <thead>
                   <tr className="bg-gradient-to-r from-blue-100 to-blue-50 print:bg-blue-100">
                     <th className="py-2 px-3 text-left font-medium text-blue-800 border-b border-blue-200">Nome</th>
@@ -86,13 +79,12 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
                 </thead>
                 <tbody>
                   {shipmentCustomers.map((customer, idx) => {
-                    // Find the latest order for this customer
                     const latestOrder = customer.orders && customer.orders.length > 0 
                       ? customer.orders.reduce((latest, current) => 
                           new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-                        ) 
+                        )
                       : null;
-                    
+
                     const orderTotal = latestOrder?.total || 0;
                     const serviceFee = calculateServiceFee(orderTotal);
                     const total = orderTotal + serviceFee;
@@ -100,16 +92,10 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
                     return (
                       <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
                         <td className="py-2 px-3 border-b border-blue-100">{customer.name}</td>
-                        <td className="py-2 px-3 text-right border-b border-blue-100">
-                          {formatCurrency(orderTotal)}
-                        </td>
-                        <td className="py-2 px-3 text-right border-b border-blue-100">
-                          {formatCurrency(serviceFee)}
-                        </td>
+                        <td className="py-2 px-3 text-right border-b border-blue-100">{formatCurrency(orderTotal)}</td>
+                        <td className="py-2 px-3 text-right border-b border-blue-100">{formatCurrency(serviceFee)}</td>
                         <td className="py-2 px-3 text-right border-b border-blue-100"></td>
-                        <td className="py-2 px-3 text-right border-b border-blue-100 font-medium">
-                          {formatCurrency(total)}
-                        </td>
+                        <td className="py-2 px-3 text-right border-b border-blue-100 font-medium">{formatCurrency(total)}</td>
                       </tr>
                     );
                   })}
@@ -119,38 +105,32 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
                     <td colSpan={1} className="py-2 px-3 text-left">Total:</td>
                     <td className="py-2 px-3 text-right">
                       {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
-                        // Find the latest order for this customer
                         const latestOrder = customer.orders && customer.orders.length > 0 
                           ? customer.orders.reduce((latest, current) => 
                               new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-                            ) 
+                            )
                           : null;
-                        
                         return sum + (latestOrder?.total || 0);
                       }, 0))}
                     </td>
                     <td className="py-2 px-3 text-right">
                       {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
-                        // Find the latest order for this customer
                         const latestOrder = customer.orders && customer.orders.length > 0 
                           ? customer.orders.reduce((latest, current) => 
                               new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-                            ) 
+                            )
                           : null;
-                        
                         return sum + calculateServiceFee(latestOrder?.total || 0);
                       }, 0))}
                     </td>
                     <td className="py-2 px-3 text-right"></td>
                     <td className="py-2 px-3 text-right">
                       {formatCurrency(shipmentCustomers.reduce((sum, customer) => {
-                        // Find the latest order for this customer
                         const latestOrder = customer.orders && customer.orders.length > 0 
                           ? customer.orders.reduce((latest, current) => 
                               new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-                            ) 
+                            )
                           : null;
-                        
                         const orderTotal = latestOrder?.total || 0;
                         const serviceFee = calculateServiceFee(orderTotal);
                         return sum + orderTotal + serviceFee;
@@ -162,7 +142,6 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
             </div>
           </div>
 
-          {/* Rodapé */}
           <div className="mt-4 pt-2 border-t border-blue-800 text-center text-sm text-gray-600">
             <p>AF Consultoria - Documento gerado em {currentDate}</p>
             <p>Este documento não possui valor fiscal</p>
@@ -175,6 +154,7 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
 );
 
 ShipmentTablePDF.displayName = 'ShipmentTablePDF';
+
 
 export const ShipmentCardsPDF = React.forwardRef<PrintablePDFRef, ShipmentPDFProps>(
   ({ shipmentCustomers, date }, ref) => {
