@@ -10,11 +10,12 @@ interface ShipmentPDFProps {
 }
 
 // Estilos CSS como string para dangerouslySetInnerHTML
+// Se o CSS ainda aparecer no PDF, considere mover estas regras para um arquivo CSS global.
 const globalPrintStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
   @media print {
     body {
-      margin: 0;
+      margin: 0 !important;
       font-family: 'Poppins', sans-serif !important;
       -webkit-print-color-adjust: exact !important;
       color-adjust: exact !important;
@@ -22,13 +23,15 @@ const globalPrintStyles = `
     .page-break-before {
       page-break-before: always !important;
     }
-    .print-container { /* Classe genérica para os containers principais dos PDFs */
+    .print-page-container { /* Classe para o container de cada página A4 */
+      width: 210mm !important;
+      height: 297mm !important;
       margin: 0 !important;
       padding: 0 !important;
-      width: 210mm; /* Largura A4 */
-      height: 297mm; /* Altura A4 */
-      display: flex;
-      flex-direction: column;
+      display: flex !important;
+      flex-direction: column !important;
+      box-sizing: border-box !important;
+      overflow: hidden; /* Para evitar que conteúdo extra cause problemas */
     }
     @page {
       margin: 0 !important;
@@ -52,19 +55,38 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
 
     const footerDate = format(date, "dd/MM/yy", { locale: ptBR });
 
+    const totalOrderAmount = shipmentCustomers.reduce((sum, customer) => {
+        const latestOrder = customer.orders && customer.orders.length > 0
+            ? customer.orders.reduce((latest, current) =>
+                new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+              ) : null;
+        return sum + (latestOrder?.total || 0);
+    }, 0);
+
+    const totalServiceFeeAmount = shipmentCustomers.reduce((sum, customer) => {
+        const latestOrder = customer.orders && customer.orders.length > 0
+            ? customer.orders.reduce((latest, current) =>
+                new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+              ) : null;
+        return sum + calculateServiceFee(latestOrder?.total || 0);
+    }, 0);
+
+    const grandTotal = totalOrderAmount + totalServiceFeeAmount;
+
     return (
       <PrintablePDF ref={ref}>
+        {/* Inject styles, if this still causes issues, move to global CSS */}
         <style dangerouslySetInnerHTML={{ __html: globalPrintStyles }} />
-        <div className="print-container bg-white text-black font-[Poppins]"> {/* Usando print-container para A4 */}
+        <div className="print-page-container bg-white text-black font-[Poppins]">
           {/* Header */}
           <div className="bg-[#1C3553] text-white py-4 px-6 text-center">
             <h1 className="text-2xl font-bold tracking-wider">AF ASSESSORIA</h1>
             <p className="text-md font-light">CONSULTORIA</p>
           </div>
 
-          {/* Conteúdo Principal (Tabela) - permite crescer */}
-          <div className="flex-grow p-4"> {/* p-4 para margem interna da tabela */}
-            <div className="overflow-hidden border border-black">
+          {/* Conteúdo Principal (Tabela) */}
+          <div className="flex-grow p-4 overflow-auto"> {/* overflow-auto se a tabela for muito grande */}
+            <div className="border border-black">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-[#1C3553] text-white">
@@ -88,30 +110,38 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
                     const total = orderTotal + serviceFee;
 
                     return (
-                      <tr key={idx} className="bg-white even:bg-gray-50"> {/* Alterna cor de fundo levemente */}
+                      <tr key={idx} className="bg-white even:bg-gray-50">
                         <td className="py-3 px-4 border-b border-r border-black text-left text-sm">{`${idx + 1}. ${customer.name}`}</td>
                         <td className="py-3 px-4 border-b border-r border-black text-right text-sm">{formatCurrency(orderTotal)}</td>
                         <td className="py-3 px-4 border-b border-r border-black text-right text-sm">{formatCurrency(serviceFee)}</td>
-                        <td className="py-3 px-4 border-b border-r border-black text-right text-sm min-h-[2.5rem]"></td> {/* Célula vazia com altura mínima */}
+                        <td className="py-3 px-4 border-b border-r border-black text-right text-sm min-h-[2.5rem]"></td>
                         <td className="py-3 px-4 border-b border-black text-right text-sm font-semibold">{formatCurrency(total)}</td>
                       </tr>
                     );
                   }) : (
-                    // Linha de placeholder se não houver clientes, para manter a estrutura da tabela
                     <tr>
                         <td colSpan={5} className="py-10 px-4 text-center text-gray-500 text-sm border-b border-black">
                             Nenhum cliente para exibir.
                         </td>
                     </tr>
                   )}
-                  {/* Não adicionar mais linhas vazias fixas, a tabela crescerá com o conteúdo */}
                 </tbody>
+                {/* Rodapé da Tabela com Totais */}
+                <tfoot>
+                  <tr className="bg-gray-100 font-bold text-sm">
+                    <td className="py-3 px-4 border-t border-r border-black text-left">TOTAIS:</td>
+                    <td className="py-3 px-4 border-t border-r border-black text-right">{formatCurrency(totalOrderAmount)}</td>
+                    <td className="py-3 px-4 border-t border-r border-black text-right">{formatCurrency(totalServiceFeeAmount)}</td>
+                    <td className="py-3 px-4 border-t border-r border-black text-right">-</td> {/* Taxa de embarque manual */}
+                    <td className="py-3 px-4 border-t border-black text-right">{formatCurrency(grandTotal)}</td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
 
-          {/* Rodapé Fixo */}
-          <div className="bg-[#1C3553] text-white p-3 flex justify-between items-center mt-auto"> {/* mt-auto empurra para o final se houver espaço */}
+          {/* Rodapé da Página */}
+          <div className="bg-[#1C3553] text-white p-3 flex justify-between items-center mt-auto">
             <div className="flex flex-col items-center">
               <span className="text-xl">🗓️</span>
               <span className="text-xs font-semibold">{footerDate}</span>
@@ -161,72 +191,79 @@ export const ShipmentCardsPDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
       customerPairs.push(shipmentCustomers.slice(i, i + 2));
     }
 
+    // Margem da página e gap entre os cards em mm
+    const pageMarginMm = 8; 
+    const cardGapMm = 8;
+
     return (
       <PrintablePDF ref={ref}>
+        {/* Inject styles, if this still causes issues, move to global CSS */}
         <style dangerouslySetInnerHTML={{ __html: globalPrintStyles }} />
-        <div className="bg-white font-[Poppins] text-black"> {/* bg-white para a página inteira se necessário */}
+        <div className="bg-white font-[Poppins] text-black">
           {customerPairs.map((pair, pairIndex) => (
             <div
               key={pairIndex}
-              // Container para cada par de cards (página A4)
-              // Usando print-container indiretamente via @page, mas definindo altura aqui para layout
-              className={`flex flex-row flex-wrap items-start justify-center 
-                          ${pairIndex > 0 ? 'page-break-before' : ''} 
-                          p-[10mm] box-border`} // Padding para margens da página
-              style={{ width: "210mm", minHeight: "297mm", gap: "10mm" }} // Gap entre os cards
+              className={`print-page-container ${pairIndex > 0 ? 'page-break-before' : ''} 
+                          flex flex-row flex-wrap items-start justify-start content-start`}
+              style={{ 
+                padding: `${pageMarginMm}mm`, 
+                gap: `${cardGapMm}mm`,
+                boxSizing: 'border-box' // Garante que padding e border não aumentem o tamanho total
+              }}
             >
               {pair.map((customer, idx) => (
                 <div
                   key={idx}
-                  // Cada card ocupa aproximadamente metade da largura menos o gap, com altura definida
-                  className="flex flex-col bg-white border-2 border-gray-800 rounded-lg shadow-lg overflow-hidden p-4 box-border"
-                  style={{ 
-                    width: "calc(50% - 5mm)", // 50% da largura do container menos metade do gap
-                    minHeight: "125mm", // Altura mínima do card
-                    maxWidth: "90mm" // Largura máxima do card
+                  className="flex flex-col bg-white border-2 border-gray-700 rounded-lg shadow-md overflow-hidden p-4 box-border"
+                  style={{
+                    // Largura: (LarguraA4 - 2*MargemPagina - GapEntreCards) / 2
+                    // LarguraA4 = 210mm
+                    width: `calc((100% - ${cardGapMm}mm) / 2)`, // Ocupa 50% do espaço útil menos o gap
+                    minHeight: "120mm", // Altura mínima, ajuste conforme necessário
+                    maxHeight: "135mm",
+                    boxSizing: 'border-box'
                   }}
                 >
-                  {/* Header do Card (Volume e Nome Excursão) */}
-                  <div className="flex justify-between items-start mb-2">
+                  {/* Header do Card */}
+                  <div className="flex justify-between items-start mb-3">
                     <div>
-                      <p className="text-xs font-semibold text-gray-600">VOLUME</p>
-                      <p className="text-lg font-bold text-gray-800">01</p>
+                      <p className="text-sm font-semibold text-gray-500">VOLUME</p>
+                      <p className="text-xl font-bold text-gray-800">01</p>
                     </div>
                     <div className="text-right">
-                      <h3 className="font-extrabold text-xl uppercase text-gray-800 tracking-wide">*EXCURSÃO*</h3>
-                      <p className="text-sm font-semibold text-[#1C3553]">{customer.tourName || "NOME EXCURSÃO"}</p>
+                      <h3 className="font-extrabold text-2xl uppercase text-gray-800 tracking-wide">*EXCURSÃO*</h3>
+                      <p className="text-base font-semibold text-[#1C3553]">{customer.tourName || "NOME EXCURSÃO"}</p>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-600 mb-1 text-right">{customer.tourDepartureTime || "--:--"}</div>
-                  <p className="text-xs text-gray-500 mb-1">{customer.additionalInfo || "Informação Adicional"}</p>
-                  <p className="text-sm text-gray-700 mb-3">
+                  <div className="text-sm text-gray-600 mb-1 text-right">{customer.tourDepartureTime || "--:--"}</div>
+                  <p className="text-sm text-gray-500 mb-2">{customer.additionalInfo || "Informação Adicional"}</p>
+                  <p className="text-base text-gray-700 mb-4">
                       <span className="font-semibold">Setor:</span> {customer.tourSector || "-"} / <span className="font-semibold">Vaga:</span> {customer.tourSeatNumber || "-"}
                   </p>
-
 
                   {/* Linha Separadora */}
                   <div className="w-full h-px bg-gray-400 my-3"></div>
 
                   {/* Cliente section */}
-                  <div className="flex flex-col flex-grow"> {/* flex-grow para empurrar rodapé do card para baixo */}
-                    <h3 className="font-extrabold text-xl uppercase text-gray-800 tracking-wide mb-1 text-center">*CLIENTE*</h3>
-                    <h4 className="font-bold text-lg uppercase leading-tight text-center text-[#1C3553] mb-1">{customer.name}</h4>
-                    <p className="text-base text-gray-700 text-center mb-2">{formatPhone(customer.phone)}</p>
-                    <p className="font-bold text-lg uppercase underline decoration-2 underline-offset-2 text-center text-gray-800">
+                  <div className="flex flex-col flex-grow items-center">
+                    <h3 className="font-extrabold text-2xl uppercase text-gray-800 tracking-wide mb-2 text-center">*CLIENTE*</h3>
+                    <h4 className="font-bold text-xl uppercase leading-tight text-center text-[#1C3553] mb-2">{customer.name}</h4>
+                    <p className="text-lg text-gray-700 text-center mb-3">{formatPhone(customer.phone)}</p>
+                    <p className="font-bold text-xl uppercase underline decoration-2 underline-offset-2 text-center text-gray-800">
                       {formatCityState(customer.tourCity, customer.tourState)}
                     </p>
                   </div>
                   
-                  {/* Rodapé do Card (AF Assessoria) */}
-                  <div className="mt-auto pt-3 text-center">
-                    <p className="text-sm font-bold text-[#1C3553]">AF ASSESSORIA</p>
-                    <p className="text-xs text-gray-600">@ANDRADEFLORASSESSORIA</p>
+                  {/* Rodapé do Card */}
+                  <div className="mt-auto pt-4 text-center">
+                    <p className="text-base font-bold text-[#1C3553]">AF ASSESSORIA</p>
+                    <p className="text-sm text-gray-600">@ANDRADEFLORASSESSORIA</p>
                   </div>
                 </div>
               ))}
-               {/* Placeholder se houver apenas um card para manter o layout com flexbox */}
+              {/* Placeholder para alinhar o primeiro card se houver apenas um no par */}
               {pair.length === 1 && (
-                 <div style={{ width: "calc(50% - 5mm)", maxWidth: "90mm" }} aria-hidden="true"></div>
+                 <div style={{ width: `calc((100% - ${cardGapMm}mm) / 2)` }} aria-hidden="true"></div>
               )}
             </div>
           ))}
