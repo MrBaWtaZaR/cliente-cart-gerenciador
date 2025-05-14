@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useDataStore, Customer, Shipment } from '@/lib/data';
+import { useDataStore } from '@/lib/data';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,11 +8,12 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ShipmentTablePDF, ShipmentCardsPDF } from '@/components/ShipmentPDF';
 import { Plus, FileText, CreditCard, Calendar, Download, Eye, Trash2, Edit, Save } from 'lucide-react';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/components/ui/use-toast';
 import { useReactToPrint } from 'react-to-print';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useShipmentSafeUnmount } from '@/components/ShipmentSafeUnmount';
+import { Customer, Shipment } from '@/types/shipments';
 
 export const ShipmentPage = () => {
   const { customers, shipments, addShipment, getShipments, deleteShipment, updateShipment } = useDataStore();
@@ -171,50 +172,47 @@ export const ShipmentPage = () => {
     };
   }, [getShipments, isMounted]);
 
+  // Fix react-to-print implementation
   const handlePrintTable = useReactToPrint({
+    // Use content function instead of contentRef
+    content: () => tableRef.current,
     documentTitle: `Tabela_de_Envio_${format(new Date(), 'dd-MM-yyyy')}`,
-    onBeforePrint: () => {
+    onBeforeGetContent: () => {
       return new Promise<void>((resolve) => {
+        if (tableRef.current) {
+          const container = tableRef.current;
+          container.classList.add('actively-printing');
+        }
         setTimeout(resolve, 250);
       });
     },
     onAfterPrint: () => {
-      if (isMounted()) {
+      if (isMounted() && tableRef.current) {
+        tableRef.current.classList.remove('actively-printing');
         toast.success('PDF da tabela gerado com sucesso');
-        
-        // Manual cleanup after printing to prevent memory leaks
-        setTimeout(() => {
-          if (isMounted()) {
-            setPrintRefsExist(false);
-            setTimeout(() => setPrintRefsExist(true), 100);
-          }
-        }, 500);
       }
     },
-    contentRef: tableRef,
   });
 
+  // Fix react-to-print implementation
   const handlePrintCards = useReactToPrint({
+    // Use content function instead of contentRef
+    content: () => cardsRef.current,
     documentTitle: `Cards_de_Envio_${format(new Date(), 'dd-MM-yyyy')}`,
-    onBeforePrint: () => {
+    onBeforeGetContent: () => {
       return new Promise<void>((resolve) => {
+        if (cardsRef.current) {
+          cardsRef.current.classList.add('actively-printing');
+        }
         setTimeout(resolve, 250);
       });
     },
     onAfterPrint: () => {
-      if (isMounted()) {
+      if (isMounted() && cardsRef.current) {
+        cardsRef.current.classList.remove('actively-printing');
         toast.success('PDF dos cards gerado com sucesso');
-        
-        // Manual cleanup after printing to prevent memory leaks
-        setTimeout(() => {
-          if (isMounted()) {
-            setPrintRefsExist(false);
-            setTimeout(() => setPrintRefsExist(true), 100);
-          }
-        }, 500);
       }
     },
-    contentRef: cardsRef,
   });
 
   const handleCreateShipment = async () => {
@@ -420,10 +418,6 @@ export const ShipmentPage = () => {
       }, 300);
     }
   };
-
-  useEffect(() => {
-    console.log("Current shipments in state:", shipments?.length || 0);
-  }, [shipments]);
 
   // Debug logging for monitoring customers and their order status
   useEffect(() => {

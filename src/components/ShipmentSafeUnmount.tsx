@@ -1,5 +1,6 @@
 
 import { useEffect, useRef, useCallback } from 'react';
+import { toast } from '@/components/ui/use-toast';
 
 // Enhanced debounce helper with type safety
 const debounce = <T extends (...args: any[]) => any>(fn: T, ms = 300) => {

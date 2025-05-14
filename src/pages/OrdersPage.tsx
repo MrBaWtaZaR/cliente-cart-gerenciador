@@ -14,7 +14,7 @@ import { OrderCard } from '@/components/OrderCard';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { EditOrderForm } from '@/components/EditOrderForm';
 import { SyncButton } from '@/components/ui/sync-button';
-import { toast } from '@/hooks/use-toast';
+import { toast } from '@/components/ui/use-toast';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -167,16 +167,23 @@ export const OrdersPage = () => {
     }
   }, [customers, setSearchParams]);
   
-  // Updated PDF printing with deferred rendering
+  // Fixed PDF printing with deferred rendering using content function
   const handlePrintPDF = useReactToPrint({
+    // Use content function instead of contentRef
+    content: () => pdfRef.current,
     documentTitle: `Pedido-${viewingOrder?.id?.substring(0, 8) || ''}`,
-    onBeforePrint: () => {
+    onBeforeGetContent: () => {
       return new Promise<void>((resolve) => {
         try {
           if (isMounted.current) {
             console.log("Preparando para impressão...");
             setIsPdfLoading(true);
             setShowPDFPreview(true);
+            
+            // Mark the PDF as actively printing to prevent cleanup
+            if (pdfRef.current) {
+              pdfRef.current.classList.add('actively-printing');
+            }
           }
           
           // Use a short timeout to ensure the PDF is ready
@@ -194,7 +201,10 @@ export const OrdersPage = () => {
     onAfterPrint: () => {
       try {
         console.log("Impressão concluída");
-        if (isMounted.current) {
+        if (isMounted.current && pdfRef.current) {
+          // Remove the actively printing marker
+          pdfRef.current.classList.remove('actively-printing');
+          
           setTimeout(() => {
             setShowPDFPreview(false);
           }, 100);
@@ -206,7 +216,6 @@ export const OrdersPage = () => {
         }
       }
     },
-    contentRef: pdfRef,
   });
 
   // Improved dialog close handling
@@ -638,20 +647,22 @@ export const OrdersPage = () => {
       
       {/* Improved PDF container that only renders when needed */}
       {showPDFPreview && viewingOrder && customerInfo && (
-        <div style={{ 
-          display: 'block',
-          position: 'absolute',
-          left: '-9999px',
-          visibility: 'hidden',
-          pointerEvents: 'none' // Prevent interactions with the hidden PDF
-        }}>
-          <div ref={pdfRef}>
-            <OrderPDF 
-              order={viewingOrder} 
-              customerName={customerName} 
-              customerInfo={customerInfo} 
-            />
-          </div>
+        <div 
+          ref={pdfRef}
+          className="shipment-print-container"
+          style={{ 
+            display: 'block',
+            position: 'absolute',
+            left: '-9999px',
+            visibility: 'hidden',
+            pointerEvents: 'none' // Prevent interactions with the hidden PDF
+          }}
+        >
+          <OrderPDF 
+            order={viewingOrder} 
+            customerName={customerName} 
+            customerInfo={customerInfo} 
+          />
         </div>
       )}
     </div>

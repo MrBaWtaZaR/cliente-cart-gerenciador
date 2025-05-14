@@ -2,7 +2,8 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Customer, Order } from '@/lib/data';
+import { Customer } from '@/lib/data';
+import { Shipment } from '@/types/shipments';
 
 interface ShipmentPDFProps {
   shipmentCustomers: Customer[];
@@ -11,8 +12,6 @@ interface ShipmentPDFProps {
 
 export const ShipmentTablePDF = React.forwardRef<HTMLDivElement, ShipmentPDFProps>(
   ({ shipmentCustomers, date }, ref) => {
-    const currentDate = format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
-
     // Function to calculate service fee (10% of total)
     const calculateServiceFee = (total: number) => {
       return Math.max(60, total * 0.1);
@@ -26,8 +25,10 @@ export const ShipmentTablePDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
       }).format(value);
     };
 
+    const currentDate = format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+
     return (
-      <div ref={ref} className="bg-white p-8 max-w-4xl mx-auto text-black">
+      <div ref={ref} className="bg-white p-8 max-w-4xl mx-auto text-black shipment-print-container">
         {/* Cabeçalho com Logo */}
         <div className="border-b-2 border-blue-800 pb-4 mb-6">
           <div className="flex justify-between items-center">
@@ -172,7 +173,7 @@ export const ShipmentCardsPDF = React.forwardRef<HTMLDivElement, ShipmentPDFProp
     }
 
     return (
-      <div ref={ref} className="bg-white mx-auto text-black">
+      <div ref={ref} className="bg-white mx-auto text-black shipment-print-container">
         {customerPairs.map((pair, pairIndex) => (
           <div 
             key={pairIndex} 
