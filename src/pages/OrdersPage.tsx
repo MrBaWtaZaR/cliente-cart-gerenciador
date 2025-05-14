@@ -207,6 +207,9 @@ export const OrdersPage = () => {
           // Remove the protection classes after print is complete
           if (pdfRef.current) {
             pdfRef.current.classList.remove('actively-printing');
+            // Reset loading state immediately
+            setIsPdfLoading(false);
+            
             // Keep as protected for a little longer
             setTimeout(() => {
               if (pdfRef.current) {
@@ -214,8 +217,6 @@ export const OrdersPage = () => {
               }
               
               if (isMounted.current) {
-                setIsPdfLoading(false);
-                
                 // Keep the preview visible a bit longer to ensure full rendering
                 setTimeout(() => {
                   if (isMounted.current) {
@@ -240,12 +241,12 @@ export const OrdersPage = () => {
     // Retries for print initialization
     onPrintError: (error) => {
       console.error("Print error:", error);
-      // Fix: Update toast to use the correct API format
+      // Correto uso do toast
       toast.error("Houve um problema ao preparar o documento. Tente novamente.");
       
       if (isMounted.current) {
         setIsPdfLoading(false);
-        // Keep the PDF visible for manual saving if needed
+        setShowPDFPreview(false);
       }
     }
   });

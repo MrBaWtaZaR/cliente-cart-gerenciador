@@ -161,12 +161,12 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   );
   
   return (
-    <div className="bg-white p-4 max-w-4xl mx-auto text-black print:w-full print:max-w-none">
-      {/* Cabeçalho com Logo - Estilo melhorado para impressão - Reduzido o padding para diminuir margem superior */}
-      <div className="border-b-2 border-blue-800 pb-2 mb-4">
-        <div className="flex justify-between items-start">
+    <div className="bg-white p-2 max-w-4xl mx-auto text-black print:w-full print:max-w-none">
+      {/* Cabeçalho com Logo - Layout melhorado e centralizado com padding reduzido */}
+      <div className="border-b-2 border-blue-800 pb-2 mb-3">
+        <div className="flex justify-between items-center">
           <div className="flex items-center">
-            <div className="w-16 h-16 relative mr-4 flex-shrink-0">
+            <div className="w-16 h-16 relative flex items-center justify-center mr-2 flex-shrink-0">
               <PrintableImage 
                 src="/lovable-uploads/918a2f2c-f5f0-4ea6-8676-f08b6d93bb99.png" 
                 alt="AF Consultoria" 
@@ -188,72 +188,77 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
         </div>
       </div>
 
-      {/* Layout em duas colunas para todas as informações - Mantendo layout lado a lado */}
-      <div className="flex flex-row gap-4 mb-4">
+      {/* Layout em duas colunas para todas as informações - Lado a lado com espaçamento ajustado */}
+      <div className="grid grid-cols-2 gap-3 mb-3">
         {/* Coluna esquerda: informações do cliente */}
-        <div className="w-1/2">
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 h-full print:bg-blue-50">
-            <h2 className="text-lg font-bold mb-3 text-blue-800">Informações do Cliente</h2>
-            <div className="space-y-2">
-              <p><strong>Nome:</strong> {customerName}</p>
-              <p><strong>Email:</strong> {customerInfo.email}</p>
-              <p><strong>Telefone:</strong> {formattedPhone}</p>
-              {customerInfo.address && (
-                <p><strong>Endereço:</strong> {customerInfo.address}</p>
-              )}
-            </div>
+        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 h-full print:bg-blue-50">
+          <h2 className="text-lg font-bold mb-2 text-blue-800 border-b border-blue-200 pb-1">
+            Dados Pessoais
+          </h2>
+          <div className="space-y-2">
+            <p><strong>Nome:</strong> {customerName}</p>
+            <p><strong>Email:</strong> {customerInfo.email}</p>
+            <p><strong>Telefone:</strong> {formattedPhone}</p>
+            {customerInfo.address && (
+              <p><strong>Endereço:</strong> {customerInfo.address}</p>
+            )}
           </div>
         </div>
 
         {/* Coluna direita: informações da excursão (se disponíveis) ou espaço vazio */}
-        <div className="w-1/2">
+        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 h-full print:bg-blue-50">
+          <h2 className="text-lg font-bold mb-2 text-blue-800 border-b border-blue-200 pb-1">
+            {hasTourInfo ? "Dados da Excursão" : "Informações Adicionais"}
+          </h2>
           {hasTourInfo ? (
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 h-full print:bg-blue-50">
-              <h2 className="text-lg font-bold mb-3 text-blue-800">Dados da Excursão</h2>
-              <div className="space-y-2">
-                {customerInfo.tourName && (
-                  <p><strong>Nome da Excursão:</strong> {customerInfo.tourName}</p>
-                )}
-                {(customerInfo.tourCity || customerInfo.tourState) && (
-                  <p><strong>Destino:</strong> {[customerInfo.tourCity, customerInfo.tourState].filter(Boolean).join(' - ')}</p>
-                )}
-                {customerInfo.tourDepartureTime && (
-                  <p><strong>Horário de Saída:</strong> {customerInfo.tourDepartureTime}</p>
-                )}
-                {customerInfo.tourSector && (
-                  <p><strong>Setor:</strong> {customerInfo.tourSector}</p>
-                )}
-                {customerInfo.tourSeatNumber && (
-                  <p><strong>Vaga:</strong> {customerInfo.tourSeatNumber}</p>
-                )}
-              </div>
+            <div className="space-y-2">
+              {customerInfo.tourName && (
+                <p><strong>Nome da Excursão:</strong> {customerInfo.tourName}</p>
+              )}
+              {(customerInfo.tourCity || customerInfo.tourState) && (
+                <p><strong>Destino:</strong> {[customerInfo.tourCity, customerInfo.tourState].filter(Boolean).join(' - ')}</p>
+              )}
+              {customerInfo.tourDepartureTime && (
+                <p><strong>Horário de Saída:</strong> {customerInfo.tourDepartureTime}</p>
+              )}
+              {customerInfo.tourSector && (
+                <p><strong>Setor:</strong> {customerInfo.tourSector}</p>
+              )}
+              {customerInfo.tourSeatNumber && (
+                <p><strong>Vaga:</strong> {customerInfo.tourSeatNumber}</p>
+              )}
             </div>
           ) : (
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 h-full print:bg-blue-50 print:opacity-100 opacity-0"></div>
+            <p className="text-gray-500 italic">Sem dados de excursão disponíveis</p>
           )}
         </div>
       </div>
 
       {/* Produtos com tabela modernizada */}
-      <div className="mb-4">
-        <h2 className="text-lg font-bold mb-3 text-blue-800">Itens do Pedido</h2>
+      <div className="mb-3">
+        <h2 className="text-lg font-bold mb-2 text-blue-800 flex items-center">
+          <span className="bg-blue-100 p-1 rounded-md mr-2 inline-flex items-center justify-center w-6 h-6 text-center">
+            <span className="text-blue-800">≡</span>
+          </span>
+          Itens do Pedido
+        </h2>
         <div className="overflow-hidden rounded-lg border border-blue-200 shadow-sm">
           <table className="w-full border-collapse bg-white" style={{borderCollapse: 'collapse'}}>
             <thead>
-              <tr className="bg-blue-100 print:bg-blue-100">
-                <th className="py-3 px-4 text-left font-medium text-blue-800 border-b border-blue-200">Produto</th>
-                <th className="py-3 px-4 text-center font-medium text-blue-800 border-b border-blue-200">Quantidade</th>
-                <th className="py-3 px-4 text-right font-medium text-blue-800 border-b border-blue-200">Preço Un.</th>
-                <th className="py-3 px-4 text-right font-medium text-blue-800 border-b border-blue-200">Subtotal</th>
+              <tr className="bg-gradient-to-r from-blue-100 to-blue-50 print:bg-blue-100">
+                <th className="py-2 px-3 text-left font-medium text-blue-800 border-b border-blue-200">Produto</th>
+                <th className="py-2 px-3 text-center font-medium text-blue-800 border-b border-blue-200">Qtde</th>
+                <th className="py-2 px-3 text-right font-medium text-blue-800 border-b border-blue-200">Preço Un.</th>
+                <th className="py-2 px-3 text-right font-medium text-blue-800 border-b border-blue-200">Subtotal</th>
               </tr>
             </thead>
             <tbody>
               {order.products && order.products.map((product, idx) => (
                 <tr key={`${product.productId}-${idx}`} className={idx % 2 === 0 ? 'bg-white' : 'bg-blue-50'}>
-                  <td className="py-3 px-4 border-b border-blue-100">
+                  <td className="py-2 px-3 border-b border-blue-100">
                     <div className="flex items-center">
                       {product.images && product.images[0] && (
-                        <div className="w-10 h-10 mr-3 bg-muted rounded-md overflow-hidden flex-shrink-0 border border-blue-100">
+                        <div className="w-10 h-10 mr-2 bg-muted rounded-md overflow-hidden flex-shrink-0 border border-blue-100">
                           <PrintableImage
                             src={product.images[0]}
                             alt={product.productName}
@@ -264,11 +269,11 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
                       <div className="font-medium">{product.productName}</div>
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-center border-b border-blue-100">{product.quantity}</td>
-                  <td className="py-3 px-4 text-right border-b border-blue-100">
+                  <td className="py-2 px-3 text-center border-b border-blue-100">{product.quantity}</td>
+                  <td className="py-2 px-3 text-right border-b border-blue-100">
                     {formatCurrency.format(product.price)}
                   </td>
-                  <td className="py-3 px-4 text-right font-medium border-b border-blue-100">
+                  <td className="py-2 px-3 text-right font-medium border-b border-blue-100">
                     {formatCurrency.format(product.price * product.quantity)}
                   </td>
                 </tr>
@@ -276,21 +281,21 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={3} className="py-3 px-4 text-right font-medium border-b border-blue-100">Total:</td>
-                <td className="py-3 px-4 text-right font-medium border-b border-blue-100">
+                <td colSpan={3} className="py-2 px-3 text-right font-medium border-b border-blue-100">Total:</td>
+                <td className="py-2 px-3 text-right font-medium border-b border-blue-100 bg-blue-50">
                   {formatCurrency.format(order.total)}
                 </td>
               </tr>
               <tr>
-                <td colSpan={3} className="py-3 px-4 text-right border-b border-blue-100">Serviço 10%:</td>
-                <td className="py-3 px-4 text-right border-b border-blue-100">
+                <td colSpan={3} className="py-2 px-3 text-right border-b border-blue-100">Serviço 10%:</td>
+                <td className="py-2 px-3 text-right border-b border-blue-100 bg-blue-50">
                   {formatCurrency.format(serviceFeeData.fee)}
                   {serviceFeeData.isMinimum && <span className="text-xs ml-1">*</span>}
                 </td>
               </tr>
-              <tr className="font-bold bg-blue-100 print:bg-blue-100">
-                <td colSpan={3} className="py-3 px-4 text-right border-b border-blue-100 font-medium">Total com Serviço:</td>
-                <td className="py-3 px-4 text-right border-b border-blue-100 font-medium">
+              <tr className="font-bold bg-gradient-to-r from-blue-100 to-blue-50 print:bg-blue-100">
+                <td colSpan={3} className="py-2 px-3 text-right border-b border-blue-100 font-medium">Total com Serviço:</td>
+                <td className="py-2 px-3 text-right border-b border-blue-100 font-medium bg-blue-50">
                   {formatCurrency.format(order.total + serviceFeeData.fee)}
                 </td>
               </tr>
@@ -300,8 +305,8 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
       </div>
 
       {/* Status e observações */}
-      <div className="mb-4">
-        <h2 className="text-lg font-bold mb-3 text-blue-800">Status do Pedido</h2>
+      <div className="mb-3">
+        <h2 className="text-lg font-bold mb-2 text-blue-800">Status do Pedido</h2>
         <p>
           <span className={`inline-block px-3 py-1 rounded-full text-sm print:border ${
             order.status === 'completed' ? 'bg-green-100 text-green-800 print:bg-green-50 print:border-green-500' :
@@ -315,10 +320,10 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
       </div>
 
       {/* Rodapé - Reduzido o margin-top */}
-      <div className="mt-6 pt-4 border-t border-blue-800 text-center text-sm text-gray-600">
+      <div className="mt-4 pt-2 border-t border-blue-800 text-center text-sm text-gray-600">
         <p>AF Consultoria - Documento gerado em {currentDate}</p>
         <p>Este documento não possui valor fiscal</p>
-        <p className="text-xs mt-2">* Taxa mínima de serviço é R$ 60,00 para pedidos até R$ 600,00.</p>
+        <p className="text-xs mt-1">* Taxa mínima de serviço é R$ 60,00 para pedidos até R$ 600,00.</p>
       </div>
     </div>
   );
