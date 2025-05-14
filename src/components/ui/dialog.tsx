@@ -35,8 +35,8 @@ const DialogContent = React.forwardRef<
   // Track if this dialog is undergoing a transition
   const isTransitioningRef = React.useRef(false);
   
-  // Handle dialog open state changes
-  const handleOpenChange = (open: boolean) => {
+  // Create a formalized onChange handler that properly handles the event type
+  const handleOnChange = React.useCallback((event: React.FormEvent<HTMLDivElement>) => {
     // Mark transition in progress
     isTransitioningRef.current = true;
     
@@ -47,9 +47,9 @@ const DialogContent = React.forwardRef<
     
     // Call the original onChange handler if provided
     if (props.onChange) {
-      props.onChange(open);
+      props.onChange(event);
     }
-  };
+  }, [props.onChange]);
 
   return (
     <DialogPortal>
@@ -121,8 +121,8 @@ const DialogContent = React.forwardRef<
             console.error("Dialog onInteractOutside error:", error);
           }
         }}
-        // Use onChange for proper dialog state handling
-        onChange={handleOpenChange}
+        // Use proper onChange handler
+        onChange={handleOnChange}
         {...props}
       >
         {children}
