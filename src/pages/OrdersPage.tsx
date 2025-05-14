@@ -171,31 +171,21 @@ export const OrdersPage = () => {
     // Use contentRef property instead of content
     contentRef: pdfRef,
     documentTitle: `Pedido-${viewingOrder?.id?.substring(0, 8) || ''}`,
-    onBeforeGetContent: () => {
-      return new Promise<void>((resolve) => {
-        try {
-          if (isMounted.current) {
-            console.log("Preparando para impressão...");
-            setIsPdfLoading(true);
-            setShowPDFPreview(true);
-            
-            // Mark the PDF as actively printing to prevent cleanup
-            if (pdfRef.current) {
-              pdfRef.current.classList.add('actively-printing');
-            }
-          }
+    onBeforePrint: () => {
+      try {
+        if (isMounted.current) {
+          console.log("Preparando para impressão...");
+          setIsPdfLoading(true);
+          setShowPDFPreview(true);
           
-          // Use a short timeout to ensure the PDF is ready
-          setTimeout(() => {
-            setIsPdfLoading(false);
-            resolve();
-          }, 300);
-        } catch (error) {
-          console.error('Error in onBeforePrint:', error);
-          setIsPdfLoading(false);
-          resolve(); // Resolve anyway to avoid hanging
+          // Mark the PDF as actively printing to prevent cleanup
+          if (pdfRef.current) {
+            pdfRef.current.classList.add('actively-printing');
+          }
         }
-      });
+      } catch (error) {
+        console.error('Error in onBeforePrint:', error);
+      }
     },
     onAfterPrint: () => {
       try {
