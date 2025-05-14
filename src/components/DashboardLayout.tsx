@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -6,15 +5,24 @@ import { DashboardSidebar } from "./DashboardSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDataStore } from "@/stores";
 import { safeCleanupDOM, useShipmentSafeUnmount } from "./ShipmentSafeUnmount";
+import { useAuthStore } from "@/lib/auth";
 
 export function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { initializeData, refreshAll } = useDataStore();
+  const { user } = useAuthStore();
   const isMobile = useIsMobile();
   const { isMounted, startNavigation, endNavigation } = useShipmentSafeUnmount();
   const isMountedRef = useRef(true);
   const navigationInProgressRef = useRef(false);
+
+  // Check authentication as a double safety measure
+  useEffect(() => {
+    if (!user?.isAuthenticated) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
 
   // Load data on component mount and handle navigation cleanups
   useEffect(() => {

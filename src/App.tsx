@@ -18,6 +18,7 @@ import { useDataStore } from "./stores";
 import { useProductStore } from "./stores/useProductStore";
 import Index from "./pages/Index";
 import { safeCleanupDOM } from "./components/ShipmentSafeUnmount";
+import { AuthGuard } from "./components/AuthGuard";
 
 // Create a React Query client with appropriate configurations
 const queryClient = new QueryClient({
@@ -165,7 +166,12 @@ const AppContent = () => {
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<LoginPage />} />
           
-          <Route path="/dashboard" element={<DashboardLayout />}>
+          {/* Apply AuthGuard to all dashboard routes */}
+          <Route path="/dashboard" element={
+            <AuthGuard>
+              <DashboardLayout />
+            </AuthGuard>
+          }>
             <Route index element={<DashboardPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="customers/:customerId" element={<CustomerDetailPage />} />

@@ -1,5 +1,5 @@
 
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState, useEffect } from 'react';
 import { Order } from '@/lib/data';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -23,19 +23,21 @@ interface OrderPDFProps {
 // Error Boundary for PDF content
 class PDFErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { hasError: boolean }
+  { hasError: boolean; errorMessage: string }
 > {
   constructor(props: { children: React.ReactNode }) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, errorMessage: '' };
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error) {
+    // Update state so the next render will show the fallback UI
+    return { hasError: true, errorMessage: error.message || 'Erro desconhecido' };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("Error rendering PDF content:", error, errorInfo);
+    console.error("Error rendering PDF content:", error);
+    console.error("Error info:", errorInfo);
   }
 
   render() {
@@ -45,6 +47,7 @@ class PDFErrorBoundary extends React.Component<
           <div className="text-red-600 p-4 text-center">
             <p className="text-xl font-bold">Erro ao gerar o PDF</p>
             <p>Tente novamente ou contate o suporte técnico.</p>
+            <p className="text-sm mt-2">Detalhes: {this.state.errorMessage}</p>
           </div>
         </div>
       );
@@ -53,6 +56,40 @@ class PDFErrorBoundary extends React.Component<
     return this.props.children;
   }
 }
+
+// Image with fallback for PDF
+const SafeImage = memo(({ src, alt, className }: { src: string; alt: string; className?: string }) => {
+  const [imgSrc, setImgSrc] = useState<string>(src);
+  const [hasError, setHasError] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Reset error state when src changes
+    if (src !== imgSrc && hasError) {
+      setImgSrc(src);
+      setHasError(false);
+    }
+  }, [src, imgSrc, hasError]);
+
+  const handleError = () => {
+    if (!hasError) {
+      setHasError(true);
+      setImgSrc('/placeholder.svg');
+      console.warn(`Failed to load image: ${src}, using placeholder instead`);
+    }
+  };
+
+  return (
+    <img
+      src={imgSrc}
+      alt={alt}
+      className={className || ''}
+      loading="lazy"
+      onError={handleError}
+    />
+  );
+});
+
+SafeImage.displayName = 'SafeImage';
 
 // Optimized PDF content component with memo and useMemo
 const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFProps) => {
@@ -99,11 +136,10 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
       <div className="border-b-2 border-blue-800 pb-4 mb-6">
         <div className="flex justify-between items-start">
           <div className="flex items-center">
-            <img 
+            <SafeImage 
               src="/lovable-uploads/918a2f2c-f5f0-4ea6-8676-f08b6d93bb99.png" 
               alt="AF Consultoria" 
               className="h-16 mr-4"
-              loading="lazy"
             />
             <div>
               <h1 className="text-2xl font-bold text-blue-800">AF Consultoria</h1>
@@ -185,15 +221,10 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
                   <div className="flex items-center">
                     {product.images && product.images[0] && (
                       <div className="w-10 h-10 mr-3 bg-muted rounded overflow-hidden flex-shrink-0">
-                        <img
+                        <SafeImage
                           src={product.images[0]}
                           alt={product.productName}
                           className="w-full h-full object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            // If the image fails, use a placeholder
-                            (e.target as HTMLImageElement).src = '/placeholder.svg';
-                          }}
                         />
                       </div>
                     )}

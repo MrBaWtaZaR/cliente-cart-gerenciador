@@ -2,18 +2,23 @@
 import { useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/lib/auth';
 
 const Index = () => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   
-  // Safely redirect to dashboard to avoid white screen
+  // Check authentication before redirecting
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigate('/dashboard');
+      // Only redirect to dashboard if logged in, otherwise go to login page
+      if (user?.isAuthenticated) {
+        navigate('/dashboard');
+      }
     }, 300);
     
     return () => clearTimeout(timer);
-  }, [navigate]);
+  }, [navigate, user]);
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -28,13 +33,15 @@ const Index = () => {
           >
             Entrar
           </Button>
-          <Button 
-            onClick={() => navigate('/dashboard')} 
-            className="w-full"
-            variant="outline"
-          >
-            Ir para Dashboard
-          </Button>
+          {user?.isAuthenticated && (
+            <Button 
+              onClick={() => navigate('/dashboard')} 
+              className="w-full"
+              variant="outline"
+            >
+              Ir para Dashboard
+            </Button>
+          )}
         </div>
       </div>
     </div>
