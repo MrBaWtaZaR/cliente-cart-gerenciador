@@ -11,6 +11,7 @@ interface PrintablePDFProps {
 // Define a ref interface to expose custom methods
 export interface PrintablePDFRef extends HTMLDivElement {
   notifyPrinting: () => void;
+  classList: DOMTokenList;
 }
 
 // This component creates a wrapper specifically optimized for reliable printing

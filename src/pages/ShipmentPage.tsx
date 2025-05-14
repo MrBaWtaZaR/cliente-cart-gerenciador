@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useShipmentSafeUnmount } from '@/components/ShipmentSafeUnmount';
 import { Customer, Shipment } from '@/types/shipments';
+import { PrintablePDFRef } from '@/components/PrintablePDF';
 
 export const ShipmentPage = () => {
   const { customers, shipments, addShipment, getShipments, deleteShipment, updateShipment } = useDataStore();
@@ -31,8 +32,9 @@ export const ShipmentPage = () => {
   // Use our safe unmount utility
   const { isMounted, setPrintRefsExist } = useShipmentSafeUnmount();
 
-  const tableRef = useRef<HTMLDivElement>(null);
-  const cardsRef = useRef<HTMLDivElement>(null);
+  // Fix: Change ref types from HTMLDivElement to PrintablePDFRef
+  const tableRef = useRef<PrintablePDFRef>(null);
+  const cardsRef = useRef<PrintablePDFRef>(null);
 
   // Filter customers with pending orders only - improved to be more reliable
   const customersWithPendingOrders = useMemo(() => {
@@ -203,7 +205,8 @@ export const ShipmentPage = () => {
     onBeforePrint: () => {
       return new Promise<void>((resolve) => {
         if (cardsRef.current) {
-          cardsRef.current.classList.add('actively-printing');
+          const container = cardsRef.current;
+          container.classList.add('actively-printing');
         }
         // Use a short delay to ensure content is ready
         setTimeout(resolve, 100);
