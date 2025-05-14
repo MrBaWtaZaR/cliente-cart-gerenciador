@@ -13,17 +13,37 @@ const debounce = <T extends (...args: any[]) => any>(fn: T, ms = 300) => {
 // Improved DOM element check with better verification
 const isValidDOMNode = (node: any): node is Element => {
   try {
-    return (
-      node &&
-      typeof node === 'object' &&
-      node.nodeType === 1 && // Element node
-      typeof node.parentNode === 'object' &&
-      node.parentNode !== null &&
-      // Verify the parent actually has removeChild method
-      typeof node.parentNode.removeChild === 'function' &&
-      // Check if node is still in the document
-      (document.contains(node) || document.body.contains(node))
-    );
+    // Basic type checks
+    if (!node || typeof node !== 'object' || node.nodeType !== 1) {
+      return false;
+    }
+    
+    // Check if node is detached or has a parentNode that's not valid
+    if (!node.parentNode || !node.parentNode.nodeType) {
+      return false;
+    }
+    
+    // Check if removeChild method exists
+    if (typeof node.parentNode.removeChild !== 'function') {
+      return false;
+    }
+    
+    // Don't remove nodes that are part of active dialogs or transitions
+    const isActiveDialog = node.getAttribute('role') === 'dialog' && 
+                          node.getAttribute('aria-modal') === 'true' &&
+                          node.getAttribute('data-state') === 'open';
+    
+    if (isActiveDialog) {
+      return false;
+    }
+    
+    // Check if node is still in document
+    try {
+      return document.contains(node);
+    } catch (e) {
+      // Fallback check for presence in DOM
+      return document.body.contains(node);
+    }
   } catch (error) {
     console.error("Error in isValidDOMNode check:", error);
     return false; // Fail safe
@@ -35,8 +55,18 @@ const safeRemoveElement = (element: Element): boolean => {
   try {
     if (!isValidDOMNode(element)) return false;
     
-    // Additional check to make sure element is still in the DOM
-    if (!document.body.contains(element)) return false;
+    // Additional safeguards before removal
+    if (element.getAttribute('aria-modal') === 'true') {
+      return false; // Never remove open modals
+    }
+    
+    if (element.getAttribute('data-state') === 'open') {
+      // Only remove if it's not a critical component
+      const role = element.getAttribute('role');
+      if (role === 'dialog' || role === 'alertdialog') {
+        return false;
+      }
+    }
     
     // Use a try-catch to handle the removal specifically
     try {
@@ -52,6 +82,11 @@ const safeRemoveElement = (element: Element): boolean => {
   }
 };
 
+// Mutex to prevent concurrent cleanups
+let isGlobalCleanupRunning = false;
+let globalCleanupTimeout: ReturnType<typeof setTimeout> | null = null;
+const CLEANUP_LOCK_TIMEOUT = 200; // ms
+
 // Utility hook for safe component unmounting
 export const useShipmentSafeUnmount = () => {
   const isMountedRef = useRef(true);
@@ -62,77 +97,81 @@ export const useShipmentSafeUnmount = () => {
   // Enhanced DOM element cleanup function with more robust error handling
   const cleanupDomElements = useCallback(() => {
     // Prevent multiple concurrent cleanups
-    if (cleanupInProgressRef.current || !isMountedRef.current) return;
+    if (cleanupInProgressRef.current || !isMountedRef.current || isGlobalCleanupRunning) return;
     
     try {
       cleanupInProgressRef.current = true;
       
-      // List of selectors to clean - more selective approach
+      // More selective approach with additional protection for dialogs
       const selectorsToClean = [
         '[role="tooltip"]',
-        '[role="dialog"]:not([aria-modal="true"])', // Avoid removing active modals
-        '[data-portal]:not(:has(*))', // Only empty portals
-        '.radix-popup:not(:has(*))', // Only empty popups
-        '[data-floating]:not(:has(button:hover))', // Not being interacted with
-        '[data-state="closed"]', // Only closed elements
-        // Skip highly interactive elements that might be in use
-        '.popover-content:not(:has(input:focus))',
-        '.tooltip-content',
-        '.dropdown-menu-content:not(:has(*:hover))',
+        // Avoid removing active dialogs or modals
+        '[role="dialog"][data-state="closed"]', 
+        '[data-portal]:not(:has(*)):not([aria-modal="true"])', 
+        '.radix-popup:not(:has(*)):not([data-state="open"])', 
+        '[data-floating]:not(:has(button:hover)):not([data-state="open"])', 
+        // Only target elements that are explicitly closed
+        '[data-state="closed"]', 
+        '.popover-content:not(:has(input:focus)):not([data-state="open"])',
+        '.tooltip-content:not(:hover)',
+        '.dropdown-menu-content:not(:has(*:hover)):not([data-state="open"])',
       ];
       
-      // Clean selectors one by one with more targeted approach
+      // Clean selectors one by one with more protection
       selectorsToClean.forEach(selector => {
         try {
           const elements = document.querySelectorAll(selector);
           elements.forEach(el => {
-            // Extra guard for important elements
+            // Additional check for important elements
             const isImportantDialog = 
               el.getAttribute('role') === 'dialog' && 
               el.getAttribute('aria-modal') === 'true';
               
-            // Skip important dialogs
+            // Skip important elements
             if (isImportantDialog) return;
             
-            // Use safe removal with validation
+            // Use safe removal
             safeRemoveElement(el);
           });
         } catch (err) {
-          console.log(`Error cleaning ${selector}`, err);
+          // Silently continue
         }
       });
       
-      // Handle print containers specifically if they exist
+      // Only handle print containers if we know they exist
       if (printRefsExist.current) {
         try {
-          const printContainers = document.querySelectorAll('.shipment-print-container');
+          const printContainers = document.querySelectorAll('.shipment-print-container:not(:has(.actively-printing))');
           printContainers.forEach(el => {
             try {
-              // Extra protection: hide before attempting removal
+              // Hide before attempting removal
               if (el instanceof HTMLElement) {
                 el.style.display = 'none';
               }
               
-              // Use safe removal
+              // Only remove after hiding
               safeRemoveElement(el);
             } catch (e) {
-              console.log("Error handling print container:", e);
+              // Silently continue
             }
           });
         } catch (err) {
-          console.log("Error cleaning print containers:", err);
+          // Silently continue
         }
       }
     } catch (error) {
       console.error('Error during DOM cleanup:', error);
     } finally {
-      cleanupInProgressRef.current = false;
+      // Clear cleanup flag after a delay
+      setTimeout(() => {
+        cleanupInProgressRef.current = false;
+      }, 100);
     }
   }, []);
   
-  // Debounced version to prevent rapid consecutive calls
+  // Debounced version with longer delay to prevent rapid consecutive calls
   const debouncedCleanup = useCallback(
-    debounce(cleanupDomElements, 100),
+    debounce(cleanupDomElements, 200),
     [cleanupDomElements]
   );
   
@@ -152,10 +191,7 @@ export const useShipmentSafeUnmount = () => {
       window.dispatchEvent(new CustomEvent('component-unmount'));
       window.removeEventListener('component-unmount', debouncedCleanup);
       
-      // Execute cleanup immediately
-      cleanupDomElements();
-      
-      // And again after a small delay to catch any lingering elements
+      // Execute cleanup after a small delay to ensure component is fully unmounted
       setTimeout(() => {
         if (unmountingRef.current) {
           cleanupDomElements();
@@ -174,13 +210,9 @@ export const useShipmentSafeUnmount = () => {
   };
 };
 
-// Track cleanup operations globally
-let isGlobalCleanupRunning = false;
-let globalCleanupTimeout: ReturnType<typeof setTimeout> | null = null;
-
-// Global helper function for DOM cleanup with enhanced safety
+// Global helper function for DOM cleanup with enhanced safety and mutex lock
 export const safeCleanupDOM = () => {
-  // Prevent concurrent cleanups
+  // Prevent concurrent cleanups with mutex pattern
   if (isGlobalCleanupRunning) return;
   isGlobalCleanupRunning = true;
   
@@ -191,47 +223,52 @@ export const safeCleanupDOM = () => {
   }
   
   try {
-    // More selective selectors to clean
+    // More selective selectors that avoid active dialogs and modal elements
     const selectorsToClean = [
       '[role="tooltip"]',
-      '[role="dialog"]:not([aria-modal="true"])', // Avoid active modal dialogs
-      '[data-portal]:not(:has(*))', // Only empty portals
-      '.radix-popup:not(:has(*))', // Only empty popups
-      '[data-floating]:not(:has(button:hover))',
+      '[role="dialog"][data-state="closed"]', 
+      '[data-portal]:not(:has(*)):not([aria-modal="true"])', 
+      '.radix-popup:not(:has(*)):not([data-state="open"])', 
+      '[data-floating]:not(:has(button:hover)):not([data-state="open"])', 
       '[data-state="closed"]',
-      '.popover-content:not(:has(input:focus))',
-      '.tooltip-content',
-      '.dropdown-menu-content:not(:has(*:hover))',
+      '.popover-content:not(:has(input:focus)):not([data-state="open"])',
+      '.tooltip-content:not(:hover)',
+      '.dropdown-menu-content:not(:has(*:hover)):not([data-state="open"])',
     ];
     
-    // Safely clean all elements with better element checks
-    selectorsToClean.forEach(selector => {
+    // Process in batches with delay between each batch
+    const batchProcess = (index: number) => {
+      if (index >= selectorsToClean.length) {
+        // Final cleanup after all batches complete
+        globalCleanupTimeout = setTimeout(() => {
+          isGlobalCleanupRunning = false;
+          globalCleanupTimeout = null;
+        }, CLEANUP_LOCK_TIMEOUT);
+        return;
+      }
+      
       try {
+        const selector = selectorsToClean[index];
         const elements = document.querySelectorAll(selector);
         elements.forEach(el => {
+          // Skip elements in active dialogs
+          if (el.closest('[aria-modal="true"][data-state="open"]')) return;
+          
           safeRemoveElement(el);
         });
       } catch (error) {
-        console.error(`Error cleaning selector ${selector}:`, error);
+        // Continue to next batch even if this one fails
       }
-    });
+      
+      // Process next batch after a small delay
+      setTimeout(() => batchProcess(index + 1), 20);
+    };
+    
+    // Start batch processing
+    batchProcess(0);
   } catch (error) {
     console.error('Error in global DOM cleanup:', error);
-  } finally {
-    // Schedule a final cleanup after a delay and then reset the flag
-    globalCleanupTimeout = setTimeout(() => {
-      try {
-        // Final minimal cleanup for critical elements only
-        const finalElements = document.querySelectorAll('[role="tooltip"], [data-state="closed"]');
-        finalElements.forEach(el => {
-          safeRemoveElement(el);
-        });
-      } catch (error) {
-        console.error('Error in delayed DOM cleanup:', error);
-      } finally {
-        isGlobalCleanupRunning = false;
-        globalCleanupTimeout = null;
-      }
-    }, 100);
+    // Release mutex in case of error
+    isGlobalCleanupRunning = false;
   }
 };

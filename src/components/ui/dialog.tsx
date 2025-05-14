@@ -31,69 +31,108 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-        className
-      )}
-      // Update the onCloseAutoFocus handler with better error handling
-      onCloseAutoFocus={(e) => {
-        try {
-          // Prevent default focus behavior to avoid DOM issues
-          e.preventDefault();
-          
-          // Only call the handler if it exists and component is still mounted
-          if (props.onCloseAutoFocus) {
-            props.onCloseAutoFocus(e);
+>(({ className, children, ...props }, ref) => {
+  // Track if this dialog is undergoing a transition
+  const isTransitioningRef = React.useRef(false);
+  
+  // Handle dialog open state changes
+  const handleOpenChange = (open: boolean) => {
+    if (props.onOpenChange) {
+      // Mark transition in progress
+      isTransitioningRef.current = true;
+      
+      // Allow transition animations to complete before any DOM cleanup
+      setTimeout(() => {
+        isTransitioningRef.current = false;
+      }, 300); // Match animation duration
+      
+      props.onOpenChange(open);
+    }
+  };
+  
+  return (
+    <DialogPortal>
+      <DialogOverlay />
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(
+          "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+          className
+        )}
+        // Update onCloseAutoFocus handler with improved error handling
+        onCloseAutoFocus={(e) => {
+          try {
+            // Prevent default focus behavior
+            e.preventDefault();
+            
+            if (props.onCloseAutoFocus) {
+              props.onCloseAutoFocus(e);
+            }
+          } catch (error) {
+            console.error("Dialog onCloseAutoFocus error:", error);
           }
-        } catch (error) {
-          console.error("Dialog onCloseAutoFocus error:", error);
-        }
-      }}
-      // Add onEscapeKeyDown with error handling
-      onEscapeKeyDown={(e) => {
-        try {
-          if (props.onEscapeKeyDown) {
-            props.onEscapeKeyDown(e);
+        }}
+        // Improved onEscapeKeyDown with error handling
+        onEscapeKeyDown={(e) => {
+          try {
+            if (isTransitioningRef.current) {
+              // Block escape during transitions
+              e.preventDefault();
+              return;
+            }
+            
+            if (props.onEscapeKeyDown) {
+              props.onEscapeKeyDown(e);
+            }
+          } catch (error) {
+            console.error("Dialog onEscapeKeyDown error:", error);
           }
-        } catch (error) {
-          console.error("Dialog onEscapeKeyDown error:", error);
-        }
-      }}
-      // Add onPointerDownOutside to safely handle clicks outside
-      onPointerDownOutside={(e) => {
-        try {
-          if (props.onPointerDownOutside) {
-            props.onPointerDownOutside(e);
+        }}
+        // Improved onPointerDownOutside
+        onPointerDownOutside={(e) => {
+          try {
+            if (isTransitioningRef.current) {
+              // Block pointer events during transitions
+              e.preventDefault();
+              return;
+            }
+            
+            if (props.onPointerDownOutside) {
+              props.onPointerDownOutside(e);
+            }
+          } catch (error) {
+            console.error("Dialog onPointerDownOutside error:", error);
           }
-        } catch (error) {
-          console.error("Dialog onPointerDownOutside error:", error);
-        }
-      }}
-      // Add onInteractOutside to safely handle interactions
-      onInteractOutside={(e) => {
-        try {
-          if (props.onInteractOutside) {
-            props.onInteractOutside(e);
+        }}
+        // Improved onInteractOutside
+        onInteractOutside={(e) => {
+          try {
+            if (isTransitioningRef.current) {
+              // Block interactions during transitions
+              e.preventDefault();
+              return;
+            }
+            
+            if (props.onInteractOutside) {
+              props.onInteractOutside(e);
+            }
+          } catch (error) {
+            console.error("Dialog onInteractOutside error:", error);
           }
-        } catch (error) {
-          console.error("Dialog onInteractOutside error:", error);
-        }
-      }}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPortal>
-))
+        }}
+        // Add onOpenChange to properly track dialog state
+        onOpenChange={handleOpenChange}
+        {...props}
+      >
+        {children}
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      </DialogPrimitive.Content>
+    </DialogPortal>
+  );
+})
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({
