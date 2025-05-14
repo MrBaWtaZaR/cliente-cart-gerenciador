@@ -1,8 +1,9 @@
 
 import React, { memo, useMemo, useState, useEffect } from 'react';
-import { Order } from '@/lib/data';
+import { Order } from '@/types/customers';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 interface OrderPDFProps {
   order: Order;
@@ -31,6 +32,7 @@ class PDFErrorBoundary extends React.Component<
   }
 
   static getDerivedStateFromError(error: Error) {
+    console.error("PDF Error caught in boundary:", error.message);
     // Update state so the next render will show the fallback UI
     return { hasError: true, errorMessage: error.message || 'Erro desconhecido' };
   }
@@ -61,30 +63,53 @@ class PDFErrorBoundary extends React.Component<
 const SafeImage = memo(({ src, alt, className }: { src: string; alt: string; className?: string }) => {
   const [imgSrc, setImgSrc] = useState<string>(src);
   const [hasError, setHasError] = useState<boolean>(false);
-
+  
+  // Force the image to load when printing
   useEffect(() => {
+    // Preload image
+    const img = new Image();
+    img.src = src;
+    
+    img.onload = () => {
+      console.log(`Image loaded successfully: ${src}`);
+      setImgSrc(src);
+      setHasError(false);
+    };
+    
+    img.onerror = () => {
+      console.error(`Failed to load image: ${src}`);
+      if (!hasError) {
+        setHasError(true);
+        setImgSrc('/placeholder.svg');
+      }
+    };
+    
     // Reset error state when src changes
     if (src !== imgSrc && hasError) {
       setImgSrc(src);
       setHasError(false);
     }
-  }, [src, imgSrc, hasError]);
-
-  const handleError = () => {
-    if (!hasError) {
-      setHasError(true);
-      setImgSrc('/placeholder.svg');
-      console.warn(`Failed to load image: ${src}, using placeholder instead`);
-    }
-  };
+    
+    return () => {
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [src, hasError, imgSrc]);
 
   return (
     <img
       src={imgSrc}
       alt={alt}
       className={className || ''}
-      loading="lazy"
-      onError={handleError}
+      loading="eager" // Changed from lazy to eager for PDF printing
+      onError={() => {
+        if (!hasError) {
+          console.warn(`Failed to load image during render: ${src}, using placeholder instead`);
+          setHasError(true);
+          setImgSrc('/placeholder.svg');
+        }
+      }}
+      style={{ maxWidth: '100%', height: 'auto' }}
     />
   );
 });
@@ -93,6 +118,8 @@ SafeImage.displayName = 'SafeImage';
 
 // Optimized PDF content component with memo and useMemo
 const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFProps) => {
+  console.log("Rendering OrderPDFContent with:", { order, customerName });
+  
   // Format date only when needed
   const currentDate = useMemo(() => 
     format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }), 
@@ -131,16 +158,18 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   );
   
   return (
-    <div className="bg-white p-8 max-w-4xl mx-auto text-black">
-      {/* Cabeçalho com Logo */}
+    <div className="bg-white p-8 max-w-4xl mx-auto text-black print:w-full print:max-w-none">
+      {/* Cabeçalho com Logo - Estilo melhorado para impressão */}
       <div className="border-b-2 border-blue-800 pb-4 mb-6">
         <div className="flex justify-between items-start">
           <div className="flex items-center">
-            <SafeImage 
-              src="/lovable-uploads/918a2f2c-f5f0-4ea6-8676-f08b6d93bb99.png" 
-              alt="AF Consultoria" 
-              className="h-16 mr-4"
-            />
+            <div className="w-16 h-16 relative mr-4 flex-shrink-0">
+              <SafeImage 
+                src="/lovable-uploads/918a2f2c-f5f0-4ea6-8676-f08b6d93bb99.png" 
+                alt="AF Consultoria" 
+                className="h-16 object-contain"
+              />
+            </div>
             <div>
               <h1 className="text-2xl font-bold text-blue-800">AF Consultoria</h1>
               <p className="text-sm text-gray-600">Gestão de Clientes e Pedidos</p>
@@ -160,7 +189,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
       <div className="flex flex-row gap-6 mb-6">
         {/* Coluna esquerda: informações do cliente */}
         <div className="w-1/2 space-y-4">
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 h-full">
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 h-full print:bg-blue-50">
             <h2 className="text-lg font-bold mb-3 text-blue-800">Informações do Cliente</h2>
             <div className="space-y-2">
               <p><strong>Nome:</strong> {customerName}</p>
@@ -176,7 +205,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
         {/* Coluna direita: informações da excursão (se disponíveis) ou espaço vazio */}
         <div className="w-1/2 space-y-4">
           {hasTourInfo ? (
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 h-full">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 h-full print:bg-blue-50">
               <h2 className="text-lg font-bold mb-3 text-blue-800">Dados da Excursão</h2>
               <div className="space-y-2">
                 {customerInfo.tourName && (
@@ -197,27 +226,27 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
               </div>
             </div>
           ) : (
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 h-full opacity-0"></div>
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 h-full print:bg-blue-50 print:opacity-100 opacity-0"></div>
           )}
         </div>
       </div>
 
-      {/* Produtos */}
+      {/* Produtos com cores melhoradas para impressão */}
       <div className="mb-6">
         <h2 className="text-lg font-bold mb-3 text-blue-800">Itens do Pedido</h2>
-        <table className="w-full border-collapse">
+        <table className="w-full border-collapse print:border print:border-gray-300">
           <thead>
-            <tr className="bg-blue-100">
-              <th className="py-2 px-3 text-left">Produto</th>
-              <th className="py-2 px-3 text-center">Quantidade</th>
-              <th className="py-2 px-3 text-right">Preço Un.</th>
-              <th className="py-2 px-3 text-right">Subtotal</th>
+            <tr className="bg-blue-100 print:bg-blue-100">
+              <th className="py-2 px-3 text-left print:border print:border-gray-300">Produto</th>
+              <th className="py-2 px-3 text-center print:border print:border-gray-300">Quantidade</th>
+              <th className="py-2 px-3 text-right print:border print:border-gray-300">Preço Un.</th>
+              <th className="py-2 px-3 text-right print:border print:border-gray-300">Subtotal</th>
             </tr>
           </thead>
           <tbody>
             {order.products && order.products.map((product, idx) => (
-              <tr key={`${product.productId}-${idx}`} className="border-t">
-                <td className="py-3 px-3">
+              <tr key={`${product.productId}-${idx}`} className="border-t print:border-t print:border-gray-300">
+                <td className="py-3 px-3 print:border print:border-gray-300">
                   <div className="flex items-center">
                     {product.images && product.images[0] && (
                       <div className="w-10 h-10 mr-3 bg-muted rounded overflow-hidden flex-shrink-0">
@@ -228,14 +257,14 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
                         />
                       </div>
                     )}
-                    {product.productName}
+                    <div>{product.productName}</div>
                   </div>
                 </td>
-                <td className="py-3 px-3 text-center">{product.quantity}</td>
-                <td className="py-3 px-3 text-right">
+                <td className="py-3 px-3 text-center print:border print:border-gray-300">{product.quantity}</td>
+                <td className="py-3 px-3 text-right print:border print:border-gray-300">
                   {formatCurrency.format(product.price)}
                 </td>
-                <td className="py-3 px-3 text-right">
+                <td className="py-3 px-3 text-right print:border print:border-gray-300">
                   {formatCurrency.format(product.price * product.quantity)}
                 </td>
               </tr>
@@ -243,20 +272,21 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
           </tbody>
           <tfoot>
             <tr className="font-bold">
-              <td colSpan={3} className="py-3 px-3 text-right">Total:</td>
-              <td className="py-3 px-3 text-right">
+              <td colSpan={3} className="py-3 px-3 text-right print:border print:border-gray-300">Total:</td>
+              <td className="py-3 px-3 text-right print:border print:border-gray-300">
                 {formatCurrency.format(order.total)}
               </td>
             </tr>
             <tr>
-              <td colSpan={3} className="py-3 px-3 text-right">Serviço 10%:</td>
-              <td className="py-3 px-3 text-right">
+              <td colSpan={3} className="py-3 px-3 text-right print:border print:border-gray-300">Serviço 10%:</td>
+              <td className="py-3 px-3 text-right print:border print:border-gray-300">
                 {formatCurrency.format(serviceFeeData.fee)}
+                {serviceFeeData.isMinimum && <span className="text-xs ml-1">*</span>}
               </td>
             </tr>
-            <tr className="font-bold bg-blue-100">
-              <td colSpan={3} className="py-3 px-3 text-right">Total com Serviço:</td>
-              <td className="py-3 px-3 text-right">
+            <tr className="font-bold bg-blue-100 print:bg-blue-100">
+              <td colSpan={3} className="py-3 px-3 text-right print:border print:border-gray-300">Total com Serviço:</td>
+              <td className="py-3 px-3 text-right print:border print:border-gray-300">
                 {formatCurrency.format(order.total + serviceFeeData.fee)}
               </td>
             </tr>
@@ -268,10 +298,10 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
       <div className="mb-6">
         <h2 className="text-lg font-bold mb-3 text-blue-800">Status do Pedido</h2>
         <p>
-          <span className={`inline-block px-3 py-1 rounded-full text-sm ${
-            order.status === 'completed' ? 'bg-green-100 text-green-800' :
-            order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-            'bg-red-100 text-red-800'
+          <span className={`inline-block px-3 py-1 rounded-full text-sm print:border ${
+            order.status === 'completed' ? 'bg-green-100 text-green-800 print:bg-green-50 print:border-green-500' :
+            order.status === 'pending' ? 'bg-yellow-100 text-yellow-800 print:bg-yellow-50 print:border-yellow-500' :
+            'bg-red-100 text-red-800 print:bg-red-50 print:border-red-500'
           }`}>
             {order.status === 'completed' ? 'Concluído' :
              order.status === 'pending' ? 'Pendente' : 'Cancelado'}
@@ -294,9 +324,50 @@ OrderPDFContent.displayName = 'OrderPDFContent';
 // Main OrderPDF component with error boundary
 export const OrderPDF = memo(React.forwardRef<HTMLDivElement, OrderPDFProps>(
   (props, ref) => {
+    console.log("Rendering OrderPDF with ref:", ref ? "Ref exists" : "No ref");
+    
+    // Add specific print styles for when this component is being printed
+    useEffect(() => {
+      // Create a style element for print-specific styles
+      const style = document.createElement('style');
+      style.type = 'text/css';
+      style.media = 'print';
+      
+      // Add print-specific styles
+      style.innerHTML = `
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .pdf-container, .pdf-container * {
+            visibility: visible;
+          }
+          .pdf-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+          }
+          .pdf-container img {
+            display: block !important;
+            break-inside: avoid;
+          }
+        }
+      `;
+      
+      // Add the style to the head
+      document.head.appendChild(style);
+      
+      // Remove the style when component unmounts
+      return () => {
+        document.head.removeChild(style);
+      };
+    }, []);
+    
     return (
       <PDFErrorBoundary>
-        <div ref={ref} className="pdf-container">
+        <div ref={ref} className="pdf-container print:p-0" data-pdf-root="true">
           <OrderPDFContent {...props} />
         </div>
       </PDFErrorBoundary>
