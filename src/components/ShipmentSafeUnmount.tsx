@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useCallback } from 'react';
 import { toast } from '@/components/ui/use-toast';
 
@@ -380,7 +379,7 @@ export const safeCleanupDOM = (priority: number = 5) => {
     { selector: '[data-floating]:not(:has(button:hover)):not([data-state="open"])', priority },
     { selector: '[data-state="closed"]', priority },
     { selector: '.popover-content:not(:has(input:focus)):not([data-state="open"])', priority },
-    { selector: '.tooltip-content:not(:hover)', priority + 2 },
+    { selector: '.tooltip-content:not(:hover)', priority: priority + 2 },
     { selector: '.dropdown-menu-content:not(:has(*:hover)):not([data-state="open"])', priority }
   ];
   
@@ -563,4 +562,3 @@ declare global {
 if (typeof window !== 'undefined') {
   (window as any).CleanupManager = CleanupManager.getInstance();
 }
-
