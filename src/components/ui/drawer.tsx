@@ -1,4 +1,3 @@
-
 import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
@@ -40,7 +39,10 @@ const DrawerContent = React.forwardRef<
   // Track open state
   const isTransitioningRef = React.useRef(false);
   
-  // Handle open changes safely
+  // Extract the onChange handler from props for proper typing
+  const { onChange, ...restProps } = props;
+  
+  // Handle open changes safely with correct typing
   const handleOpenChange = React.useCallback((open: boolean) => {
     try {
       // Track transition state
@@ -58,15 +60,18 @@ const DrawerContent = React.forwardRef<
         }, 500);
       }
       
-      // Forward the open change if provided - use onChange instead of onOpenChange
-      if (props.onChange) {
-        props.onChange(open);
+      // Forward the open change if provided
+      if (onChange && typeof onChange === 'function') {
+        // Since onChange is expecting a FormEvent but we have a boolean,
+        // we need to use any type to bridge this type mismatch
+        // This is a workaround for the Vaul library's type definitions
+        (onChange as any)(open);
       }
     } catch (error) {
       console.error("Drawer onChange error:", error);
       isTransitioningRef.current = false;
     }
-  }, [props.onChange]);
+  }, [onChange]);
 
   return (
     <DrawerPortal>
@@ -86,15 +91,17 @@ const DrawerContent = React.forwardRef<
           }
           
           // Otherwise use the provided handler or prevent default
-          if (props.onPointerDownOutside) {
-            props.onPointerDownOutside(e);
+          if (restProps.onPointerDownOutside) {
+            restProps.onPointerDownOutside(e);
           } else {
             e.preventDefault();
           }
         }}
-        // Use our safe open change handler with onChange instead of onOpenChange
-        onChange={handleOpenChange}
-        {...props}
+        // Use our safe open change handler
+        // This is a type workaround - the component expects onChange as a FormEventHandler
+        // but the library actually calls it with a boolean
+        onChange={handleOpenChange as unknown as React.FormEventHandler<HTMLDivElement>}
+        {...restProps}
       >
         <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
         {children}
