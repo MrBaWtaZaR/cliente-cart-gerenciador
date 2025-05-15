@@ -46,6 +46,7 @@ const globalOrderPrintStyles = `
       margin-top: 16px;
       margin-bottom: 16px;
       font-size: 9.5pt;
+      table-layout: fixed !important; /* Adicionado */
     }
     .order-items-table th,
     .order-items-table td {
@@ -177,7 +178,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   }, []);
 
   const currentDate = useMemo(() =>
-    format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+    format(new Date(), "dd 'de' MMMM 'de' <0xC2><0xA7>", { locale: ptBR })
     , []);
 
   const hasTourInfo = useMemo(() =>
