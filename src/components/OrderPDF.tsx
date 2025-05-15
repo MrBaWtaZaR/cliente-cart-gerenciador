@@ -1,9 +1,10 @@
-
 import React, { memo, useMemo, useState, useEffect } from 'react';
-import { Order, OrderProduct } from '@/types/customers'; // Using OrderProduct from types
+import { Order } from '@/types/customers'; // Supondo que este tipo exista no seu projeto
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
+// AspectRatio e PrintableImage não são mais usados diretamente aqui se removermos as imagens dos produtos.
+// import { AspectRatio } from '@/components/ui/aspect-ratio';
+// import { PrintableImage } from './PrintableImage'; // Se PrintableImage for um componente separado
 import { PrintablePDF, PrintablePDFRef } from './PrintablePDF';
 
 interface OrderPDFProps {
@@ -23,44 +24,82 @@ interface OrderPDFProps {
 }
 
 // Estilos globais de impressão para ESTE PDF específico (Resumo do Pedido)
-// A importação da fonte Poppins foi removida daqui, pois PrintablePDF.tsx já a carrega.
+// Estes estilos serão injetados no <head>
 const globalOrderPrintStyles = `
   @media print {
-    /* Estilos específicos para o corpo DENTRO deste container de impressão, se necessário.
-       PrintablePDF.tsx já define 'font-family: Poppins' para o body. */
-
-    .page-break-before {
-      page-break-before: always !important;
-    }
-    /*
-      A classe .print-page-container e @page são destinadas a controlar
-      o layout da página para este PDF específico.
-    */
-    .print-page-container { /* Esta classe deve ser usada no elemento raiz dentro de OrderPDFContent se você quiser um container com dimensões fixas */
-      width: 210mm !important;
-      min-height: 297mm !important; /* Use min-height para permitir que o conteúdo exceda uma página A4 se necessário */
-      margin: 0 auto !important; /* Centraliza na visualização de impressão, se aplicável */
-      padding: 10mm !important; /* Adiciona alguma margem interna à página */
-      display: flex !important;
-      flex-direction: column !important;
-      box-sizing: border-box !important;
-      background-color: white !important; /* Garante fundo branco */
-    }
-
-    @page {
-      margin: 0 !important; /* Margens da impressora zeradas, controlamos via .print-page-container */
-      size: A4 !important;
-    }
-
+    /* PrintablePDF.tsx já define 'font-family: Poppins' para o body. */
     /* Garante que os estilos de Tailwind (cores, etc.) sejam impressos */
     body {
       -webkit-print-color-adjust: exact !important;
       color-adjust: exact !important;
     }
+
+    .page-break-before {
+      page-break-before: always !important;
+    }
+
+    /* Estilos para a tabela de itens */
+    .order-items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      margin-bottom: 20px;
+      font-size: 10pt; /* Tamanho de fonte menor para economizar espaço */
+    }
+    .order-items-table th,
+    .order-items-table td {
+      border: 1px solid #e2e8f0; /* Tailwind gray-300 */
+      padding: 6px 8px; /* Padding reduzido */
+      text-align: left;
+    }
+    .order-items-table th {
+      background-color: #f1f5f9; /* Tailwind slate-100 */
+      font-weight: 600; /* semibold */
+      color: #1C3553; /* Cor do título original */
+    }
+    .order-items-table td.text-right,
+    .order-items-table th.text-right {
+      text-align: right;
+    }
+    .order-items-table td.text-center,
+    .order-items-table th.text-center {
+      text-align: center;
+    }
+
+    /* Rodapé */
+    .pdf-footer {
+      margin-top: 30px;
+      padding-top: 15px;
+      border-top: 1px solid #cbd5e1; /* Tailwind slate-300 */
+      text-align: center;
+      font-size: 9pt;
+      color: #64748b; /* Tailwind slate-500 */
+    }
+    .pdf-footer p {
+      margin: 2px 0;
+    }
+
+    /* Container principal do PDF para controle de margens da página A4 */
+    .pdf-page-container {
+      width: 100%; /* Ocupa a largura disponível pela configuração @page */
+      max-width: 210mm; /* Largura A4 */
+      min-height: 290mm; /* Altura A4, um pouco menos para margens da impressora */
+      margin: 0 auto;
+      padding: 15mm 10mm; /* Margens da página: Superior/Inferior, Esquerda/Direita */
+      box-sizing: border-box;
+      background-color: white;
+      display: flex;
+      flex-direction: column;
+    }
+
+    @page {
+      size: A4;
+      margin: 0; /* Zeramos aqui pois .pdf-page-container controlará o padding interno */
+    }
   }
 `;
 
-// Error Boundary para o conteúdo do PDF
+// Error Boundary para o conteúdo do PDF (mantido como antes)
 class PDFErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; errorMessage: string }
@@ -69,17 +108,13 @@ class PDFErrorBoundary extends React.Component<
     super(props);
     this.state = { hasError: false, errorMessage: '' };
   }
-
   static getDerivedStateFromError(error: Error) {
     console.error("PDF Error caught in boundary:", error.message);
     return { hasError: true, errorMessage: error.message || 'Erro desconhecido' };
   }
-
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("Error rendering PDF content:", error);
-    console.error("Error info:", errorInfo);
+    console.error("Error rendering PDF content:", error, errorInfo);
   }
-
   render() {
     if (this.state.hasError) {
       return (
@@ -96,52 +131,6 @@ class PDFErrorBoundary extends React.Component<
   }
 }
 
-// Componente para carregar imagens de forma mais robusta para o PDF
-const PrintableImage = memo(({ src, alt, className }: { src: string; alt: string; className?: string }) => {
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const imgRef = React.useRef<HTMLImageElement>(null);
-
-  useEffect(() => {
-    const img = new Image();
-    img.src = src;
-
-    img.onload = () => setImgLoaded(true);
-
-    img.onerror = () => {
-      // Tenta carregar um placeholder se a imagem original falhar
-      const placeholderSrc = '/placeholder.svg'; // Certifique-se que este placeholder existe na sua pasta public
-      if (imgRef.current && imgRef.current.src !== placeholderSrc) {
-        imgRef.current.src = placeholderSrc;
-      }
-      setImgLoaded(true); // Considera carregado mesmo com placeholder para evitar layout quebrado
-    };
-
-    return () => {
-      img.onload = null;
-      img.onerror = null;
-    };
-  }, [src]);
-
-  return (
-    <img
-      ref={imgRef}
-      src={src}
-      alt={alt}
-      className={`${className || ''} ${imgLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`} // Melhora a transição visual
-      loading="eager" // Para impressão, 'eager' é geralmente melhor
-      style={{ maxWidth: '100%', height: 'auto', visibility: 'visible' }} // visibility: 'visible' é importante
-      onError={(e) => { // Fallback inline caso o useEffect falhe ou demore
-        const target = e.target as HTMLImageElement;
-        const placeholderSrc = '/placeholder.svg';
-        if (target.src !== placeholderSrc) {
-          target.src = placeholderSrc;
-        }
-      }}
-    />
-  );
-});
-PrintableImage.displayName = 'PrintableImage';
-
 interface OrderItem {
   description: string;
   color: string;
@@ -149,20 +138,36 @@ interface OrderItem {
   quantity: number;
   unitPrice: number;
   total: number;
-  image?: string;
+  // image?: string; // Removido se não for mais usar imagens
 }
 
-// Componente para injetar os estilos específicos deste PDF.
-// A classe foi alterada para 'order-detail-styles' para não conflitar com '.pdf-styles' do PrintablePDF.
-const OrderSpecificPDFStyles = () => (
-  <style type="text/css" className="order-detail-styles">
-    {globalOrderPrintStyles}
-  </style>
-);
-
 const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFProps) => {
+  // Efeito para injetar e limpar os estilos específicos deste PDF no <head>
+  useEffect(() => {
+    const styleId = 'order-specific-print-styles';
+    let styleElement = document.getElementById(styleId) as HTMLStyleElement | null;
+
+    if (!styleElement) {
+      styleElement = document.createElement('style');
+      styleElement.id = styleId;
+      document.head.appendChild(styleElement);
+    }
+    
+    styleElement.innerHTML = globalOrderPrintStyles;
+
+    return () => {
+      // Limpa os estilos quando o componente é desmontado para evitar conflitos
+      // se múltiplos tipos de PDF forem renderizados sequencialmente.
+      const existingStyleElement = document.getElementById(styleId);
+      if (existingStyleElement) {
+        existingStyleElement.remove();
+      }
+    };
+  }, []); // Executa apenas uma vez na montagem e na desmontagem
+
+
   const currentDate = useMemo(() =>
-    format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }), [] // Corrigido para yyyy
+    format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
   );
 
   const hasTourInfo = useMemo(() =>
@@ -187,80 +192,98 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   const orderItems = useMemo((): OrderItem[] => {
     return order.products.map(product => ({
       description: product.productName,
-      color: product.attributes?.color || 'N/A', // Usando attributes opcional com fallback
-      size: product.attributes?.size || 'N/A',   // Usando attributes opcional com fallback
+      color: product.attributes?.color || 'N/A',
+      size: product.attributes?.size || 'N/A',
       quantity: product.quantity,
       unitPrice: product.price,
       total: product.price * product.quantity,
-      image: product.images && product.images.length > 0 ? product.images[0] : '/placeholder.svg' // Placeholder padrão se não houver imagem
     }));
   }, [order.products]);
 
   return (
-    // A classe 'print-page-container' pode ser aplicada aqui se você quiser
-    // que todo o conteúdo do PDF respeite as dimensões A4 definidas nos estilos.
-    // Se não, o conteúdo fluirá naturalmente e o @page controlará as margens gerais.
-    // Para este exemplo, vou aplicar para demonstrar.
-    <div className="print-page-container bg-white text-black font-[Poppins] p-6 max-w-[800px] mx-auto"> {/* Adicionada print-page-container */}
-      <OrderSpecificPDFStyles /> {/* Estilos específicos para este PDF */}
+    // A classe 'pdf-page-container' é definida em globalOrderPrintStyles para controlar as margens e tamanho da página.
+    <div className="pdf-page-container bg-white text-black font-[Poppins] text-sm"> {/* text-sm para fonte base menor */}
       
-      <div className="mb-4">
+      {/* Cabeçalho do Documento */}
+      <div className="text-center mb-6">
+        {/* Você pode adicionar um logo aqui se desejar */}
+        {/* <img src="/logo.png" alt="Logo da Empresa" className="h-16 mx-auto mb-4" /> */}
         <h1 className="text-2xl font-bold text-[#1C3553]">Resumo do Pedido</h1>
-        <p className="text-sm text-gray-600">{currentDate}</p>
+        <p className="text-xs text-gray-500">Pedido Nº: {order.id || 'N/A'}</p> {/* Exemplo de ID do pedido */}
+        <p className="text-xs text-gray-500">Data: {currentDate}</p>
       </div>
 
-      <div className="mb-4">
-        <p className="text-lg font-semibold">{customerName}</p>
-        <p className="text-sm text-gray-600">{customerInfo.email}</p> {/* Adicionado email para mais detalhes */}
-        <p className="text-sm text-gray-600">{formattedPhone}</p>
-        {customerInfo.address && <p className="text-sm text-gray-500">{customerInfo.address}</p>} {/* Adicionado endereço */}
+      {/* Informações do Cliente e Excursão */}
+      <div className="mb-6 p-4 border border-gray-200 rounded-md bg-gray-50">
+        <h2 className="text-lg font-semibold text-[#1C3553] mb-2">Informações do Cliente</h2>
+        <p><strong>Nome:</strong> {customerName}</p>
+        <p><strong>Email:</strong> {customerInfo.email}</p>
+        <p><strong>Telefone:</strong> {formattedPhone}</p>
+        {customerInfo.address && <p><strong>Endereço:</strong> {customerInfo.address}</p>}
+        
         {hasTourInfo && (
-          <div className="mt-2 text-sm text-gray-500 border-t pt-2">
-            <p className="font-semibold text-gray-600">Detalhes da Excursão:</p>
-            <p>{customerInfo.tourName} - {customerInfo.tourSector}</p>
-            <p>Vaga: {customerInfo.tourSeatNumber}</p>
-            {customerInfo.tourCity && <p>Cidade: {customerInfo.tourCity} - {customerInfo.tourState}</p>}
-            {customerInfo.tourDepartureTime && <p>Horário de Saída: {customerInfo.tourDepartureTime}</p>}
+          <div className="mt-3 pt-3 border-t border-gray-300">
+            <h3 className="text-md font-semibold text-[#1C3553] mb-1">Detalhes da Excursão</h3>
+            <p><strong>Excursão:</strong> {customerInfo.tourName} - {customerInfo.tourSector}</p>
+            <p><strong>Vaga:</strong> {customerInfo.tourSeatNumber}</p>
+            {customerInfo.tourCity && <p><strong>Local:</strong> {customerInfo.tourCity} - {customerInfo.tourState}</p>}
+            {customerInfo.tourDepartureTime && <p><strong>Saída:</strong> {customerInfo.tourDepartureTime}</p>}
           </div>
         )}
       </div>
 
-      <div className="space-y-2">
-        {orderItems.map((item, idx) => (
-          <div key={idx} className="flex items-start gap-3 border-b py-3 last:border-b-0"> {/* Aumentado py e removido border do último */}
-            <div className="w-20 h-20 bg-gray-100 rounded overflow-hidden flex-shrink-0"> {/* Tamanho fixo para imagem e rounded */}
-              <AspectRatio ratio={1}>
-                <PrintableImage src={item.image || '/placeholder.svg'} alt={item.description} className="object-cover w-full h-full" />
-              </AspectRatio>
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-base text-[#1C3553]">{item.description}</p> {/* Aumentada fonte e cor */}
-              <p className="text-xs text-gray-500">
-                Cor: {item.color} | Tamanho: {item.size}
-              </p>
-              <p className="text-xs text-gray-500">Quantidade: {item.quantity}</p>
-              <p className="text-xs text-gray-500">Preço unitário: {formatCurrency.format(item.unitPrice)}</p>
-            </div>
-            <div className="text-right">
-                <p className="text-sm font-bold text-[#1C3553]">Subtotal: {formatCurrency.format(item.total)}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Tabela de Itens do Pedido */}
+      <h2 className="text-lg font-semibold text-[#1C3553] mb-2">Itens do Pedido</h2>
+      <table className="order-items-table w-full">
+        <thead>
+          <tr>
+            <th className="w-2/5">Produto</th>
+            <th className="w-1/5 text-center">Qtd.</th>
+            <th className="w-1/5 text-right">Preço Unit.</th>
+            <th className="w-1/5 text-right">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orderItems.map((item, idx) => (
+            <tr key={idx}>
+              <td>
+                {item.description}
+                {(item.color !== 'N/A' || item.size !== 'N/A') && (
+                  <div className="text-xs text-gray-500">
+                    {item.color !== 'N/A' && `Cor: ${item.color}`}
+                    {item.color !== 'N/A' && item.size !== 'N/A' && ` | `}
+                    {item.size !== 'N/A' && `Tamanho: ${item.size}`}
+                  </div>
+                )}
+              </td>
+              <td className="text-center">{item.quantity}</td>
+              <td className="text-right">{formatCurrency.format(item.unitPrice)}</td>
+              <td className="text-right">{formatCurrency.format(item.total)}</td>
+            </tr>
+          ))}
+          {orderItems.length === 0 && (
+            <tr>
+              <td colSpan={4} className="text-center text-gray-500 py-4">Nenhum item no pedido.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
 
-      <div className="mt-8 pt-4 border-t text-right space-y-1 text-sm"> {/* Aumentada margem superior e adicionada borda */}
-        <p>Total da compra: <strong className="text-base">{formatCurrency.format(order.total)}</strong></p>
-        <p>Taxa de serviço: <strong className="text-base">{formatCurrency.format(serviceFeeData.fee)}</strong></p>
-        <p className="text-lg font-bold text-[#1C3553]">Total geral: <strong>{formatCurrency.format(order.total + serviceFeeData.fee)}</strong></p>
+      {/* Totais */}
+      <div className="mt-auto pt-6 text-right space-y-1 text-sm"> {/* mt-auto empurra para baixo se houver espaço */}
+        <p>Subtotal dos Produtos: <strong className="text-base">{formatCurrency.format(order.total)}</strong></p>
+        <p>Taxa de Serviço: <strong className="text-base">{formatCurrency.format(serviceFeeData.fee)}</strong></p>
         {serviceFeeData.isMinimum && (
           <p className="text-xs text-gray-500 italic">Taxa mínima de R$60,00 aplicada.</p>
         )}
+        <p className="text-lg font-bold text-[#1C3553] mt-2">Total Geral: <strong>{formatCurrency.format(order.total + serviceFeeData.fee)}</strong></p>
       </div>
 
-      {/* Exemplo de rodapé (opcional) */}
-      <div className="mt-8 pt-4 border-t text-center text-xs text-gray-400">
+      {/* Rodapé do Documento */}
+      <div className="pdf-footer">
         <p>Obrigado pela sua preferência!</p>
-        <p>Empresa XYZ - contato@empresa.com - (XX) XXXX-XXXX</p>
+        <p>Nome da Sua Empresa Aqui | CNPJ: XX.XXX.XXX/0001-XX</p>
+        <p>contato@suaempresa.com | (XX) XXXXX-XXXX | www.suaempresa.com</p>
       </div>
     </div>
   );
@@ -277,3 +300,27 @@ export const OrderPDF = React.forwardRef<PrintablePDFRef, OrderPDFProps>((props,
   );
 });
 OrderPDF.displayName = 'OrderPDF';
+
+// Definição do tipo Order e Product (exemplo, ajuste conforme sua estrutura real)
+// Se já estiverem definidos em @/types/customers, esta parte não é necessária aqui.
+// Certifique-se que o tipo Order tenha um campo 'id' se for usá-lo como no exemplo.
+declare module '@/types/customers' {
+    interface Product {
+        id: string;
+        productName: string;
+        price: number;
+        quantity: number;
+        images?: string[];
+        attributes?: {
+            color?: string;
+            size?: string;
+            [key: string]: any;
+        };
+    }
+
+    export interface Order {
+        id: string; // Adicionado para o exemplo de "Pedido Nº"
+        total: number;
+        products: Product[];
+    }
+}
