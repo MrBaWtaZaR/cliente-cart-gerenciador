@@ -188,9 +188,4 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   const serviceFeeData = useMemo(() => {
     const fee = Math.max(60, order.total * 0.1);
     return { fee, isMinimum: fee === 60 && order.total <= 600 };
-  }, [order.total]);
-
-  const formattedPhone = useMemo(() => {
-    const numbers = customerInfo.phone?.replace(/\D/g, '') || '';
-    return numbers.length <= 10
-      ? numbers.replace(/(\d{2})(\d{0,
+  },
