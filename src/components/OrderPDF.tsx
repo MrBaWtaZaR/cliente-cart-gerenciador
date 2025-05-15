@@ -200,7 +200,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
         {hasTourInfo && (
           <div className="flex-1 min-w-0 p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]">
             <h2 className="text-base font-semibold text-[#1C3553] mb-1.5">Detalhes da Excursão</h2>
-            <p><strong>Excursão:</strong> {customerInfo.tourName} - {customerInfo.tourSector}</p>
+            <p><strong>Excursão:</strong> {customerInfo.tourName} - SETOR:<strong> {customerInfo.tourSector}</strong>strong></p>
             <p><strong>Vaga:</strong> {customerInfo.tourSeatNumber}</p>
             {customerInfo.tourCity && <p><strong>Local:</strong> {customerInfo.tourCity} - {customerInfo.tourState}</p>}
             {customerInfo.tourDepartureTime && <p><strong>Saída:</strong> {customerInfo.tourDepartureTime}</p>}
