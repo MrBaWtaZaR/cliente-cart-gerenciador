@@ -133,6 +133,16 @@ const PrintableImage = memo(({ src, alt, className }: { src: string; alt: string
 });
 PrintableImage.displayName = 'PrintableImage';
 
+interface OrderItem {
+  description: string;
+  color: string;
+  size: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  image?: string;
+}
+
 const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFProps) => {
   const currentDate = useMemo(() =>
     format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }), []
@@ -157,6 +167,19 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   const formatCurrency = useMemo(() =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }), []);
 
+  // Transform order.products into items with the expected structure
+  const orderItems = useMemo((): OrderItem[] => {
+    return order.products.map(product => ({
+      description: product.productName,
+      color: 'N/A', // These fields don't exist in the original data structure
+      size: 'N/A',  // You may want to update the Order type to include this data
+      quantity: product.quantity,
+      unitPrice: product.price,
+      total: product.price * product.quantity,
+      image: product.images && product.images.length > 0 ? product.images[0] : undefined
+    }));
+  }, [order.products]);
+
   return (
     <div className="bg-white text-black font-[Poppins] p-6 max-w-[800px] mx-auto">
       <style>{globalPrintStyles}</style>
@@ -174,7 +197,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
         )}
       </div>
       <div className="space-y-2">
-        {order.items.map((item, idx) => (
+        {orderItems.map((item, idx) => (
           <div key={idx} className="flex items-start gap-3 border-b py-2">
             <AspectRatio ratio={1} className="w-16 h-16 bg-gray-100">
               <PrintableImage src={item.image || '/placeholder.svg'} alt={item.description} />
