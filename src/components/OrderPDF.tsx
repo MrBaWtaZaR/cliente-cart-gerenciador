@@ -109,25 +109,25 @@ const globalOrderPrintStyles = `
       flex: 1 1 0% !important;
     }
 
-    /* Estilos para as colunas da tabela - mais específicos */
+    /* Estilos para as colunas da tabela - FORÇANDO as larguras */
     .order-items-table th.col-produto,
     .order-items-table td.col-produto {
-      width: 45%;
+      width: 45% !important;
       text-align: left;
     }
     .order-items-table th.col-qtd,
     .order-items-table td.col-qtd {
-      width: 15%;
+      width: 15% !important;
       text-align: center;
     }
     .order-items-table th.col-preco-unit,
     .order-items-table td.col-preco-unit {
-      width: 20%;
+      width: 20% !important;
       text-align: right;
     }
     .order-items-table th.col-subtotal,
     .order-items-table td.col-subtotal {
-      width: 20%;
+      width: 20% !important;
       text-align: right;
     }
   }
@@ -177,7 +177,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   }, []);
 
   const currentDate = useMemo(() =>
-    format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+    format(new Date(), "dd 'de' MMMM 'de' <0xC2><0xA7>", { locale: ptBR })
     , []);
 
   const hasTourInfo = useMemo(() =>
