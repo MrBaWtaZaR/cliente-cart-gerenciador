@@ -1,4 +1,3 @@
-
 import React, { memo, useMemo, useState, useEffect } from 'react';
 import { Order, OrderProduct } from '@/types/customers'; // Using the correct import
 import { format } from 'date-fns';
@@ -169,7 +168,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
 
   const currentDate = useMemo(() =>
     format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-  );
+  , []);
 
   const hasTourInfo = useMemo(() =>
     !!(customerInfo.tourName || customerInfo.tourCity || customerInfo.tourState), [customerInfo]
