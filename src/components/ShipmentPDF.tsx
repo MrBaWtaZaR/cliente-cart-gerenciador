@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -11,6 +12,7 @@ interface ShipmentPDFProps {
 
 const globalPrintStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
   @media print {
     body {
       margin: 0 !important;
@@ -134,4 +136,83 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
   }
 );
 
+// Now implementing the missing ShipmentCardsPDF component
+export const ShipmentCardsPDF = React.forwardRef<PrintablePDFRef, ShipmentPDFProps>(
+  ({ shipmentCustomers, date }, ref) => {
+    const formatCurrency = (value: number) =>
+      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    const footerDate = format(date, "dd/MM/yy", { locale: ptBR });
+    const calculateServiceFee = (total: number) => Math.max(60, total * 0.1);
+
+    // Split customers into pairs for two cards per page
+    const customerPairs = [];
+    for (let i = 0; i < shipmentCustomers.length; i += 2) {
+      if (i + 1 < shipmentCustomers.length) {
+        customerPairs.push([shipmentCustomers[i], shipmentCustomers[i + 1]]);
+      } else {
+        customerPairs.push([shipmentCustomers[i]]);
+      }
+    }
+
+    return (
+      <PrintablePDF ref={ref}>
+        <style>{globalPrintStyles}</style>
+        
+        {customerPairs.map((pair, pairIndex) => (
+          <div key={pairIndex} className={pairIndex > 0 ? "page-break-before" : ""}>
+            <div className="print-page-container bg-white flex flex-col">
+              {/* Two cards per page */}
+              <div className="grid grid-cols-1 gap-6 p-8 flex-grow">
+                {pair.map((customer, idx) => {
+                  const latestOrder = customer.orders?.reduce((latest, current) =>
+                    new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+                  );
+                  const orderTotal = latestOrder?.total || 0;
+                  const serviceFee = calculateServiceFee(orderTotal);
+                  const total = orderTotal + serviceFee;
+
+                  return (
+                    <div key={idx} className="border-2 border-[#1C3553] p-6 rounded font-montserrat flex flex-col h-[40vh]">
+                      {/* Card Header */}
+                      <div className="text-center mb-6">
+                        <h2 className="text-2xl font-bold mb-2">AF ASSESSORIA</h2>
+                        <p className="text-sm uppercase tracking-wide">CONSULTORIA</p>
+                      </div>
+                      
+                      {/* Customer Information */}
+                      <div className="flex-grow flex flex-col items-center justify-center text-center space-y-4">
+                        <h3 className="text-2xl font-bold uppercase">{customer.name}</h3>
+                        
+                        <div className="flex flex-col space-y-2">
+                          <div className="font-bold text-xl">
+                            Compra: <span>{formatCurrency(orderTotal)}</span>
+                          </div>
+                          <div className="font-bold text-xl">
+                            Serviço: <span>{formatCurrency(serviceFee)}</span>
+                          </div>
+                          <div className="font-bold text-xl border-t border-black pt-2 mt-2">
+                            Total: <span>{formatCurrency(total)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Card Footer */}
+                      <div className="text-center mt-6 text-sm">
+                        <p className="font-bold">{footerDate} • Santa Cruz do Capibaribe - PE</p>
+                        <p>📞 (84) 9 9811-4515 • @ANDRADEFLORASSESSORIA</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ))}
+      </PrintablePDF>
+    );
+  }
+);
+
 ShipmentTablePDF.displayName = 'ShipmentTablePDF';
+ShipmentCardsPDF.displayName = 'ShipmentCardsPDF';
+
