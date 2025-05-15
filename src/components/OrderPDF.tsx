@@ -34,23 +34,22 @@ const globalOrderPrintStyles = `
     .order-items-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 16px; /* Reduzido um pouco */
-      margin-bottom: 16px; /* Reduzido um pouco */
-      font-size: 9.5pt; /* Ajuste fino no tamanho da fonte da tabela */
+      margin-top: 16px;
+      margin-bottom: 16px;
+      font-size: 9.5pt;
     }
     .order-items-table th,
     .order-items-table td {
-      border: 1px solid #e2e8f0; /* Tailwind gray-300 */
-      padding: 5px 7px; /* Padding ligeiramente ajustado */
-      vertical-align: top; /* Alinha o conteúdo ao topo da célula */
+      border: 1px solid #e2e8f0;
+      padding: 5px 7px;
+      vertical-align: top;
     }
     .order-items-table th {
-      background-color: #f1f5f9; /* Tailwind slate-100 */
-      font-weight: 600; /* semibold */
+      background-color: #f1f5f9;
+      font-weight: 600;
       color: #1C3553;
-      text-align: left; /* Padrão para a esquerda */
+      text-align: left;
     }
-    /* Classes de alinhamento específicas para células e cabeçalhos */
     .order-items-table .text-right {
       text-align: right;
     }
@@ -59,12 +58,12 @@ const globalOrderPrintStyles = `
     }
 
     .pdf-footer {
-      margin-top: 24px; /* Reduzido um pouco */
-      padding-top: 12px; /* Reduzido um pouco */
-      border-top: 1px solid #cbd5e1; /* Tailwind slate-300 */
+      margin-top: 24px;
+      padding-top: 12px;
+      border-top: 1px solid #cbd5e1;
       text-align: center;
-      font-size: 8.5pt; /* Fonte do rodapé menor */
-      color: #64748b; /* Tailwind slate-500 */
+      font-size: 8.5pt;
+      color: #64748b;
     }
     .pdf-footer p {
       margin: 1.5px 0;
@@ -75,11 +74,53 @@ const globalOrderPrintStyles = `
       max-width: 210mm;
       min-height: 290mm; 
       margin: 0 auto;
-      padding: 12mm 8mm; /* Margens da página ajustadas */
+      padding: 12mm 8mm;
       box-sizing: border-box;
       background-color: white;
       display: flex;
       flex-direction: column;
+    }
+
+    /* Força o layout lado a lado dos blocos principais */
+    .flex {
+      display: flex !important;
+    }
+    .flex-row {
+      flex-direction: row !important;
+    }
+    .gap-x-4 {
+      column-gap: 1rem !important; /* 16px */
+    }
+
+    /* Largura dos blocos laterais */
+    .w-1\\/2 {
+      width: 50% !important;
+    }
+    .w-\\[48\\%\\] {
+      width: 48% !important;
+    }
+
+    /* Padding e borda */
+    .p-3 {
+      padding: 0.75rem !important; /* 12px */
+    }
+    .border {
+      border-width: 1px !important;
+      border-style: solid !important;
+      border-color: #e5e7eb !important; /* Tailwind gray-200 */
+    }
+
+    /* Fundo, borda e raio */
+    .bg-gray-50 {
+      background-color: #f9fafb !important;
+    }
+    .rounded-md {
+      border-radius: 0.375rem !important;
+    }
+
+    /* Texto pequeno */
+    .text-\\[10px\\] {
+      font-size: 10px !important;
     }
 
     @page {
