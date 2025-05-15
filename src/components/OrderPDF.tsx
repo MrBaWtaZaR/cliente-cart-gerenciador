@@ -1,5 +1,6 @@
+
 import React, { memo, useMemo, useState, useEffect } from 'react';
-import { Order } from '@/types/customers'; // Supondo que este tipo exista no seu projeto
+import { Order, OrderProduct } from '@/types/customers'; // Using the correct import
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 // AspectRatio e PrintableImage não são mais usados diretamente aqui se removermos as imagens dos produtos.
@@ -300,27 +301,3 @@ export const OrderPDF = React.forwardRef<PrintablePDFRef, OrderPDFProps>((props,
   );
 });
 OrderPDF.displayName = 'OrderPDF';
-
-// Definição do tipo Order e Product (exemplo, ajuste conforme sua estrutura real)
-// Se já estiverem definidos em @/types/customers, esta parte não é necessária aqui.
-// Certifique-se que o tipo Order tenha um campo 'id' se for usá-lo como no exemplo.
-declare module '@/types/customers' {
-    interface Product {
-        id: string;
-        productName: string;
-        price: number;
-        quantity: number;
-        images?: string[];
-        attributes?: {
-            color?: string;
-            size?: string;
-            [key: string]: any;
-        };
-    }
-
-    export interface Order {
-        id: string; // Adicionado para o exemplo de "Pedido Nº"
-        total: number;
-        products: Product[];
-    }
-}
