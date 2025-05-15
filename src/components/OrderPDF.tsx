@@ -186,7 +186,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
       </div>
 
       {/* Container flexível que não quebra linha */}
-      <div className="flex flex-row gap-x-4 mb-5 no-wrap">
+      <div className="flex flex-row flex-nowrap gap-x-4 mb-5">
         {/* Cliente */}
         <div className="flex-1 min-w-0 p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]">
           <h2 className="text-base font-semibold text-[#1C3553] mb-1.5">Informações do Cliente</h2>
