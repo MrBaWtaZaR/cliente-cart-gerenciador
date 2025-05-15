@@ -1,8 +1,19 @@
+
 import React, { memo, useMemo, useState, useEffect } from 'react';
 import { Order } from '@/types/customers'; // Supondo que este tipo exista no seu projeto
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PrintablePDF, PrintablePDFRef } from './PrintablePDF';
+
+// Define the OrderItem interface that was missing
+interface OrderItem {
+  description: string;
+  color: string;
+  size: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
 
 interface OrderPDFProps {
   order: Order;
