@@ -101,6 +101,21 @@ const PrintablePDF = forwardRef<PrintablePDFRef, PrintablePDFProps>(
             padding: 8px !important; /* Espaçamento interno */
             display: table-cell !important;
           }
+
+          /* === ADICIONADO: lado a lado no container específico === */
+          .printable-pdf-container .side-by-side {
+            display: flex !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            gap: 10px !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          .printable-pdf-container .side-by-side > div {
+            width: 48% !important;
+            /* overflow-wrap para quebrar texto dentro se precisar */
+            overflow-wrap: break-word !important;
+          }
         }
       `;
       document.head.appendChild(style);
@@ -135,14 +150,10 @@ const PrintablePDF = forwardRef<PrintablePDFRef, PrintablePDFProps>(
     useEffect(() => {
       if (isPrinting) {
         onBeforePrint?.();
-        // O timeout original de 3000ms para onAfterPrint pode ser muito longo
-        // se a intenção é limpar o estado após a caixa de diálogo de impressão ser fechada.
-        // A detecção real do fechamento da caixa de diálogo é complexa.
-        // Este timeout é uma aproximação.
         const timer = setTimeout(() => {
           setIsPrinting(false);
           onAfterPrint?.();
-        }, 1000); // Reduzido para 1 segundo como exemplo
+        }, 1000);
         return () => clearTimeout(timer);
       }
     }, [isPrinting, onBeforePrint, onAfterPrint]);
@@ -150,38 +161,29 @@ const PrintablePDF = forwardRef<PrintablePDFRef, PrintablePDFProps>(
     // Função para ser chamada externamente para iniciar o processo de "impressão"
     const notifyPrinting = () => {
       setIsPrinting(true);
-      // A chamada real para window.print() deve ser feita pelo componente pai
-      // que usa este PrintablePDF, geralmente após notifyPrinting ser chamado
-      // e o estado isPrinting ter sido atualizado para reposicionar o conteúdo.
-      // Exemplo: react-to-print faz isso.
     };
 
     // Expõe notifyPrinting e o próprio elemento div através da ref
     useImperativeHandle(ref, () => {
       if (!localRef.current) {
-        // Isso não deveria acontecer se o localRef estiver corretamente atribuído ao div
         throw new Error('PrintablePDF: localRef não está inicializado.');
       }
-      // Combina as propriedades do elemento div com a função notifyPrinting
       return Object.assign(localRef.current, {
         notifyPrinting
       });
-    }, []); // Dependências vazias para que a ref seja estável
+    }, []);
 
-    // Classes dinâmicas para o container
     const allClassNames = `printable-pdf-container ${isPrinting ? 'is-actively-printing' : ''} ${className}`;
 
-    // Estilos inline para controlar a visibilidade e posicionamento fora da impressão
     const containerStyle: React.CSSProperties = {
-      position: isPrinting ? 'relative' : 'absolute', // 'relative' durante a impressão para fluxo normal, 'absolute' para esconder fora da tela
-      left: isPrinting ? '0' : '-9999px', // Move para fora da tela quando não está imprimindo
-      top: isPrinting ? '0' : 'auto', // 'auto' ou '0' dependendo da estratégia de esconderijo
-      visibility: isPrinting ? 'visible' : 'hidden', // Controla a visibilidade
-      backgroundColor: 'white', // Garante fundo branco
-      width: '100%', // Ocupa a largura total para cálculo de layout
-      // maxWidth: '1200px', // Este maxWidth pode ser desnecessário se o @page e .print-page-container controlam o tamanho A4
-      margin: '0 auto', // Centraliza se houver um maxWidth
-      padding: '0', // Padding deve ser controlado pelo conteúdo interno ou .print-page-container
+      position: isPrinting ? 'relative' : 'absolute',
+      left: isPrinting ? '0' : '-9999px',
+      top: isPrinting ? '0' : 'auto',
+      visibility: isPrinting ? 'visible' : 'hidden',
+      backgroundColor: 'white',
+      width: '100%',
+      margin: '0 auto',
+      padding: '0',
       boxSizing: 'border-box',
     };
 
@@ -190,8 +192,7 @@ const PrintablePDF = forwardRef<PrintablePDFRef, PrintablePDFProps>(
         ref={localRef}
         className={allClassNames}
         style={containerStyle}
-        data-pdf-root="true" // Atributo para identificação, se necessário
-        // data-no-cleanup="true" // Este atributo não parece ter um propósito claro aqui
+        data-pdf-root="true"
       >
         {children}
       </div>
