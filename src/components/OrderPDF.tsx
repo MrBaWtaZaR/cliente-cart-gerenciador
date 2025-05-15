@@ -42,16 +42,16 @@ const globalOrderPrintStyles = `
 
     .order-items-table {
       width: 100%;
-      border-collapse: collapse !important; /* Reforçado */
+      border-collapse: collapse !important;
       margin-top: 16px;
       margin-bottom: 16px;
       font-size: 9.5pt;
-      table-layout: fixed !important; /* Adicionado */
+      table-layout: fixed !important; /* Mantendo o fixed layout */
     }
     .order-items-table th,
     .order-items-table td {
       border: 1px solid #e2e8f0;
-      padding: 5px 7px !important; /* Padding consistente */
+      padding: 5px 7px !important;
       vertical-align: top;
     }
     .order-items-table th {
@@ -110,25 +110,25 @@ const globalOrderPrintStyles = `
       flex: 1 1 0% !important;
     }
 
-    /* Estilos para as colunas da tabela - FORÇANDO as larguras */
+    /* Estilos para as colunas da tabela - LARGURAS FIXAS EM PIXELS */
     .order-items-table th.col-produto,
     .order-items-table td.col-produto {
-      width: 45% !important;
+      width: 300px !important;
       text-align: left;
     }
     .order-items-table th.col-qtd,
     .order-items-table td.col-qtd {
-      width: 15% !important;
+      width: 50px !important;
       text-align: center;
     }
     .order-items-table th.col-preco-unit,
     .order-items-table td.col-preco-unit {
-      width: 20% !important;
+      width: 100px !important;
       text-align: right;
     }
     .order-items-table th.col-subtotal,
     .order-items-table td.col-subtotal {
-      width: 20% !important;
+      width: 100px !important;
       text-align: right;
     }
   }
@@ -178,7 +178,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   }, []);
 
   const currentDate = useMemo(() =>
-    format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+    format(new Date(), "dd 'de' MMMM 'de'<ctrl3348>", { locale: ptBR })
     , []);
 
   const hasTourInfo = useMemo(() =>
