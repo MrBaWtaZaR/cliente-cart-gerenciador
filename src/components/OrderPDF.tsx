@@ -1,8 +1,9 @@
+
 import React, { memo, useMemo, useState, useEffect } from 'react';
-import { Order } from '@/types/customers'; // Supondo que este tipo exista no seu projeto
+import { Order, OrderProduct } from '@/types/customers'; // Using OrderProduct from types
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { AspectRatio } from '@/components/ui/aspect-ratio'; // Supondo que este componente exista
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { PrintablePDF, PrintablePDFRef } from './PrintablePDF';
 
 interface OrderPDFProps {
@@ -186,8 +187,8 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   const orderItems = useMemo((): OrderItem[] => {
     return order.products.map(product => ({
       description: product.productName,
-      color: product.attributes?.color || 'N/A', // Exemplo: buscando de um campo 'attributes'
-      size: product.attributes?.size || 'N/A',   // Exemplo: buscando de um campo 'attributes'
+      color: product.attributes?.color || 'N/A', // Usando attributes opcional com fallback
+      size: product.attributes?.size || 'N/A',   // Usando attributes opcional com fallback
       quantity: product.quantity,
       unitPrice: product.price,
       total: product.price * product.quantity,
@@ -276,28 +277,3 @@ export const OrderPDF = React.forwardRef<PrintablePDFRef, OrderPDFProps>((props,
   );
 });
 OrderPDF.displayName = 'OrderPDF';
-
-// Definição do tipo Order e Product (exemplo, ajuste conforme sua estrutura real)
-// Se já estiverem definidos em @/types/customers, esta parte não é necessária aqui.
-declare module '@/types/customers' {
-    interface Product {
-        id: string;
-        productName: string;
-        price: number;
-        quantity: number;
-        images?: string[];
-        attributes?: { // Exemplo de como 'color' e 'size' podem vir
-            color?: string;
-            size?: string;
-            [key: string]: any;
-        };
-        // Outros campos do produto
-    }
-
-    export interface Order {
-        id: string;
-        total: number;
-        products: Product[];
-        // Outros campos do pedido
-    }
-}

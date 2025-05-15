@@ -31,4 +31,9 @@ export interface OrderProduct {
   quantity: number;
   price: number;
   images: string[];
+  attributes?: {
+    color?: string;
+    size?: string;
+    [key: string]: any;
+  };
 }
