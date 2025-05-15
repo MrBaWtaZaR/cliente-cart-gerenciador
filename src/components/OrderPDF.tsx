@@ -77,8 +77,7 @@ const globalOrderPrintStyles = `
     }
 
     .pdf-page-container {
-      width: 100%; /* Garante que a largura seja 100% */
-      /* max-width: 100%; Removendo o max-width */
+      width: 100%;
       min-height: 290mm;
       margin: 0 auto;
       padding: 12mm 8mm;
@@ -110,25 +109,21 @@ const globalOrderPrintStyles = `
       flex: 1 1 0% !important;
     }
 
-    /* Estilos para as colunas da tabela - LARGURAS FIXAS EM PIXELS */
+    /* Removendo as larguras fixas das colunas */
     .order-items-table th.col-produto,
     .order-items-table td.col-produto {
-      width: 300px !important;
       text-align: left;
     }
     .order-items-table th.col-qtd,
     .order-items-table td.col-qtd {
-      width: 50px !important;
       text-align: center;
     }
     .order-items-table th.col-preco-unit,
     .order-items-table td.col-preco-unit {
-      width: 100px !important;
       text-align: right;
     }
     .order-items-table th.col-subtotal,
     .order-items-table td.col-subtotal {
-      width: 100px !important;
       text-align: right;
     }
   }
