@@ -178,7 +178,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   }, []);
 
   const currentDate = useMemo(() =>
-    format(new Date(), "dd 'de' MMMM 'de' <0xC2><0xA7>", { locale: ptBR })
+    format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
     , []);
 
   const hasTourInfo = useMemo(() =>
