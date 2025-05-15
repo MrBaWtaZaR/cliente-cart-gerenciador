@@ -77,8 +77,8 @@ const globalOrderPrintStyles = `
     }
 
     .pdf-page-container {
-      width: 100%;
-      max-width: 210mm;
+      width: 100%; /* Garante que a largura seja 100% */
+      max-width: 100%; /* Expande a largura máxima para 100% */
       min-height: 290mm;
       margin: 0 auto;
       padding: 12mm 8mm;
@@ -178,7 +178,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   }, []);
 
   const currentDate = useMemo(() =>
-    format(new Date(), "dd 'de' MMMM", { locale: ptBR }) // Tentativa 1: Removendo o ano
+    format(new Date(), "dd 'de' MMMM", { locale: ptBR })
     , []);
 
   const hasTourInfo = useMemo(() =>
