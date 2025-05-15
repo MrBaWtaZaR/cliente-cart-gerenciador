@@ -263,8 +263,8 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
 
       <div className="pdf-footer">
         <p>Obrigado pela sua preferência!</p>
-        <p>Nome da Sua Empresa Aqui | CNPJ: XX.XXX.XXX/0001-XX</p>
-        <p>contato@suaempresa.com | (XX) XXXXX-XXXX | www.suaempresa.com</p>
+        <p>ANDRADE & FLOR | CNPJ: XX.XXX.XXX/0001-XX</p>
+        <p>contato@suaempresa.com | (84) 99811-4515 | @ANDRADEFLORASSESSORIA</p>
       </div>
     </div>
   );
