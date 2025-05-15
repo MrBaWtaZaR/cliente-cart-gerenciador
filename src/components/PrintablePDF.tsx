@@ -44,10 +44,12 @@ const PrintablePDF = forwardRef<PrintablePDFRef, PrintablePDFProps>(
           }
           
           /* Esconder os estilos CSS que aparecem no PDF */
-          .pdf-styles {
+          .pdf-styles, 
+          .hidden {
             display: none !important;
             visibility: hidden !important;
             height: 0 !important;
+            overflow: hidden !important;
           }
 
           .printable-pdf-container {
