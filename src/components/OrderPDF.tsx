@@ -182,7 +182,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   }, [order.products]);
 
   return (
-    <div className="pdf-page-container w-full max-w-[800px] mx-auto bg-white ...">
+    <div className="pdf-page-container w-full max-w-[850px] mx-auto bg-white text-black font-[Poppins] text-xs">
  {/* Base font size to text-xs for more space */}
       
       <div className="text-center mb-5">
