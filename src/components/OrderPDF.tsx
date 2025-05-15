@@ -1,4 +1,3 @@
-
 import React, { memo, useMemo, useState, useEffect } from 'react';
 import { Order } from '@/types/customers';
 import { format } from 'date-fns';
@@ -21,6 +20,35 @@ interface OrderPDFProps {
     tourDepartureTime?: string;
   };
 }
+
+const globalPrintStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+  @media print {
+    body {
+      margin: 0 !important;
+      font-family: 'Poppins', sans-serif !important;
+      -webkit-print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+    .page-break-before {
+      page-break-before: always !important;
+    }
+    .print-page-container {
+      width: 210mm !important;
+      height: 297mm !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      box-sizing: border-box !important;
+      overflow: hidden;
+    }
+    @page {
+      margin: 0 !important;
+      size: A4 !important;
+    }
+  }
+`;
 
 // Error Boundary for PDF content
 class PDFErrorBoundary extends React.Component<
@@ -117,34 +145,7 @@ interface OrderItem {
 
 const PDFStyles = () => (
   <style type="text/css" className="pdf-styles hidden">
-    {`
-      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-      @media print {
-        body {
-          margin: 0 !important;
-          font-family: 'Poppins', sans-serif !important;
-          -webkit-print-color-adjust: exact !important;
-          color-adjust: exact !important;
-        }
-        .page-break-before {
-          page-break-before: always !important;
-        }
-        .print-page-container {
-          width: 210mm !important;
-          height: 297mm !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          display: flex !important;
-          flex-direction: column !important;
-          box-sizing: border-box !important;
-          overflow: hidden;
-        }
-        @page {
-          margin: 0 !important;
-          size: A4 !important;
-        }
-      }
-    `}
+    {globalPrintStyles}
   </style>
 );
 
