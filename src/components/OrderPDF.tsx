@@ -42,7 +42,7 @@ const globalOrderPrintStyles = `
 
     .order-items-table {
       width: 100%;
-      border-collapse: collapse;
+      border-collapse: collapse !important; /* Reforçado */
       margin-top: 16px;
       margin-bottom: 16px;
       font-size: 9.5pt;
@@ -51,7 +51,7 @@ const globalOrderPrintStyles = `
     .order-items-table th,
     .order-items-table td {
       border: 1px solid #e2e8f0;
-      padding: 5px 7px;
+      padding: 5px 7px !important; /* Padding consistente */
       vertical-align: top;
     }
     .order-items-table th {
@@ -178,7 +178,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   }, []);
 
   const currentDate = useMemo(() =>
-    format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+    format(new Date(), "dd 'de' MMMM 'de' <0xC2><0xA7>", { locale: ptBR })
     , []);
 
   const hasTourInfo = useMemo(() =>
