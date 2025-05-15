@@ -143,6 +143,12 @@ interface OrderItem {
   image?: string;
 }
 
+const PDFStyles = () => (
+  <style type="text/css" className="pdf-styles hidden">
+    {globalPrintStyles}
+  </style>
+);
+
 const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFProps) => {
   const currentDate = useMemo(() =>
     format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }), []
@@ -182,7 +188,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
 
   return (
     <div className="bg-white text-black font-[Poppins] p-6 max-w-[800px] mx-auto">
-      <style>{globalPrintStyles}</style>
+      <PDFStyles />
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-[#1C3553]">Resumo do Pedido</h1>
         <p className="text-sm text-gray-600">{currentDate}</p>
