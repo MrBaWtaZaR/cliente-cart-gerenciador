@@ -1,10 +1,9 @@
 import React, { memo, useMemo, useState, useEffect } from 'react';
-import { Order } from '@/types/customers'; // Supondo que este tipo exista no seu projeto
+import { Order } from '@/types/customers';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PrintablePDF, PrintablePDFRef } from './PrintablePDF';
 
-// Define the OrderItem interface that was missing
 interface OrderItem {
   description: string;
   color: string;
@@ -86,6 +85,18 @@ const globalOrderPrintStyles = `
       background-color: white;
       display: flex;
       flex-direction: column;
+    }
+
+    .side-by-side {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      gap: 1rem;
+    }
+
+    .side-by-side > div {
+      flex: 1 1 0%;
+      min-width: 0;
     }
 
     .no-wrap {
@@ -185,10 +196,9 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
         <p className="text-[10px] text-gray-500">Data: {currentDate}</p>
       </div>
 
-      {/* Container flexível que não quebra linha */}
-      <div className="flex flex-row flex-nowrap gap-x-4 mb-5">
-        {/* Cliente */}
-        <div className="flex-1 min-w-0 p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]">
+      {/* Cliente + Excursão */}
+      <div className="side-by-side mb-5">
+        <div className="p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]">
           <h2 className="text-base font-semibold text-[#1C3553] mb-1.5">Informações do Cliente</h2>
           <p><strong>Nome:</strong> {customerName}</p>
           <p><strong>Email:</strong> {customerInfo.email}</p>
@@ -196,9 +206,8 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
           {customerInfo.address && <p><strong>Endereço:</strong> {customerInfo.address}</p>}
         </div>
 
-        {/* Excursão, se houver */}
         {hasTourInfo && (
-          <div className="flex-1 min-w-0 p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]">
+          <div className="p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]">
             <h2 className="text-base font-semibold text-[#1C3553] mb-1.5">Detalhes da Excursão</h2>
             <p><strong>Excursão:</strong> {customerInfo.tourName} - <strong> SETOR: {customerInfo.tourSector} </strong> </p>
             <p><strong>Vaga:</strong> {customerInfo.tourSeatNumber}</p>
