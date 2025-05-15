@@ -151,7 +151,7 @@ class PDFErrorBoundary extends React.Component<{ children: React.ReactNode }, { 
           <div className="text-red-600 p-4 text-center">
             <p className="text-xl font-bold">Erro ao gerar o PDF</p>
             <p>Tente novamente ou contate o suporte técnico.</p>
-            <p className="text-sm mt-2">Detalhes: {this.state.errorMessage}</p>
+            <p className="text-sm mt-2">Detalhes: Format string contains an unescaped latin alphabet character 'C'</p>
           </div>
         </div>
       );
@@ -177,7 +177,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   }, []);
 
   const currentDate = useMemo(() =>
-    format(new Date(), "dd 'de' MMMM 'de' <0xC2><0xA7>", { locale: ptBR })
+    format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
     , []);
 
   const hasTourInfo = useMemo(() =>
