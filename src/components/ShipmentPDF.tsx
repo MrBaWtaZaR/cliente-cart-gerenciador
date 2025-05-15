@@ -71,15 +71,16 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
     return (
       <PrintablePDF ref={ref}>
         <PDFStyles />
-        <div className="print-page-container bg-white text-black font-[Poppins]">
+        <div className="print-page-container bg-white text-black font-[Poppins] flex flex-col min-h-[297mm]">
           <div className="bg-[#1C3553] text-white py-4 px-6 text-center">
             <h1 className="text-2xl font-bold">AF ASSESSORIA</h1>
             <p className="text-sm font-light tracking-wide">CONSULTORIA</p>
           </div>
-          <div className="flex-grow p-4 overflow-auto">
+          {/* Utilizando flex-grow para garantir que o conteúdo preencha o espaço disponível */}
+          <div className="flex-grow p-4">
             <table className="w-full border-collapse border border-black text-sm">
               <thead>
-                <tr className="bg-[#1C3553] text-white">
+                <tr className="bg-[#1C3553] text-white text-center">
                   <th className="py-2 px-3 border border-black">Nome</th>
                   <th className="py-2 px-3 border border-black">Compra</th>
                   <th className="py-2 px-3 border border-black">Serviço</th>
@@ -111,9 +112,10 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
                   </tr>
                 )}
               </tbody>
+              {/* Rodapé da tabela sempre próximo ao rodapé da página */}
               <tfoot>
                 <tr className="bg-gray-200 font-bold">
-                  <td className="py-2 px-3 border border-black text-left">TOTAIS:</td>
+                  <td className="py-2 px-3 border border-black text-center">TOTAIS:</td>
                   <td className="py-2 px-3 border border-black text-right">{formatCurrency(totalOrderAmount)}</td>
                   <td className="py-2 px-3 border border-black text-right">{formatCurrency(totalServiceFeeAmount)}</td>
                   <td className="py-2 px-3 border border-black text-right">-</td>
@@ -122,7 +124,7 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
               </tfoot>
             </table>
           </div>
-          <div className="bg-[#1C3553] text-white p-3 flex justify-between text-xs">
+          <div className="bg-[#1C3553] text-white p-3 flex justify-between text-xs text-center mt-auto">
             <div className="text-center">
               <div>🗓️</div>
               <div>{footerDate}</div>
@@ -130,7 +132,7 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
             <div className="text-center">
               <p>Santa Cruz do Capibaribe - PE</p>
             </div>
-            <div className="text-right">
+            <div className="text-center">
               <p>📞 (84) 9 9811-4515</p>
               <p>@ANDRADEFLORASSESSORIA</p>
             </div>
@@ -180,22 +182,22 @@ export const ShipmentCardsPDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
                   <div key={idx} className="border-2 border-[#1C3553] p-6 rounded font-montserrat flex flex-col h-[40vh]">
                     {/* Card Header */}
                     <div className="text-center mb-4">
-                      <h2 className="text-2xl font-bold mb-2">AF ASSESSORIA</h2>
-                      <p className="text-sm uppercase tracking-wide">CONSULTORIA</p>
+                      <h2 className="text-3xl font-bold mb-2">AF ASSESSORIA</h2>
+                      <p className="text-lg uppercase tracking-wide">CONSULTORIA</p>
                     </div>
                     
-                    {/* Customer Information */}
+                    {/* Customer Information - FONTE AUMENTADA */}
                     <div className="flex-grow flex flex-col items-center justify-center text-center space-y-4">
-                      <h3 className="text-2xl font-bold uppercase">{customer.name}</h3>
+                      <h3 className="text-3xl font-bold uppercase">{customer.name}</h3>
                       
-                      <div className="flex flex-col space-y-2 text-lg">
+                      <div className="flex flex-col space-y-2 text-xl">
                         {/* Dados pessoais */}
                         <div className="text-center">
                           {customer.phone && (
                             <p className="font-medium">Telefone: {formatPhone(customer.phone)}</p>
                           )}
                           {customer.email && (
-                            <p className="text-sm">{customer.email}</p>
+                            <p className="text-lg">{customer.email}</p>
                           )}
                         </div>
                         
@@ -203,16 +205,16 @@ export const ShipmentCardsPDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
                         {(customer.tourName || customer.tourSeatNumber) && (
                           <div className="border-t border-gray-300 pt-3 mt-2">
                             {customer.tourName && (
-                              <p className="font-bold">{customer.tourName}</p>
+                              <p className="font-bold text-xl">{customer.tourName}</p>
                             )}
                             {customer.tourSector && (
-                              <p>Setor: {customer.tourSector}</p>
+                              <p className="text-lg">Setor: {customer.tourSector}</p>
                             )}
                             {customer.tourSeatNumber && (
-                              <p className="font-bold text-xl">Vaga: {customer.tourSeatNumber}</p>
+                              <p className="font-bold text-2xl">Vaga: {customer.tourSeatNumber}</p>
                             )}
                             {(customer.tourCity || customer.tourState) && (
-                              <p>{customer.tourCity}{customer.tourCity && customer.tourState ? ' - ' : ''}{customer.tourState}</p>
+                              <p className="text-lg">{customer.tourCity}{customer.tourCity && customer.tourState ? ' - ' : ''}{customer.tourState}</p>
                             )}
                           </div>
                         )}
@@ -220,7 +222,7 @@ export const ShipmentCardsPDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
                     </div>
                     
                     {/* Card Footer */}
-                    <div className="text-center mt-4 text-sm">
+                    <div className="text-center mt-4 text-lg">
                       <p className="font-bold">{footerDate} • Santa Cruz do Capibaribe - PE</p>
                       <p>📞 (84) 9 9811-4515 • @ANDRADEFLORASSESSORIA</p>
                     </div>
@@ -237,3 +239,4 @@ export const ShipmentCardsPDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
 
 ShipmentTablePDF.displayName = 'ShipmentTablePDF';
 ShipmentCardsPDF.displayName = 'ShipmentCardsPDF';
+
