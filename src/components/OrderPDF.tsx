@@ -178,7 +178,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   }, [order.products]);
 
   return (
-    <div className="pdf-page-container w-full max-w-[850px] mx-auto bg-white text-black font-[Poppins] text-xs">
+    <div className="pdf-page-container w-full max-w-[900px] mx-auto bg-white text-black font-[Poppins] text-xs">
       <div className="text-center mb-5">
         <h1 className="text-xl font-bold text-[#1C3553]">Resumo do Pedido</h1>
         <p className="text-[10px] text-gray-500">Pedido Nº: {order.id || 'N/A'}</p>
