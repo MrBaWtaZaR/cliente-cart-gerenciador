@@ -1,3 +1,4 @@
+
 import React, { forwardRef, useEffect, useState } from 'react';
 
 interface PrintablePDFProps {
@@ -17,14 +18,7 @@ const PrintablePDF = forwardRef<PrintablePDFRef, PrintablePDFProps>(
     const [isPrinting, setIsPrinting] = useState(false);
 
     useEffect(() => {
-      // Adiciona o link da fonte Poppins
-      const fontLink = document.createElement('link');
-      fontLink.rel = 'stylesheet';
-      fontLink.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap';
-      fontLink.id = 'poppins-font-link';
-      document.head.appendChild(fontLink);
-
-      // Estilos de impressão
+      // Estilos de impressão - agora aplicados via tag style no head
       const style = document.createElement('style');
       style.type = 'text/css';
       style.id = 'printable-pdf-styles';
@@ -47,6 +41,13 @@ const PrintablePDF = forwardRef<PrintablePDFRef, PrintablePDFProps>(
             visibility: visible !important;
             opacity: 1 !important;
             display: block !important;
+          }
+          
+          /* Esconder os estilos CSS que aparecem no PDF */
+          .pdf-styles {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
           }
 
           .printable-pdf-container {
@@ -97,9 +98,6 @@ const PrintablePDF = forwardRef<PrintablePDFRef, PrintablePDFProps>(
       return () => {
         const styleElement = document.getElementById('printable-pdf-styles');
         if (styleElement) document.head.removeChild(styleElement);
-
-        const fontElement = document.getElementById('poppins-font-link');
-        if (fontElement) document.head.removeChild(fontElement);
       };
     }, []);
 
@@ -128,6 +126,26 @@ const PrintablePDF = forwardRef<PrintablePDFRef, PrintablePDFProps>(
         notifyPrinting
       });
     }, [localRef]);
+
+    // Incluir fontes diretamente na head para evitar que apareçam no PDF
+    useEffect(() => {
+      // Adicionar os links de fontes ao head
+      const poppinsLink = document.createElement('link');
+      poppinsLink.rel = 'stylesheet';
+      poppinsLink.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap';
+      document.head.appendChild(poppinsLink);
+      
+      const montserratLink = document.createElement('link');
+      montserratLink.rel = 'stylesheet';
+      montserratLink.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap';
+      document.head.appendChild(montserratLink);
+      
+      // Limpar links ao desmontar
+      return () => {
+        document.head.removeChild(poppinsLink);
+        document.head.removeChild(montserratLink);
+      };
+    }, []);
 
     const allClassNames = `printable-pdf-container ${isPrinting ? 'actively-printing protected-element' : ''} ${className}`;
 
