@@ -1,3 +1,4 @@
+
 import React, { memo, useMemo, useState, useEffect } from 'react';
 import { Order } from '@/types/customers';
 import { format } from 'date-fns';
@@ -114,7 +115,6 @@ interface OrderItem {
   image?: string;
 }
 
-// Estilo global para impressão
 const PDFStyles = () => (
   <style type="text/css" className="pdf-styles hidden">
     {`
@@ -172,11 +172,12 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   const formatCurrency = useMemo(() =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }), []);
 
+  // Transform order.products into items with the expected structure
   const orderItems = useMemo((): OrderItem[] => {
     return order.products.map(product => ({
       description: product.productName,
-      color: 'N/A',
-      size: 'N/A',
+      color: 'N/A', // These fields don't exist in the original data structure
+      size: 'N/A',  // You may want to update the Order type to include this data
       quantity: product.quantity,
       unitPrice: product.price,
       total: product.price * product.quantity,
@@ -185,13 +186,12 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   }, [order.products]);
 
   return (
-    <div className="bg-white text-black font-[Poppins] p-8 max-w-[900px] mx-auto text-sm">
+    <div className="bg-white text-black font-[Poppins] p-6 max-w-[800px] mx-auto">
       <PDFStyles />
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#1C3553]">Comanda de Pedido</h1>
-        <p className="text-gray-600">{currentDate}</p>
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-[#1C3553]">Resumo do Pedido</h1>
+        <p className="text-sm text-gray-600">{currentDate}</p>
       </div>
-
       <div className="mb-4">
         <p className="text-lg font-semibold">{customerName}</p>
         <p className="text-sm text-gray-600">{formattedPhone}</p>
@@ -201,38 +201,24 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
           </p>
         )}
       </div>
-
-      <table className="w-full border border-gray-300 text-left">
-        <thead className="bg-blue-100">
-          <tr>
-            <th className="p-2 border border-gray-300">Foto</th>
-            <th className="p-2 border border-gray-300">Produto</th>
-            <th className="p-2 border border-gray-300">Cor</th>
-            <th className="p-2 border border-gray-300">Tamanho</th>
-            <th className="p-2 border border-gray-300 text-center">Qtd</th>
-            <th className="p-2 border border-gray-300 text-right">Preço Unit.</th>
-            <th className="p-2 border border-gray-300 text-right">Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {orderItems.map((item, idx) => (
-            <tr key={idx} className="border-t border-gray-200">
-              <td className="p-2 border border-gray-300 w-20">
-                <AspectRatio ratio={1} className="w-16 h-16 bg-gray-100">
-                  <PrintableImage src={item.image || '/placeholder.svg'} alt={item.description} />
-                </AspectRatio>
-              </td>
-              <td className="p-2 border border-gray-300">{item.description}</td>
-              <td className="p-2 border border-gray-300">{item.color}</td>
-              <td className="p-2 border border-gray-300">{item.size}</td>
-              <td className="p-2 border border-gray-300 text-center">{item.quantity}</td>
-              <td className="p-2 border border-gray-300 text-right">{formatCurrency.format(item.unitPrice)}</td>
-              <td className="p-2 border border-gray-300 text-right">{formatCurrency.format(item.total)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
+      <div className="space-y-2">
+        {orderItems.map((item, idx) => (
+          <div key={idx} className="flex items-start gap-3 border-b py-2">
+            <AspectRatio ratio={1} className="w-16 h-16 bg-gray-100">
+              <PrintableImage src={item.image || '/placeholder.svg'} alt={item.description} />
+            </AspectRatio>
+            <div className="flex-1">
+              <p className="font-semibold text-sm">{item.description}</p>
+              <p className="text-xs text-gray-500">
+                Cor: {item.color} | Tamanho: {item.size}
+              </p>
+              <p className="text-xs text-gray-500">Quantidade: {item.quantity}</p>
+              <p className="text-xs text-gray-500">Preço unitário: {formatCurrency.format(item.unitPrice)}</p>
+              <p className="text-sm font-bold">Subtotal: {formatCurrency.format(item.total)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
       <div className="mt-6 text-right space-y-1 text-sm">
         <p>Total da compra: <strong>{formatCurrency.format(order.total)}</strong></p>
         <p>Taxa de serviço: <strong>{formatCurrency.format(serviceFeeData.fee)}</strong></p>
