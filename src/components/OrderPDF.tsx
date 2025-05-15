@@ -78,7 +78,7 @@ const globalOrderPrintStyles = `
 
     .pdf-page-container {
       width: 100%; /* Garante que a largura seja 100% */
-      max-width: 100%; /* Expande a largura máxima para 100% */
+      /* max-width: 100%; Removendo o max-width */
       min-height: 290mm;
       margin: 0 auto;
       padding: 12mm 8mm;
