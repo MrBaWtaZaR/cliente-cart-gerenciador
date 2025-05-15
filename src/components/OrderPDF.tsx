@@ -78,7 +78,7 @@ const globalOrderPrintStyles = `
     .pdf-page-container {
       width: 100%;
       max-width: 210mm;
-      min-height: 290mm; 
+      min-height: 290mm;
       margin: 0 auto;
       padding: 12mm 8mm;
       box-sizing: border-box;
@@ -107,6 +107,28 @@ const globalOrderPrintStyles = `
     }
     .flex-1 {
       flex: 1 1 0% !important;
+    }
+
+    /* Estilos para as colunas da tabela - mais específicos */
+    .order-items-table th.col-produto,
+    .order-items-table td.col-produto {
+      width: 45%;
+      text-align: left;
+    }
+    .order-items-table th.col-qtd,
+    .order-items-table td.col-qtd {
+      width: 15%;
+      text-align: center;
+    }
+    .order-items-table th.col-preco-unit,
+    .order-items-table td.col-preco-unit {
+      width: 20%;
+      text-align: right;
+    }
+    .order-items-table th.col-subtotal,
+    .order-items-table td.col-subtotal {
+      width: 20%;
+      text-align: right;
     }
   }
 `;
@@ -155,8 +177,8 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   }, []);
 
   const currentDate = useMemo(() =>
-    format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-  , []);
+    format(new Date(), "dd 'de' MMMM 'de' <0xC2><0xA7>", { locale: ptBR })
+    , []);
 
   const hasTourInfo = useMemo(() =>
     !!(customerInfo.tourName || customerInfo.tourCity || customerInfo.tourState), [customerInfo]
@@ -221,16 +243,16 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
       <table className="order-items-table w-full">
         <thead>
           <tr>
-            <th className="w-[45%]">Produto</th>
-            <th className="w-[15%] text-center">Qtd.</th>
-            <th className="w-[20%] text-right">Preço Unit.</th>
-            <th className="w-[20%] text-right">Subtotal</th>
+            <th className="col-produto">Produto</th>
+            <th className="col-qtd">Qtd.</th>
+            <th className="col-preco-unit">Preço Unit.</th>
+            <th className="col-subtotal">Subtotal</th>
           </tr>
         </thead>
         <tbody>
           {orderItems.map((item, idx) => (
             <tr key={idx}>
-              <td>
+              <td className="col-produto">
                 {item.description}
                 {(item.color !== 'N/A' || item.size !== 'N/A') && (
                   <div className="text-[9px] text-gray-500 mt-0.5">
@@ -240,9 +262,9 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
                   </div>
                 )}
               </td>
-              <td className="text-center">{item.quantity}</td>
-              <td className="text-right">{formatCurrency.format(item.unitPrice)}</td>
-              <td className="text-right">{formatCurrency.format(item.total)}</td>
+              <td className="col-qtd text-center">{item.quantity}</td>
+              <td className="col-preco-unit text-right">{formatCurrency.format(item.unitPrice)}</td>
+              <td className="col-subtotal text-right">{formatCurrency.format(item.total)}</td>
             </tr>
           ))}
           {orderItems.length === 0 && (
