@@ -178,7 +178,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   }, []);
 
   const currentDate = useMemo(() =>
-    format(new Date(), "dd 'de' MMMM 'de' <0xC2><0xA7>", { locale: ptBR })
+    format(new Date(), "dd 'de' MMMM", { locale: ptBR }) // Tentativa 1: Removendo o ano
     , []);
 
   const hasTourInfo = useMemo(() =>
@@ -188,10 +188,10 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
   const serviceFeeData = useMemo(() => {
     const fee = Math.max(60, order.total * 0.1);
     return { fee, isMinimum: fee === 60 && order.total <= 600 };
-  }, [order.total]); // <--------------------- DEPENDÊNCIA CORRETA AQUI
+  }, [order.total]);
 
   const formattedPhone = useMemo(() => {
-    return customerInfo.phone || ''; // Simplificando a formatação do telefone
+    return customerInfo.phone || '';
   }, [customerInfo.phone]);
 
   const formatCurrency = useMemo(() =>
