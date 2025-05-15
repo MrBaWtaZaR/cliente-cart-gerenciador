@@ -65,9 +65,6 @@ const globalOrderPrintStyles = `
       font-size: 8.5pt;
       color: #64748b;
     }
-    .pdf-footer p {
-      margin: 1.5px 0;
-    }
 
     .pdf-page-container {
       width: 100%;
@@ -81,65 +78,24 @@ const globalOrderPrintStyles = `
       flex-direction: column;
     }
 
-    /* Força o layout lado a lado dos blocos principais */
-    .flex {
-      display: flex !important;
+    .no-wrap {
+      flex-wrap: nowrap !important;
     }
-    .flex-row {
-      flex-direction: row !important;
+    .min-w-0 {
+      min-width: 0 !important;
     }
-    .gap-x-4 {
-      column-gap: 1rem !important; /* 16px */
-    }
-
-    /* Largura dos blocos laterais */
-    .w-1\\/2 {
-      width: 50% !important;
-    }
-    .w-\\[48\\%\\] {
-      width: 48% !important;
-    }
-
-    /* Padding e borda */
-    .p-3 {
-      padding: 0.75rem !important; /* 12px */
-    }
-    .border {
-      border-width: 1px !important;
-      border-style: solid !important;
-      border-color: #e5e7eb !important; /* Tailwind gray-200 */
-    }
-
-    /* Fundo, borda e raio */
-    .bg-gray-50 {
-      background-color: #f9fafb !important;
-    }
-    .rounded-md {
-      border-radius: 0.375rem !important;
-    }
-
-    /* Texto pequeno */
-    .text-\\[10px\\] {
-      font-size: 10px !important;
-    }
-
-    @page {
-      size: A4;
-      margin: 0;
+    .flex-1 {
+      flex: 1 1 0% !important;
     }
   }
 `;
 
-class PDFErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean; errorMessage: string }
-> {
+class PDFErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; errorMessage: string }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false, errorMessage: '' };
   }
   static getDerivedStateFromError(error: Error) {
-    console.error("PDF Error caught in boundary:", error.message);
     return { hasError: true, errorMessage: error.message || 'Erro desconhecido' };
   }
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
@@ -161,15 +117,6 @@ class PDFErrorBoundary extends React.Component<
   }
 }
 
-interface OrderItem {
-  description: string;
-  color: string;
-  size: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-}
-
 const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFProps) => {
   useEffect(() => {
     const styleId = 'order-specific-print-styles';
@@ -182,14 +129,12 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
     styleElement.innerHTML = globalOrderPrintStyles;
     return () => {
       const existingStyleElement = document.getElementById(styleId);
-      if (existingStyleElement) {
-        existingStyleElement.remove();
-      }
+      if (existingStyleElement) existingStyleElement.remove();
     };
   }, []);
 
   const currentDate = useMemo(() =>
-    format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) // Corrigido para yyyy
+    format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
   );
 
   const hasTourInfo = useMemo(() =>
@@ -224,19 +169,16 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
 
   return (
     <div className="pdf-page-container w-full max-w-[850px] mx-auto bg-white text-black font-[Poppins] text-xs">
- {/* Base font size to text-xs for more space */}
-      
       <div className="text-center mb-5">
-        {/* <img src="/logo.png" alt="Logo da Empresa" className="h-14 mx-auto mb-3" /> */}
         <h1 className="text-xl font-bold text-[#1C3553]">Resumo do Pedido</h1>
         <p className="text-[10px] text-gray-500">Pedido Nº: {order.id || 'N/A'}</p>
         <p className="text-[10px] text-gray-500">Data: {currentDate}</p>
       </div>
 
-      {/* Container para Informações do Cliente e Excursão (Lado a Lado) */}
-      <div className="flex flex-row gap-x-4 mb-5"> {/* gap-x-4 para espaço entre os blocos */}
-        {/* Bloco de Informações do Cliente */}
-        <div className="w-[48%] p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]"> {/* text-[10px] para fonte menor nos blocos */}
+      {/* Container flexível que não quebra linha */}
+      <div className="flex flex-row gap-x-4 mb-5 no-wrap">
+        {/* Cliente */}
+        <div className="flex-1 min-w-0 p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]">
           <h2 className="text-base font-semibold text-[#1C3553] mb-1.5">Informações do Cliente</h2>
           <p><strong>Nome:</strong> {customerName}</p>
           <p><strong>Email:</strong> {customerInfo.email}</p>
@@ -244,9 +186,9 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
           {customerInfo.address && <p><strong>Endereço:</strong> {customerInfo.address}</p>}
         </div>
 
-        {/* Bloco de Detalhes da Excursão */}
+        {/* Excursão, se houver */}
         {hasTourInfo && (
-          <div className="w-[48%] p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]">
+          <div className="flex-1 min-w-0 p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]">
             <h2 className="text-base font-semibold text-[#1C3553] mb-1.5">Detalhes da Excursão</h2>
             <p><strong>Excursão:</strong> {customerInfo.tourName} - {customerInfo.tourSector}</p>
             <p><strong>Vaga:</strong> {customerInfo.tourSeatNumber}</p>
@@ -254,18 +196,16 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
             {customerInfo.tourDepartureTime && <p><strong>Saída:</strong> {customerInfo.tourDepartureTime}</p>}
           </div>
         )}
-        {!hasTourInfo && <div className="w-1/2"></div>} {/* Placeholder para manter o layout se não houver info de excursão */}
       </div>
 
       <h2 className="text-base font-semibold text-[#1C3553] mb-1.5">Itens do Pedido</h2>
       <table className="order-items-table w-full">
         <thead>
           <tr>
-            {/* Ajuste nas larguras para melhor distribuição e alinhamento */}
-            <th className="w-[45%]">Produto</th> {/* Aumentado um pouco */}
-            <th className="w-[15%] text-center">Qtd.</th> {/* Centralizado */}
-            <th className="w-[20%] text-right">Preço Unit.</th> {/* Alinhado à direita */}
-            <th className="w-[20%] text-right">Subtotal</th> {/* Alinhado à direita */}
+            <th className="w-[45%]">Produto</th>
+            <th className="w-[15%] text-center">Qtd.</th>
+            <th className="w-[20%] text-right">Preço Unit.</th>
+            <th className="w-[20%] text-right">Subtotal</th>
           </tr>
         </thead>
         <tbody>
@@ -274,7 +214,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
               <td>
                 {item.description}
                 {(item.color !== 'N/A' || item.size !== 'N/A') && (
-                  <div className="text-[9px] text-gray-500 mt-0.5"> {/* Fonte ainda menor para detalhes */}
+                  <div className="text-[9px] text-gray-500 mt-0.5">
                     {item.color !== 'N/A' && `Cor: ${item.color}`}
                     {item.color !== 'N/A' && item.size !== 'N/A' && ` | `}
                     {item.size !== 'N/A' && `Tamanho: ${item.size}`}
@@ -294,7 +234,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
         </tbody>
       </table>
 
-      <div className="mt-auto pt-5 text-right space-y-0.5 text-[10px]"> {/* Fonte menor e menos espaço vertical */}
+      <div className="mt-auto pt-5 text-right space-y-0.5 text-[10px]">
         <p>Subtotal dos Produtos: <strong className="text-sm">{formatCurrency.format(order.total)}</strong></p>
         <p>Taxa de Serviço: <strong className="text-sm">{formatCurrency.format(serviceFeeData.fee)}</strong></p>
         {serviceFeeData.isMinimum && (
@@ -323,24 +263,3 @@ export const OrderPDF = React.forwardRef<PrintablePDFRef, OrderPDFProps>((props,
   );
 });
 OrderPDF.displayName = 'OrderPDF';
-
-declare module '@/types/customers' {
-    interface Product {
-        id: string;
-        productName: string;
-        price: number;
-        quantity: number;
-        images?: string[];
-        attributes?: {
-            color?: string;
-            size?: string;
-            [key: string]: any;
-        };
-    }
-
-    export interface Order {
-        id: string;
-        total: number;
-        products: Product[];
-    }
-}
