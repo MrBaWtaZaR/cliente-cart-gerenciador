@@ -194,7 +194,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
       {/* Container para Informações do Cliente e Excursão (Lado a Lado) */}
       <div className="flex flex-row gap-x-4 mb-5"> {/* gap-x-4 para espaço entre os blocos */}
         {/* Bloco de Informações do Cliente */}
-        <div className="w-1/2 p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]"> {/* text-[10px] para fonte menor nos blocos */}
+        <div className="w-[45%] p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]"> {/* text-[10px] para fonte menor nos blocos */}
           <h2 className="text-base font-semibold text-[#1C3553] mb-1.5">Informações do Cliente</h2>
           <p><strong>Nome:</strong> {customerName}</p>
           <p><strong>Email:</strong> {customerInfo.email}</p>
@@ -204,7 +204,7 @@ const OrderPDFContent = memo(({ order, customerName, customerInfo }: OrderPDFPro
 
         {/* Bloco de Detalhes da Excursão */}
         {hasTourInfo && (
-          <div className="w-1/2 p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]">
+          <div className="w-[45%] p-3 border border-gray-200 rounded-md bg-gray-50 text-[10px]">
             <h2 className="text-base font-semibold text-[#1C3553] mb-1.5">Detalhes da Excursão</h2>
             <p><strong>Excursão:</strong> {customerInfo.tourName} - {customerInfo.tourSector}</p>
             <p><strong>Vaga:</strong> {customerInfo.tourSeatNumber}</p>
