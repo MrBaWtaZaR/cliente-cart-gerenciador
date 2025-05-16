@@ -21,10 +21,12 @@ export const AuthGuard = ({ children }: AuthGuardProps) => {
         await checkSession();
         setIsChecking(false);
         
-        // Adicionar um pequeno atraso para garantir que o estado está atualizado
+        // Use a small delay to ensure the state is updated
         setTimeout(() => {
           const currentUser = useAuthStore.getState().user;
+          console.log("AuthGuard - User state after check:", currentUser);
           if (!currentUser?.isAuthenticated && location.pathname !== '/login') {
+            console.log("Redirecting to login from AuthGuard");
             navigate('/login');
           }
         }, 100);
@@ -40,6 +42,7 @@ export const AuthGuard = ({ children }: AuthGuardProps) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log("Auth state changed:", event, session ? "Session exists" : "No session");
         if (event === 'SIGNED_OUT' || !session) {
           navigate('/login');
         }
@@ -51,9 +54,9 @@ export const AuthGuard = ({ children }: AuthGuardProps) => {
     };
   }, [navigate, checkSession, location.pathname]);
 
-  // Verificação adicional para garantir que usuário não autenticado não tenha acesso
+  // Additional check to ensure unauthenticated users don't have access
   if (isChecking) {
-    // Mostrar um indicador de carregamento simples
+    // Show a simple loading indicator
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -61,5 +64,6 @@ export const AuthGuard = ({ children }: AuthGuardProps) => {
     );
   }
 
+  console.log("AuthGuard rendering with user:", user);
   return user?.isAuthenticated ? <>{children}</> : null;
 };

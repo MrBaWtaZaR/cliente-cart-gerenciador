@@ -18,14 +18,14 @@ interface AuthStore {
   checkSession: () => Promise<void>;
 }
 
-// Dados fixos do administrador - apenas para referência interna
+// Fixed admin credentials for internal reference
 const ADMIN_USERNAME = 'admin@afconsultoria.com';
 const ADMIN_PASSWORD = 'afconsultoria2025';
 const FALLBACK_USERNAME = 'darlianaaf';
 const FALLBACK_PASSWORD = '123456';
 
 export const useAuthStore = create<AuthStore>((set, get) => {
-  // Verificar se existe um usuário no localStorage
+  // Check if there's a user in localStorage
   const storedUser = localStorage.getItem('adminUser');
   const initialUser = storedUser ? JSON.parse(storedUser) : null;
 
@@ -44,6 +44,20 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         if (error) {
           console.error('Error checking session:', error);
           set({ loading: false });
+          return;
+        }
+        
+        // Check for stored user in localStorage
+        const storedUser = localStorage.getItem('adminUser');
+        
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          console.log("Found stored user:", user);
+          set({ 
+            user,
+            session,
+            loading: false 
+          });
           return;
         }
         
@@ -81,6 +95,8 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           return false;
         }
         
+        console.log("Attempting login with:", username);
+        
         // Try fallback first for development (hardcoded credentials)
         if ((username === ADMIN_USERNAME && password === ADMIN_PASSWORD) || 
             (username === FALLBACK_USERNAME && password === FALLBACK_PASSWORD)) {
@@ -91,13 +107,14 @@ export const useAuthStore = create<AuthStore>((set, get) => {
             isAuthenticated: true 
           };
           localStorage.setItem('adminUser', JSON.stringify(user));
+          console.log("Login successful with local credentials, setting user:", user);
           set({ user, session: null });
           
           console.log('Login bem-sucedido usando credenciais locais');
           return true;
         }
         
-        // Use username as email if it doesn't contain @ (para compatibilidade)
+        // Use username as email if it doesn't contain @ (for compatibility)
         const email = username.includes('@') ? username : `${username}@afconsultoria.com`;
         
         // Create a session in Supabase
@@ -117,6 +134,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         };
         localStorage.setItem('adminUser', JSON.stringify(user));
         
+        console.log("Login successful with Supabase, setting user:", user);
         set({ 
           user, 
           session: data.session
@@ -151,6 +169,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
 // Set up auth state change listener
 supabase.auth.onAuthStateChange((event, session) => {
+  console.log("Supabase auth state changed:", event);
   // Only update session state, not performing any additional Supabase calls here
   if (event === 'SIGNED_OUT') {
     localStorage.removeItem('adminUser');

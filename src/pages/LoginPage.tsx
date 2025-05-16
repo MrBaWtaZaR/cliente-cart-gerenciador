@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,14 @@ export const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuthStore();
+  const { login, user } = useAuthStore();
+
+  // Check if user is already authenticated, if so redirect to dashboard
+  useEffect(() => {
+    if (user?.isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +37,10 @@ export const LoginPage = () => {
       
       if (success) {
         toast.success('Login realizado com sucesso');
-        navigate('/dashboard');
+        // After successful login, redirect to dashboard
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 300);
       } else {
         toast.error('Credenciais inválidas');
       }

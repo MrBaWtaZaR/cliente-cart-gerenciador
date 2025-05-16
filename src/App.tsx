@@ -18,6 +18,7 @@ import { useProductStore } from "./stores/useProductStore";
 import Index from "./pages/Index";
 import { safeCleanupDOM } from "./components/ShipmentSafeUnmount";
 import { AuthGuard } from "./components/AuthGuard";
+import { useAuthStore } from "./lib/auth";
 
 // Create a React Query client with appropriate configurations
 const queryClient = new QueryClient({
@@ -31,7 +32,7 @@ const queryClient = new QueryClient({
   }
 });
 
-// Improved route change handler with better cleanup logic
+// Route change handler component
 const RouteChangeHandler = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const previousPathRef = useRef(location.pathname);
@@ -147,16 +148,23 @@ const RouteChangeHandler = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// AppContent component containing all routes
 const AppContent = () => {
   const { initializeData, isInitialized } = useDataStore();
   const { loadProducts } = useProductStore();
   const [routingReady, setRoutingReady] = useState(false);
+  const { checkSession } = useAuthStore();
   
   // Initialize data from Supabase when the app loads
   useEffect(() => {
     console.log("Inicializando dados da aplicação...");
     
-    // Definir um flag para indicar que a inicialização de roteamento está concluída
+    // Check auth session on app start
+    checkSession().catch(error => {
+      console.error("Erro ao verificar sessão:", error);
+    });
+    
+    // Set flag to indicate routing initialization is complete
     setRoutingReady(true);
     
     if (!isInitialized) {
@@ -189,9 +197,9 @@ const AppContent = () => {
       // Final cleanup of any lingering elements before unmount
       safeCleanupDOM(10); // Highest priority cleanup
     };
-  }, [initializeData, isInitialized, loadProducts]);
+  }, [initializeData, isInitialized, loadProducts, checkSession]);
   
-  // Adicionar classe CSS global para indicar que a aplicação está pronta
+  // Add global CSS class to indicate that the application is ready
   useEffect(() => {
     if (routingReady) {
       document.documentElement.classList.add('app-ready');
