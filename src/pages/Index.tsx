@@ -1,45 +1,57 @@
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/lib/auth';
-import { supabase } from '@/integrations/supabase/client';
 
 const Index = () => {
   const navigate = useNavigate();
   const { user, checkSession } = useAuthStore();
+  const redirectingRef = useRef(false);
   
   // Check authentication and redirect appropriately
   useEffect(() => {
+    // Prevent multiple redirects
+    if (redirectingRef.current) return;
+    
     // Check current auth session
     const verifySession = async () => {
       try {
-        await checkSession();
+        if (!user?.isAuthenticated) {
+          await checkSession();
+        }
         
         // Check if user is authenticated after session check
         const currentUser = useAuthStore.getState().user;
         
-        if (currentUser?.isAuthenticated) {
-          // User is logged in
-          setTimeout(() => {
+        if (!redirectingRef.current) {
+          redirectingRef.current = true;
+          
+          if (currentUser?.isAuthenticated) {
+            // User is logged in
+            console.log("User authenticated, redirecting to dashboard");
             navigate('/dashboard');
-          }, 300);
-        } else {
-          // No active session, redirect to login
-          setTimeout(() => {
+          } else {
+            // No active session, redirect to login
+            console.log("No authenticated user, redirecting to login");
             navigate('/login');
-          }, 300);
+          }
         }
       } catch (error) {
         console.error("Error checking authentication:", error);
-        setTimeout(() => {
+        if (!redirectingRef.current) {
+          redirectingRef.current = true;
           navigate('/login');
-        }, 300);
+        }
       }
     };
     
     verifySession();
-  }, [navigate, checkSession]);
+    
+    return () => {
+      redirectingRef.current = false;
+    };
+  }, [navigate, checkSession, user]);
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
@@ -48,7 +60,12 @@ const Index = () => {
         <p className="text-xl text-gray-600 mb-6">Gerencie seus pedidos e envios com facilidade</p>
         <div className="flex flex-col space-y-3">
           <Button 
-            onClick={() => navigate('/login')} 
+            onClick={() => {
+              if (!redirectingRef.current) {
+                redirectingRef.current = true;
+                navigate('/login');
+              }
+            }} 
             className="w-full"
             variant="default"
           >
@@ -56,7 +73,12 @@ const Index = () => {
           </Button>
           {user?.isAuthenticated && (
             <Button 
-              onClick={() => navigate('/dashboard')} 
+              onClick={() => {
+                if (!redirectingRef.current) {
+                  redirectingRef.current = true;
+                  navigate('/dashboard');
+                }
+              }} 
               className="w-full"
               variant="outline"
             >

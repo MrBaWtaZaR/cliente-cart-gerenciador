@@ -24,6 +24,9 @@ const ADMIN_PASSWORD = 'afconsultoria2025';
 const FALLBACK_USERNAME = 'darlianaaf';
 const FALLBACK_PASSWORD = '123456';
 
+// Flag to prevent duplicate auth events
+let authListenerInitialized = false;
+
 export const useAuthStore = create<AuthStore>((set, get) => {
   // Check if there's a user in localStorage
   const storedUser = localStorage.getItem('adminUser');
@@ -167,19 +170,25 @@ export const useAuthStore = create<AuthStore>((set, get) => {
   };
 });
 
-// Set up auth state change listener
-supabase.auth.onAuthStateChange((event, session) => {
-  console.log("Supabase auth state changed:", event);
-  // Only update session state, not performing any additional Supabase calls here
-  if (event === 'SIGNED_OUT') {
-    localStorage.removeItem('adminUser');
-    useAuthStore.setState({ user: null, session: null });
-  } else if (session) {
-    const user = { 
-      username: session.user.email || ADMIN_USERNAME, 
-      isAuthenticated: true 
-    };
-    localStorage.setItem('adminUser', JSON.stringify(user));
-    useAuthStore.setState({ user, session });
-  }
-});
+// Initialize auth state listener only once
+if (!authListenerInitialized) {
+  authListenerInitialized = true;
+  
+  supabase.auth.onAuthStateChange((event, session) => {
+    console.log("Supabase auth state changed:", event, session ? "Session exists" : "No session");
+    
+    // Don't perform any navigation or complex operations here
+    // Just update the state
+    if (event === 'SIGNED_OUT') {
+      localStorage.removeItem('adminUser');
+      useAuthStore.setState({ user: null, session: null });
+    } else if (session) {
+      const user = { 
+        username: session.user.email || ADMIN_USERNAME, 
+        isAuthenticated: true 
+      };
+      localStorage.setItem('adminUser', JSON.stringify(user));
+      useAuthStore.setState({ user, session });
+    }
+  });
+}
