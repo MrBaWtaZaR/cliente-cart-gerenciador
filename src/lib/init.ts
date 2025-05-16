@@ -50,7 +50,7 @@ export const initializeApp = async (options: InitOptions = {}) => {
       }
     }
     
-    // Initialize storage
+    // Initialize storage (but don't try to create buckets from client)
     if (initStorage) {
       try {
         const storageAvailable = await setupStorage();

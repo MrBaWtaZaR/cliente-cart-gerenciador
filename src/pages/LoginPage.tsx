@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 export const LoginPage = () => {
-  const [username, setUsername] = useState('');
+  // Default to "admin@afconsultoria.com" para facilitar login
+  const [username, setUsername] = useState('admin@afconsultoria.com');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ export const LoginPage = () => {
         navigate('/dashboard');
       }
     } catch (error) {
+      console.error('Login error:', error);
       toast.error('Ocorreu um erro ao fazer login.');
     } finally {
       setIsLoading(false);
@@ -45,15 +47,16 @@ export const LoginPage = () => {
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4 relative z-10">
               <div className="space-y-2">
-                <Label htmlFor="username">Usuário</Label>
+                <Label htmlFor="username">Email ou usuário</Label>
                 <Input
                   id="username"
-                  placeholder="Digite seu usuário"
+                  placeholder="exemplo@afconsultoria.com"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
                   className="bg-white/70 backdrop-blur-sm"
                 />
+                <p className="text-xs text-gray-500">Email padrão: admin@afconsultoria.com</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
@@ -66,6 +69,7 @@ export const LoginPage = () => {
                   required
                   className="bg-white/70 backdrop-blur-sm"
                 />
+                <p className="text-xs text-gray-500">Senha padrão: afconsultoria2025</p>
               </div>
             </CardContent>
             <CardFooter className="relative z-10">

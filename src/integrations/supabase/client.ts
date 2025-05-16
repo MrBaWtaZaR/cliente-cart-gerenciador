@@ -13,11 +13,28 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    storage: localStorage
+    storage: localStorage,
+    detectSessionInUrl: true,
+    flowType: 'implicit'
   }
 });
 
 // Helper function to create storage URLs
 export const getStorageUrl = (bucket: string, path: string) => {
   return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+};
+
+// Helper function to check bucket existence without triggering RLS errors
+export const checkBucketExists = async (bucketName: string) => {
+  try {
+    const { data, error } = await supabase.storage.getBucket(bucketName);
+    if (error) {
+      console.log(`Bucket ${bucketName} doesn't exist:`, error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error(`Error checking bucket ${bucketName}:`, err);
+    return false;
+  }
 };

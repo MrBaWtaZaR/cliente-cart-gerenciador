@@ -18,9 +18,9 @@ interface AuthStore {
   checkSession: () => Promise<void>;
 }
 
-// Dados fixos do administrador
-const ADMIN_USERNAME = 'darlianaaf';
-const ADMIN_PASSWORD = '123456';
+// Dados fixos do administrador - corretos para login
+const ADMIN_USERNAME = 'admin@afconsultoria.com';
+const ADMIN_PASSWORD = 'afconsultoria2025';
 
 export const useAuthStore = create<AuthStore>((set, get) => {
   // Verificar se existe um usuário no localStorage
@@ -54,7 +54,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         
         // Valid session exists
         const user = { 
-          username: ADMIN_USERNAME,
+          username: session.user.email || ADMIN_USERNAME,
           isAuthenticated: true 
         };
         
@@ -79,35 +79,44 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           return false;
         }
         
-        // Verificar credenciais
-        if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-          // Create a session in Supabase for added security
-          // This ensures proper token management and refresh
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email: `${username}@admin.com`,
-            password: password
-          });
+        // Use username as email if it doesn't contain @ (para compatibilidade)
+        const email = username.includes('@') ? username : `${username}@afconsultoria.com`;
+        
+        // Create a session in Supabase
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: password
+        });
+        
+        if (error) {
+          console.error('Supabase auth error:', error);
           
-          if (error) {
-            console.error('Supabase auth error:', error);
-            toast.error('Erro de autenticação');
-            return false;
+          // Tentativa de fallback para credenciais fixas
+          if (username === 'darlianaaf' && password === '123456') {
+            const user = { username: 'darlianaaf', isAuthenticated: true };
+            localStorage.setItem('adminUser', JSON.stringify(user));
+            set({ user, session: null });
+            toast.success('Login realizado com sucesso (modo offline)');
+            return true;
           }
           
-          const user = { username, isAuthenticated: true };
-          localStorage.setItem('adminUser', JSON.stringify(user));
-          
-          set({ 
-            user, 
-            session: data.session
-          });
-          
-          toast.success('Login realizado com sucesso');
-          return true;
+          toast.error('Credenciais inválidas');
+          return false;
         }
         
-        toast.error('Credenciais inválidas');
-        return false;
+        const user = { 
+          username: data.user?.email || username, 
+          isAuthenticated: true 
+        };
+        localStorage.setItem('adminUser', JSON.stringify(user));
+        
+        set({ 
+          user, 
+          session: data.session
+        });
+        
+        toast.success('Login realizado com sucesso');
+        return true;
       } catch (error) {
         console.error('Login error:', error);
         toast.error('Erro durante o login');
@@ -138,14 +147,12 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 // Set up auth state change listener
 supabase.auth.onAuthStateChange((event, session) => {
   // Only update session state, not performing any additional Supabase calls here
-  const authStore = useAuthStore.getState();
-  
   if (event === 'SIGNED_OUT') {
     localStorage.removeItem('adminUser');
-    authStore.logout();
+    useAuthStore.setState({ user: null, session: null });
   } else if (session) {
     const user = { 
-      username: ADMIN_USERNAME, 
+      username: session.user.email || ADMIN_USERNAME, 
       isAuthenticated: true 
     };
     localStorage.setItem('adminUser', JSON.stringify(user));

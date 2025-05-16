@@ -1,5 +1,4 @@
-
-import { supabase, getStorageUrl } from './client';
+import { supabase, getStorageUrl, checkBucketExists } from './client';
 import { Product } from '../../types/products';
 
 // Função para verificar se o storage está disponível e criar buckets se necessário
@@ -7,64 +6,36 @@ export const setupStorage = async () => {
   try {
     console.log('Checking Supabase storage availability...');
     
-    // First check if the product-images bucket already exists
-    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-    
-    if (bucketsError) {
-      console.error('Error listing buckets:', bucketsError);
-      console.log('Using localStorage as fallback for image storage.');
-      return false;
-    }
-    
-    // Check if the product-images bucket exists
-    const productImagesBucketExists = buckets.some(bucket => bucket.name === 'product-images');
+    // First check if the product-images bucket already exists using safer method
+    const productImagesBucketExists = await checkBucketExists('product-images');
     
     if (!productImagesBucketExists) {
-      // Create the product-images bucket with public access
-      console.log('Creating product-images bucket...');
-      const { data, error: createError } = await supabase.storage.createBucket(
-        'product-images', 
-        { public: true }
-      );
-      
-      if (createError) {
-        console.error('Error creating product-images bucket:', createError);
-        console.log('Using localStorage as fallback for image storage.');
-        return false;
-      }
-      
-      console.log('product-images bucket created successfully');
+      // Log problem but don't try to create bucket (needs admin privileges)
+      console.log('Product-images bucket not found and cannot be created in client - using localStorage fallback.');
+      return false;
     } else {
       console.log('Bucket product-images already exists');
     }
     
-    // Update bucket permissions to ensure it's public
+    // Test bucket access by listing images (this should work with anon key if policy allows)
     try {
-      const { error: updateError } = await supabase.storage.updateBucket(
-        'product-images', 
-        { public: true }
-      );
-      
-      if (updateError) {
-        console.error('Error updating bucket permissions:', updateError);
+      const { data: objects, error: objError } = await supabase.storage
+        .from('product-images')
+        .list('', { limit: 1 });
+        
+      if (objError) {
+        console.error('Error accessing product-images bucket:', objError);
+        console.log('Using localStorage as fallback for image storage.');
+        return false;
       }
-    } catch (err) {
-      console.error('Error updating bucket permissions:', err);
-    }
-    
-    // Test bucket access
-    const { data: objects, error: objError } = await supabase.storage
-      .from('product-images')
-      .list('', { limit: 1 });
       
-    if (objError) {
-      console.error('Error accessing product-images bucket:', objError);
+      console.log('Bucket product-images is accessible');
+      return true;
+    } catch (err) {
+      console.error('Error testing bucket access:', err);
       console.log('Using localStorage as fallback for image storage.');
       return false;
     }
-    
-    console.log('Bucket product-images is accessible and properly configured');
-    return true;
   } catch (err) {
     console.error('Error setting up storage:', err);
     console.log('Using localStorage as fallback for image storage.');
@@ -269,9 +240,14 @@ export const deleteProductFromDatabase = async (id: string): Promise<boolean> =>
 // Função para fazer upload de uma imagem para o bucket do Supabase
 export const uploadProductImage = async (productId: string, file: File): Promise<string> => {
   try {
-    // Check if bucket exists first
-    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-    const bucketExists = bucketsError ? false : buckets.some(b => b.name === 'product-images');
+    // Check if bucket exists first using safer method
+    const bucketExists = await checkBucketExists('product-images');
+    
+    if (!bucketExists) {
+      // Fallback to local blob URL if bucket doesn't exist
+      console.warn('Fallback to local storage via blob URL - bucket does not exist');
+      return URL.createObjectURL(file);
+    }
     
     // Gera um nome de arquivo único com timestamp para evitar colisões
     const fileExt = file.name.split('.').pop();
