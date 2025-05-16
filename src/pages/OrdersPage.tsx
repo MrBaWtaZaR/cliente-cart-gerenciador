@@ -50,9 +50,15 @@ export const OrdersPage = () => {
   
   // Setup cleanup on component unmount
   useEffect(() => {
+    // Adiciona uma classe para indicar que o componente está ativo
+    document.body.classList.add('orders-page-active');
+    
     return () => {
       console.log("OrdersPage desmontando, limpando recursos...");
       isMounted.current = false;
+      
+      // Remove a classe ao desmontar
+      document.body.classList.remove('orders-page-active');
       
       // Ensure dialogs are closed
       setDialogOpen(false);
@@ -62,6 +68,13 @@ export const OrdersPage = () => {
       // Clear states to free memory
       setViewingOrder(null);
       setCustomerInfo(null);
+      
+      // Garante que não exista nenhum PDF ativo ao desmontar
+      const pdfElements = document.querySelectorAll('.actively-printing, .protected-element, [data-no-cleanup="true"]');
+      pdfElements.forEach(element => {
+        // Marca os elementos para serem ignorados durante a limpeza do DOM
+        element.classList.add('orders-unmounting');
+      });
     };
   }, []);
 
@@ -187,9 +200,12 @@ export const OrdersPage = () => {
             
             // Ensure elements are set to print-optimized state
             if (pdfRef.current) {
-              pdfRef.current.classList.add('actively-printing');
-              pdfRef.current.classList.add('protected-element');
-              pdfRef.current.setAttribute('data-no-cleanup', 'true');
+              // Em vez de adicionar múltiplas classes, use um data-attribute
+              const element = pdfRef.current as HTMLElement;
+              element.setAttribute('data-print-state', 'preparing');
+              element.classList.add('actively-printing');
+              element.classList.add('protected-element');
+              element.setAttribute('data-no-cleanup', 'true');
             }
           }
           // Increased delay to ensure content is fully rendered
@@ -206,55 +222,39 @@ export const OrdersPage = () => {
     },
     onAfterPrint: () => {
       try {
-        console.log("Impressão concluída");
         if (isMounted.current) {
-          // Remove the protection classes after print is complete
+          console.log("Impressão finalizada, limpando estado...");
+          setIsPdfLoading(false);
+          
+          // Permitir que o componente PDF saiba que a impressão acabou
           if (pdfRef.current) {
-            pdfRef.current.classList.remove('actively-printing');
+            const element = pdfRef.current as HTMLElement;
+            element.setAttribute('data-print-state', 'completed');
             
-            // Reset loading state immediately to fix the button
-            setIsPdfLoading(false);
-            
-            // Keep as protected for a little longer
+            // Dar mais tempo para a renderização terminar antes de limpar
             setTimeout(() => {
-              if (isMounted.current && pdfRef.current) {
-                pdfRef.current.classList.remove('protected-element');
-              }
-              
               if (isMounted.current) {
-                // Keep the preview visible a bit longer to ensure full rendering
-                setTimeout(() => {
-                  if (isMounted.current) {
-                    setShowPDFPreview(false);
-                  }
-                }, 100);
+                setShowPDFPreview(false);
               }
-            }, 200);
-          } else {
-            // If ref is not available, still reset the state
-            setIsPdfLoading(false);
-            setShowPDFPreview(false);
+            }, 300);
           }
         }
       } catch (error) {
         console.error('Error in onAfterPrint:', error);
-        // Always reset states on error
         if (isMounted.current) {
           setIsPdfLoading(false);
           setShowPDFPreview(false);
         }
       }
     },
-    // Retries for print initialization
+    // Usado para ignorar erros comuns durante a impressão
     onPrintError: (error) => {
-      console.error("Print error:", error);
-      // Reset loading state immediately on error
+      console.error('Erro durante impressão:', error);
       if (isMounted.current) {
         setIsPdfLoading(false);
-        setShowPDFPreview(false);
-        toast.error("Houve um problema ao preparar o documento. Tente novamente.");
+        toast.error('Erro ao gerar o PDF. Tente novamente.');
       }
-    }
+    },
   });
 
   // Improved dialog close handling
@@ -689,6 +689,7 @@ export const OrdersPage = () => {
         <div 
           className="shipment-print-container protected-element"
           data-no-cleanup="true"
+          style={{ position: 'absolute', left: '-9999px', top: 0, opacity: 0 }}
         >
           <OrderPDF 
             ref={pdfRef}

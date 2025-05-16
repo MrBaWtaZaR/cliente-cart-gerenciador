@@ -1,4 +1,3 @@
-
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -38,6 +37,7 @@ const RouteChangeHandler = ({ children }: { children: React.ReactNode }) => {
   const previousPathRef = useRef(location.pathname);
   const cleanupSafeToRunRef = useRef(true);
   const navigationInProgressRef = useRef(false);
+  const cleanupTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // More robust DOM cleanup function with debouncing and safety checks
   const cleanupDOM = useCallback(() => {
@@ -54,15 +54,21 @@ const RouteChangeHandler = ({ children }: { children: React.ReactNode }) => {
     }));
     
     // Reset the cleanup flag after a delay to allow for transitions
-    setTimeout(() => {
+    if (cleanupTimerRef.current) {
+      clearTimeout(cleanupTimerRef.current);
+    }
+    
+    cleanupTimerRef.current = setTimeout(() => {
       cleanupSafeToRunRef.current = true;
       navigationInProgressRef.current = false;
       
-      // Notify the application that navigation has completed
+      // Notificar a aplicação que a navegação foi concluída
       window.dispatchEvent(new CustomEvent('after-navigation', {
         detail: { from: previousPathRef.current, to: location.pathname }
       }));
-    }, 300);
+      
+      cleanupTimerRef.current = null;
+    }, 400); // Aumento no tempo para permitir que as transições terminem
   }, [location.pathname]);
   
   // Run cleanup when route changes
@@ -74,6 +80,9 @@ const RouteChangeHandler = ({ children }: { children: React.ReactNode }) => {
       // Update previous path reference
       const fromPath = previousPathRef.current;
       previousPathRef.current = location.pathname;
+      
+      // Adicionar classe durante a navegação para indicar que estamos mudando de rota
+      document.documentElement.classList.add('route-changing');
       
       // Close any open modals or drawers before navigation
       const openModals = document.querySelectorAll('[role="dialog"][data-state="open"]');
@@ -87,17 +96,33 @@ const RouteChangeHandler = ({ children }: { children: React.ReactNode }) => {
         });
       }
       
+      // Limpar qualquer timer existente de limpeza
+      if (cleanupTimerRef.current) {
+        clearTimeout(cleanupTimerRef.current);
+      }
+      
       // Perform DOM cleanup with debouncing
-      setTimeout(cleanupDOM, 50);
+      // Aumento no tempo de debounce para garantir que não ocorra durante a transição
+      setTimeout(cleanupDOM, 100);
       
       // Notify the application of route change
       window.dispatchEvent(new CustomEvent('route-changed', {
         detail: { from: fromPath, to: location.pathname }
       }));
+      
+      // Remover a classe após a conclusão da navegação
+      setTimeout(() => {
+        document.documentElement.classList.remove('route-changing');
+      }, 500);
     }
     
     // Run lightweight cleanup when component unmounts
     return () => {
+      // Cancelar qualquer timer pendente
+      if (cleanupTimerRef.current) {
+        clearTimeout(cleanupTimerRef.current);
+      }
+      
       // Only perform minimal cleanups during unmount, focus on tooltips and temporary elements
       const elementsToCleanup = [
         '[role="tooltip"]',
@@ -107,7 +132,10 @@ const RouteChangeHandler = ({ children }: { children: React.ReactNode }) => {
       elementsToCleanup.forEach(selector => {
         document.querySelectorAll(selector).forEach(el => {
           try {
-            if (el.parentNode) el.parentNode.removeChild(el);
+            // Verificar se o elemento ainda está no documento antes de removê-lo
+            if (el.parentNode && document.contains(el)) {
+              el.parentNode.removeChild(el);
+            }
           } catch (e) {
             // Silent error - element might already be removed
           }
@@ -122,10 +150,14 @@ const RouteChangeHandler = ({ children }: { children: React.ReactNode }) => {
 const AppContent = () => {
   const { initializeData, isInitialized } = useDataStore();
   const { loadProducts } = useProductStore();
+  const [routingReady, setRoutingReady] = useState(false);
   
   // Initialize data from Supabase when the app loads
   useEffect(() => {
     console.log("Inicializando dados da aplicação...");
+    
+    // Definir um flag para indicar que a inicialização de roteamento está concluída
+    setRoutingReady(true);
     
     if (!isInitialized) {
       // Initialize customer data
@@ -159,6 +191,16 @@ const AppContent = () => {
     };
   }, [initializeData, isInitialized, loadProducts]);
   
+  // Adicionar classe CSS global para indicar que a aplicação está pronta
+  useEffect(() => {
+    if (routingReady) {
+      document.documentElement.classList.add('app-ready');
+    }
+    return () => {
+      document.documentElement.classList.remove('app-ready');
+    };
+  }, [routingReady]);
+  
   return (
     <TooltipProvider>
       <RouteChangeHandler>
@@ -176,7 +218,7 @@ const AppContent = () => {
             <Route path="customers" element={<CustomersPage />} />
             <Route path="customers/:customerId" element={<CustomerDetailPage />} />
             <Route path="products" element={<ProductsPage />} />
-            <Route path="orders" element={<OrdersPage />} />
+            <Route path="orders" element={<OrdersPage key="orders" />} />
             <Route path="shipments" element={<ShipmentPage key="shipments" />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

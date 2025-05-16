@@ -230,7 +230,13 @@ const isValidDOMNode = (node: any): node is Element => {
       return false;
     }
     
-    // Check if node is detached or has a parentNode that's not valid
+    // IMPORTANTE: Verificar se o nó ainda está conectado ao documento
+    // antes de tentar acessar seu parentNode para evitar erros
+    if (!document.contains(node)) {
+      return false;
+    }
+    
+    // Check if node has a parentNode that's not valid (apenas após confirmar que está no documento)
     if (!node.parentNode || !node.parentNode.nodeType) {
       return false;
     }
@@ -265,11 +271,20 @@ const isValidDOMNode = (node: any): node is Element => {
       return false;
     }
     
-    // Check if node is still in document
+    // Verificação extra para garantir que o nó ainda está no documento
+    // e é filho do seu parentNode declarado
     try {
-      const isInDocument = document.contains(node);
-      // If node is not in document, it may have already been removed
-      if (!isInDocument) {
+      const parent = node.parentNode;
+      // Verifica se o nó realmente é filho do parentNode declarado
+      let isActualChild = false;
+      for (let i = 0; i < parent.childNodes.length; i++) {
+        if (parent.childNodes[i] === node) {
+          isActualChild = true;
+          break;
+        }
+      }
+      
+      if (!isActualChild) {
         return false;
       }
       
@@ -280,20 +295,10 @@ const isValidDOMNode = (node: any): node is Element => {
         }
       }
       
-      // Check if node is a child in the DOM hierarchy and not just a reference
-      const parent = node.parentNode;
-      if (!Array.from(parent.childNodes).some(child => child === node)) {
-        return false;
-      }
-      
       return true;
     } catch (e) {
-      // Fallback check for presence in DOM
-      try {
-        return document.body.contains(node);
-      } catch (err) {
-        return false; // If we can't verify, don't try to remove
-      }
+      // Se ocorrer qualquer erro durante a verificação, é mais seguro não remover
+      return false;
     }
   } catch (error) {
     console.error("Error in isValidDOMNode check:", error);
@@ -332,36 +337,29 @@ const safeRemoveElement = (element: Element): boolean => {
       }
     }
     
-    // Use a try-catch to handle the removal specifically
+    // Verificação final antes de remover
     try {
-      if (element.parentNode) {
-        // Double-check the parent relationship before attempting removal
-        if (Array.from(element.parentNode.childNodes).includes(element)) {
-          // Hide before removing for better transitions
-          if (element instanceof HTMLElement) {
-            element.style.visibility = 'hidden';
-            element.style.pointerEvents = 'none';
-            
-            // Ensure we remove all event listeners that might reference this element
-            element.replaceWith(element.cloneNode(true));
-            
-            // Now remove safely
-            element.remove();
-          } else {
-            element.parentNode.removeChild(element);
-          }
-          
-          setTimeout(() => nodeRegistry.delete(element), 100);
-          return true;
-        } else {
-          nodeRegistry.delete(element);
-          return false; // Element is not actually a child of its parent
-        }
+      // Verificar novamente se o elemento ainda está no documento
+      if (!document.contains(element)) {
+        nodeRegistry.delete(element);
+        return false;
       }
+      
+      // Verificar se o parentNode ainda existe e se ainda tem o elemento como filho
+      const parent = element.parentNode;
+      if (!parent || !parent.contains(element)) {
+        nodeRegistry.delete(element);
+        return false;
+      }
+      
+      // Finally remove the element
+      parent.removeChild(element);
+      
+      // Cleanup registry after successful removal
       nodeRegistry.delete(element);
-      return false;
-    } catch (e) {
-      console.log(`Safe removal failed, element may already be removed`);
+      return true;
+    } catch (error) {
+      console.error("Error during element removal:", error);
       nodeRegistry.delete(element);
       return false;
     }
@@ -369,7 +367,9 @@ const safeRemoveElement = (element: Element): boolean => {
     console.error("Error in safeRemoveElement:", error);
     try {
       nodeRegistry.delete(element);
-    } catch (e) {}
+    } catch (e) {
+      // Silent catch
+    }
     return false;
   }
 };
@@ -378,8 +378,13 @@ const safeRemoveElement = (element: Element): boolean => {
 export const safeCleanupDOM = (priority: number = 5) => {
   const cleanupManager = CleanupManager.getInstance();
   
-  // More selective selectors that avoid active dialogs and modal elements
-  // and explicitly avoid elements related to printing
+  // Se o usuário está navegando e não é uma limpeza de alta prioridade,
+  // adia a operação para evitar erros de DOM durante a transição
+  if (cleanupManager.isNavigating() && priority < 8) {
+    return;
+  }
+  
+  // Seletores mais seguros para evitar elementos ativos durante navegação
   const selectorsToClean = [
     { selector: '[role="tooltip"]', priority: priority + 1 },
     { selector: '[role="dialog"][data-state="closed"]', priority },
@@ -388,7 +393,7 @@ export const safeCleanupDOM = (priority: number = 5) => {
     { selector: '[data-floating]:not(:has(button:hover)):not([data-state="open"])', priority },
     { selector: '[data-state="closed"]', priority },
     { selector: '.popover-content:not(:has(input:focus)):not([data-state="open"])', priority },
-    { selector: '.tooltip-content:not(:hover)', priority: priority + 2 }, // Fixed: Using proper object format
+    { selector: '.tooltip-content:not(:hover)', priority: priority + 2 },
     { selector: '.dropdown-menu-content:not(:has(*:hover)):not([data-state="open"])', priority }
   ];
   
@@ -490,8 +495,11 @@ export const useShipmentSafeUnmount = () => {
             
             // Remove the protection class after transition completes
             setTimeout(() => {
-              target.classList.remove('actively-transitioning');
-              cleanupManager.unlockElement(target);
+              // Verificar se o elemento ainda existe antes de tentar manipulá-lo
+              if (document.contains(target)) {
+                target.classList.remove('actively-transitioning');
+                cleanupManager.unlockElement(target);
+              }
             }, 400); // Slightly longer than animation duration
           }
         }
@@ -505,14 +513,35 @@ export const useShipmentSafeUnmount = () => {
       attributes: true,
     });
     
+    // Usando funções anônimas para evitar problemas com referências desatualizadas
+    const handleComponentUnmount = () => {
+      if (isMountedRef.current) {
+        debouncedCleanup(5);
+      }
+    };
+    
+    const handleBeforeNavigation = () => {
+      if (isMountedRef.current) {
+        startNavigation();
+      }
+    };
+    
+    const handleAfterNavigation = () => {
+      if (isMountedRef.current) {
+        endNavigation();
+        // Delay cleanup after navigation completes
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            debouncedCleanup(3);
+          }
+        }, 300);
+      }
+    };
+    
     // Register event for cleanup when needed
-    window.addEventListener('component-unmount', () => debouncedCleanup(5));
-    window.addEventListener('before-navigation', () => startNavigation());
-    window.addEventListener('after-navigation', () => {
-      endNavigation();
-      // Delay cleanup after navigation completes
-      setTimeout(() => debouncedCleanup(3), 300);
-    });
+    window.addEventListener('component-unmount', handleComponentUnmount);
+    window.addEventListener('before-navigation', handleBeforeNavigation);
+    window.addEventListener('after-navigation', handleAfterNavigation);
     
     return () => {
       // Mark component as unmounted
@@ -522,10 +551,10 @@ export const useShipmentSafeUnmount = () => {
       // Disconnect observer
       observer.disconnect();
       
-      // Remove event listeners
-      window.removeEventListener('component-unmount', () => debouncedCleanup(5));
-      window.removeEventListener('before-navigation', () => startNavigation());
-      window.removeEventListener('after-navigation', () => endNavigation());
+      // Remove event listeners corretamente com as mesmas funções anônimas
+      window.removeEventListener('component-unmount', handleComponentUnmount);
+      window.removeEventListener('before-navigation', handleBeforeNavigation);
+      window.removeEventListener('after-navigation', handleAfterNavigation);
       
       // Trigger cleanup event
       window.dispatchEvent(new CustomEvent('component-unmount'));

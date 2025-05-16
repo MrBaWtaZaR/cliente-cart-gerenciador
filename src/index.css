@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -122,4 +121,63 @@
 .button-glow:hover::after {
   content: "";
   @apply absolute inset-0 rounded-md blur-md -z-10 bg-primary/30 animate-pulse;
+}
+
+/* Estilos para gerenciar transições de rota e prevenir erros de DOM */
+.route-changing *[role="dialog"][data-state="closed"] {
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transition: none !important;
+}
+
+.route-changing .actively-transitioning {
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transition: none !important;
+}
+
+.orders-unmounting {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
+
+.app-ready.route-changing .orders-page-active {
+  pointer-events: none !important;
+  transition: opacity 0.1s ease-out !important;
+  opacity: 0.5 !important;
+}
+
+/* Estilos para elementos relacionados a impressão */
+[data-print-state="preparing"],
+[data-print-state="completed"] {
+  position: absolute !important;
+  z-index: -9999 !important;
+  left: -9999px !important;
+  top: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateZ(0) !important;
+  will-change: transform !important;
+}
+
+/* Proteção para elementos que não devem ser removidos durante limpeza DOM */
+.protected-element,
+.actively-printing,
+.shipment-print-container,
+.pdf-container {
+  will-change: transform !important;
+  transform: translateZ(0) !important;
+}
+
+/* Classe auxiliar para depuração */
+.debug-outline * {
+  outline: 1px solid rgba(255, 0, 0, 0.2);
+}
+
+/* Classe auxiliar para isolar componentes e evitar propagação de eventos */
+.isolated-component {
+  isolation: isolate;
 }
