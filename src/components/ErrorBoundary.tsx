@@ -1,7 +1,7 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { ReloadIcon } from '@radix-ui/react-icons';
+import { RefreshCw } from 'lucide-react';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -70,7 +70,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </div>
           )}
           <Button onClick={this.handleReset} variant="outline" className="flex items-center gap-2">
-            <ReloadIcon className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4" />
             Tentar novamente
           </Button>
         </div>
