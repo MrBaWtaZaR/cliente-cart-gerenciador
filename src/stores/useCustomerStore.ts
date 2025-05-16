@@ -61,11 +61,11 @@ const notifyOrderStatusChange = () => {
   window.dispatchEvent(new CustomEvent('data-updated'));
 };
 
-// Helper function to save an order to Supabase
+// Helper function to save an order to Supabase - making it non-blocking
 const saveOrderToSupabase = async (order: Order, customerEmail: string | null = null) => {
   try {
-    // First, save the order
-    const { data: orderData, error: orderError } = await supabase
+    // Start with order saving
+    const orderPromise = supabase
       .from('orders')
       .insert({
         id: order.id,
@@ -76,29 +76,45 @@ const saveOrderToSupabase = async (order: Order, customerEmail: string | null = 
       })
       .select()
       .single();
+      
+    // Set a timeout to prevent blocking the UI
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Order save operation timed out')), 10000);
+    });
+    
+    // Race the promises
+    const { data: orderData, error: orderError } = await Promise.race([
+      orderPromise,
+      timeoutPromise
+    ]) as any;
 
     if (orderError) {
       console.error('Error saving order to Supabase:', orderError);
       return false;
     }
 
-    // Then, save all order products
+    // Then, save all order products in batches
     if (order.products && order.products.length > 0) {
-      const orderProductsToInsert = order.products.map(product => ({
-        order_id: order.id,
-        product_id: product.productId,
-        product_name: product.productName,
-        quantity: product.quantity,
-        price: product.price
-      }));
+      // Process in batches of 10 to prevent overwhelming the API
+      const batchSize = 10;
+      for (let i = 0; i < order.products.length; i += batchSize) {
+        const batch = order.products.slice(i, i + batchSize);
+        const orderProductsToInsert = batch.map(product => ({
+          order_id: order.id,
+          product_id: product.productId,
+          product_name: product.productName,
+          quantity: product.quantity,
+          price: product.price
+        }));
 
-      const { error: productsError } = await supabase
-        .from('order_products')
-        .insert(orderProductsToInsert);
+        const { error: productsError } = await supabase
+          .from('order_products')
+          .insert(orderProductsToInsert);
 
-      if (productsError) {
-        console.error('Error saving order products to Supabase:', productsError);
-        return false;
+        if (productsError) {
+          console.error('Error saving order products batch to Supabase:', productsError);
+          // Continue with next batch rather than failing completely
+        }
       }
     }
 
@@ -246,6 +262,7 @@ const fetchOrdersForCustomer = async (customerId: string): Promise<Order[]> => {
 export const useCustomerStore = create<CustomerStore>((set, get) => ({
   customers: loadInitialCustomers(),
 
+  // Implement a more secure, rate-limited reloadCustomers function
   reloadCustomers: async () => {
     try {
       // Start loading customers from Supabase
@@ -263,62 +280,82 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       // Transform Supabase customer data to our format
       const updatedCustomers: Customer[] = [];
       
-      for (const customer of customerData) {
-        // Find local customer data to preserve any local-only information
-        const localCustomer = currentCustomers.find(c => 
-          c.name?.toLowerCase() === customer.name?.toLowerCase() &&
-          c.email?.toLowerCase() === customer.email?.toLowerCase()
-        );
+      // Process customers in batches to avoid UI blocking
+      const batchSize = 20;
+      for (let i = 0; i < customerData.length; i += batchSize) {
+        const batch = customerData.slice(i, i + batchSize);
         
-        // Create the customer object
-        const customerObject: Customer = {
-          id: localCustomer?.id || customer.id || generateId(),
-          name: customer.name,
-          email: customer.email,
-          phone: customer.phone,
-          address: customer.address || undefined,
-          createdAt: new Date(customer.created_at || new Date()),
-          tourName: customer.tour_name || undefined,
-          tourSector: customer.tour_sector || undefined,
-          tourSeatNumber: customer.tour_seat_number || undefined,
-          tourCity: customer.tour_city || undefined,
-          tourState: customer.tour_state || undefined,
-          tourDepartureTime: customer.tour_departure_time || undefined,
-          orders: localCustomer?.orders || []
-        };
-        
-        // Fetch orders from Supabase for this customer
-        const supabaseOrders = await fetchOrdersForCustomer(customerObject.id);
-        
-        // Merge with local orders - prefer Supabase data but keep local images
-        if (supabaseOrders.length > 0) {
-          // Create a map of local orders by ID for quick lookup
-          const localOrdersMap = new Map();
-          (localCustomer?.orders || []).forEach(order => {
-            localOrdersMap.set(order.id, order);
-          });
-          
-          // Merge Supabase orders with local data
-          supabaseOrders.forEach(order => {
-            const localOrder = localOrdersMap.get(order.id);
-            if (localOrder) {
-              // Merge product images from local data
-              order.products.forEach(product => {
-                const localProduct = localOrder.products.find(p => p.productId === product.productId);
-                if (localProduct && localProduct.images && localProduct.images.length > 0) {
-                  product.images = localProduct.images;
-                }
-              });
-            }
-          });
-          
-          // Sort orders by date
-          customerObject.orders = supabaseOrders.sort((a, b) => 
-            b.createdAt.getTime() - a.createdAt.getTime()
+        // Process each customer in the current batch
+        for (const customer of batch) {
+          // Find local customer data to preserve any local-only information
+          const localCustomer = currentCustomers.find(c => 
+            c.name?.toLowerCase() === customer.name?.toLowerCase() &&
+            c.email?.toLowerCase() === customer.email?.toLowerCase()
           );
+          
+          // Create the customer object
+          const customerObject: Customer = {
+            id: localCustomer?.id || customer.id || generateId(),
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+            address: customer.address || undefined,
+            createdAt: new Date(customer.created_at || new Date()),
+            tourName: customer.tour_name || undefined,
+            tourSector: customer.tour_sector || undefined,
+            tourSeatNumber: customer.tour_seat_number || undefined,
+            tourCity: customer.tour_city || undefined,
+            tourState: customer.tour_state || undefined,
+            tourDepartureTime: customer.tour_departure_time || undefined,
+            orders: localCustomer?.orders || []
+          };
+          
+          // Fetch orders from Supabase for this customer - with timeout protection
+          let supabaseOrders: Order[] = [];
+          try {
+            const fetchOrderPromise = fetchOrdersForCustomer(customerObject.id);
+            const timeoutPromise = new Promise<Order[]>((resolve) => {
+              setTimeout(() => resolve([]), 5000); // 5 second timeout
+            });
+            
+            supabaseOrders = await Promise.race([fetchOrderPromise, timeoutPromise]);
+          } catch (error) {
+            console.error(`Error fetching orders for customer ${customerObject.id}:`, error);
+          }
+          
+          // Merge with local orders - prefer Supabase data but keep local images
+          if (supabaseOrders.length > 0) {
+            // Create a map of local orders by ID for quick lookup
+            const localOrdersMap = new Map();
+            (localCustomer?.orders || []).forEach(order => {
+              localOrdersMap.set(order.id, order);
+            });
+            
+            // Merge Supabase orders with local data
+            supabaseOrders.forEach(order => {
+              const localOrder = localOrdersMap.get(order.id);
+              if (localOrder) {
+                // Merge product images from local data
+                order.products.forEach(product => {
+                  const localProduct = localOrder.products.find(p => p.productId === product.productId);
+                  if (localProduct && localProduct.images && localProduct.images.length > 0) {
+                    product.images = localProduct.images;
+                  }
+                });
+              }
+            });
+            
+            // Sort orders by date
+            customerObject.orders = supabaseOrders.sort((a, b) => 
+              b.createdAt.getTime() - a.createdAt.getTime()
+            );
+          }
+          
+          updatedCustomers.push(customerObject);
         }
         
-        updatedCustomers.push(customerObject);
+        // Allow UI to breathe after each batch
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
       
       // Save to localStorage
@@ -335,48 +372,92 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
     }
   },
   
+  // Modified syncOrdersWithSupabase function for better error handling and rate limiting
   syncOrdersWithSupabase: async () => {
     try {
       const customers = get().customers;
       let syncSuccess = true;
+      let syncedCount = 0;
+      let failedCount = 0;
       
       // For each customer, sync their orders with Supabase
       for (const customer of customers) {
         if (customer.orders && customer.orders.length > 0) {
-          // Fetch existing orders from Supabase for comparison
-          const { data: existingOrders, error: fetchError } = await supabase
-            .from('orders')
-            .select('id')
-            .eq('customer_id', customer.id);
-            
-          if (fetchError) {
-            console.error('Error fetching existing orders:', fetchError);
-            syncSuccess = false;
-            continue;
-          }
-          
-          // Create a set of existing order IDs for quick lookup
-          const existingOrderIds = new Set(existingOrders.map(o => o.id));
-          
-          // Sync each order
-          for (const order of customer.orders) {
-            if (existingOrderIds.has(order.id)) {
-              // Order exists, update it
-              const updated = await updateOrderInSupabase(order);
-              if (!updated) syncSuccess = false;
-            } else {
-              // New order, save it
-              const saved = await saveOrderToSupabase(order, customer.email);
-              if (!saved) syncSuccess = false;
+          try {
+            // Fetch existing orders from Supabase for comparison
+            const { data: existingOrders, error: fetchError } = await supabase
+              .from('orders')
+              .select('id')
+              .eq('customer_id', customer.id);
+              
+            if (fetchError) {
+              console.error('Error fetching existing orders:', fetchError);
+              syncSuccess = false;
+              continue;
             }
+            
+            // Create a set of existing order IDs for quick lookup
+            const existingOrderIds = new Set((existingOrders || []).map(o => o.id));
+            
+            // Sync each order with rate limiting
+            let currentOrderIdx = 0;
+            
+            // Process orders in batches to prevent UI blocking
+            const processNextBatch = async () => {
+              const batchSize = 5; // Process 5 orders at a time
+              const endIdx = Math.min(currentOrderIdx + batchSize, customer.orders.length);
+              
+              for (let i = currentOrderIdx; i < endIdx; i++) {
+                const order = customer.orders[i];
+                try {
+                  if (existingOrderIds.has(order.id)) {
+                    // Order exists, update it
+                    const updated = await updateOrderInSupabase(order);
+                    if (updated) {
+                      syncedCount++;
+                    } else {
+                      failedCount++;
+                      syncSuccess = false;
+                    }
+                  } else {
+                    // New order, save it
+                    const saved = await saveOrderToSupabase(order, customer.email);
+                    if (saved) {
+                      syncedCount++;
+                    } else {
+                      failedCount++;
+                      syncSuccess = false;
+                    }
+                  }
+                } catch (orderError) {
+                  console.error(`Error processing order ${order.id}:`, orderError);
+                  failedCount++;
+                  syncSuccess = false;
+                }
+              }
+              
+              currentOrderIdx = endIdx;
+              
+              // If there are more orders, process the next batch after a delay
+              if (currentOrderIdx < customer.orders.length) {
+                await new Promise(resolve => setTimeout(resolve, 300)); // 300ms delay between batches
+                return processNextBatch();
+              }
+            };
+            
+            // Start processing batches
+            await processNextBatch();
+          } catch (customerError) {
+            console.error(`Error processing customer ${customer.id}:`, customerError);
+            syncSuccess = false;
           }
         }
       }
       
       if (syncSuccess) {
-        toast.success('Pedidos sincronizados com sucesso!');
+        toast.success(`${syncedCount} pedidos sincronizados com sucesso!`);
       } else {
-        toast.warning('Alguns pedidos não foram sincronizados corretamente.');
+        toast.warning(`${syncedCount} pedidos sincronizados, ${failedCount} pedidos não foram sincronizados corretamente.`);
       }
       
       // Make sure to return void to match the interface

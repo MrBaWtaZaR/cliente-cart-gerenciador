@@ -1,27 +1,17 @@
+
 import { supabase, getStorageUrl } from './client';
 import { Product } from '../../types/products';
 
-// Função para verificar se o storage está disponível
+// Função para verificar se o storage está disponível e criar buckets se necessário
 export const setupStorage = async () => {
   try {
     console.log('Checking Supabase storage availability...');
     
-    // Attempt to list objects in the product-images bucket directly
-    // This is a more direct way to check if the bucket is accessible
-    const { data: objects, error: objError } = await supabase.storage
-      .from('product-images')
-      .list('', { limit: 1 });
-      
-    if (!objError) {
-      console.log('Bucket product-images está acessível.');
-      return true;
-    }
+    // First check if the product-images bucket already exists
+    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
     
-    // If that fails, try listing buckets to see if we can find it
-    const { data: buckets, error } = await supabase.storage.listBuckets();
-    
-    if (error) {
-      console.error('Error listing buckets:', error);
+    if (bucketsError) {
+      console.error('Error listing buckets:', bucketsError);
       console.log('Using localStorage as fallback for image storage.');
       return false;
     }
@@ -29,13 +19,52 @@ export const setupStorage = async () => {
     // Check if the product-images bucket exists
     const productImagesBucketExists = buckets.some(bucket => bucket.name === 'product-images');
     
-    if (productImagesBucketExists) {
-      console.log('Bucket product-images encontrado e pronto para uso.');
-      return true;
+    if (!productImagesBucketExists) {
+      // Create the product-images bucket with public access
+      console.log('Creating product-images bucket...');
+      const { data, error: createError } = await supabase.storage.createBucket(
+        'product-images', 
+        { public: true }
+      );
+      
+      if (createError) {
+        console.error('Error creating product-images bucket:', createError);
+        console.log('Using localStorage as fallback for image storage.');
+        return false;
+      }
+      
+      console.log('product-images bucket created successfully');
     } else {
-      console.log('Bucket product-images não encontrado. Using localStorage as fallback.');
+      console.log('Bucket product-images already exists');
+    }
+    
+    // Update bucket permissions to ensure it's public
+    try {
+      const { error: updateError } = await supabase.storage.updateBucket(
+        'product-images', 
+        { public: true }
+      );
+      
+      if (updateError) {
+        console.error('Error updating bucket permissions:', updateError);
+      }
+    } catch (err) {
+      console.error('Error updating bucket permissions:', err);
+    }
+    
+    // Test bucket access
+    const { data: objects, error: objError } = await supabase.storage
+      .from('product-images')
+      .list('', { limit: 1 });
+      
+    if (objError) {
+      console.error('Error accessing product-images bucket:', objError);
+      console.log('Using localStorage as fallback for image storage.');
       return false;
     }
+    
+    console.log('Bucket product-images is accessible and properly configured');
+    return true;
   } catch (err) {
     console.error('Error setting up storage:', err);
     console.log('Using localStorage as fallback for image storage.');
