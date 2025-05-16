@@ -3,23 +3,47 @@ import { useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   
   // Check authentication and redirect appropriately
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (user?.isAuthenticated) {
-        navigate('/dashboard');
-      } else {
-        navigate('/login');
+    // Check current auth session
+    const checkSession = async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        
+        if (sessionData?.session) {
+          // User is logged in
+          setUser({
+            isAuthenticated: true,
+            id: sessionData.session.user.id,
+            email: sessionData.session.user.email || '',
+            name: sessionData.session.user.user_metadata?.name || 'Usuário',
+          });
+          
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 300);
+        } else {
+          // No active session, redirect to login
+          setTimeout(() => {
+            navigate('/login');
+          }, 300);
+        }
+      } catch (error) {
+        console.error("Error checking authentication:", error);
+        setTimeout(() => {
+          navigate('/login');
+        }, 300);
       }
-    }, 300);
+    };
     
-    return () => clearTimeout(timer);
-  }, [navigate, user]);
+    checkSession();
+  }, [navigate, setUser]);
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
