@@ -7,24 +7,20 @@ import { supabase } from '@/integrations/supabase/client';
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user, setUser } = useAuthStore();
+  const { user, checkSession } = useAuthStore();
   
   // Check authentication and redirect appropriately
   useEffect(() => {
     // Check current auth session
-    const checkSession = async () => {
+    const verifySession = async () => {
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
+        await checkSession();
         
-        if (sessionData?.session) {
+        // Check if user is authenticated after session check
+        const currentUser = useAuthStore.getState().user;
+        
+        if (currentUser?.isAuthenticated) {
           // User is logged in
-          setUser({
-            isAuthenticated: true,
-            id: sessionData.session.user.id,
-            email: sessionData.session.user.email || '',
-            name: sessionData.session.user.user_metadata?.name || 'Usuário',
-          });
-          
           setTimeout(() => {
             navigate('/dashboard');
           }, 300);
@@ -42,8 +38,8 @@ const Index = () => {
       }
     };
     
-    checkSession();
-  }, [navigate, setUser]);
+    verifySession();
+  }, [navigate, checkSession]);
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">

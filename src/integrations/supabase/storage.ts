@@ -180,7 +180,7 @@ export const fetchProductsFromDatabase = async (): Promise<Product[]> => {
           price: product.price,
           stock: product.stock || 0,
           images: imageUrls,
-          createdAt: new Date(product.created_at)
+          createdAt: new Date(product.created_at) // Fix here: using string from DB and converting to Date
         };
       })
     );
@@ -203,7 +203,7 @@ export const updateProductInDatabase = async (id: string, productData: Partial<P
         description: productData.description,
         price: productData.price,
         stock: productData.stock,
-        updated_at: new Date()
+        updated_at: new Date().toISOString() // Fix here: converting Date to string
       })
       .eq('id', id);
 
