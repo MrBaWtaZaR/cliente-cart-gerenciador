@@ -8,12 +8,13 @@ const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   
-  // Check authentication before redirecting
+  // Check authentication and redirect appropriately
   useEffect(() => {
     const timer = setTimeout(() => {
-      // Only redirect to dashboard if logged in, otherwise go to login page
       if (user?.isAuthenticated) {
         navigate('/dashboard');
+      } else {
+        navigate('/login');
       }
     }, 300);
     
@@ -21,7 +22,7 @@ const Index = () => {
   }, [navigate, user]);
   
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
       <div className="text-center max-w-md p-6 bg-white rounded-lg shadow-lg">
         <h1 className="text-3xl font-bold mb-4">Bem-vindo ao Sistema</h1>
         <p className="text-xl text-gray-600 mb-6">Gerencie seus pedidos e envios com facilidade</p>

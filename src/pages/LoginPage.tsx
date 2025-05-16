@@ -9,8 +9,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
 export const LoginPage = () => {
-  // Default to "admin@afconsultoria.com" para facilitar login
-  const [username, setUsername] = useState('admin@afconsultoria.com');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -18,16 +17,26 @@ export const LoginPage = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!username || !password) {
+      toast.error('Por favor, preencha todos os campos');
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
       const success = await login(username, password);
+      
       if (success) {
+        toast.success('Login realizado com sucesso');
         navigate('/dashboard');
+      } else {
+        toast.error('Credenciais inválidas');
       }
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('Ocorreu um erro ao fazer login.');
+      toast.error('Ocorreu um erro ao fazer login');
     } finally {
       setIsLoading(false);
     }
@@ -56,7 +65,6 @@ export const LoginPage = () => {
                   required
                   className="bg-white/70 backdrop-blur-sm"
                 />
-                <p className="text-xs text-gray-500">Email padrão: admin@afconsultoria.com</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
@@ -69,7 +77,6 @@ export const LoginPage = () => {
                   required
                   className="bg-white/70 backdrop-blur-sm"
                 />
-                <p className="text-xs text-gray-500">Senha padrão: afconsultoria2025</p>
               </div>
             </CardContent>
             <CardFooter className="relative z-10">

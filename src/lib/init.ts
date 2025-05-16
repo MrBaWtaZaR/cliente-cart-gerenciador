@@ -50,10 +50,10 @@ export const initializeApp = async (options: InitOptions = {}) => {
       }
     }
     
-    // Initialize storage (but don't try to create buckets from client)
+    // Initialize storage (mas não tente criar buckets do cliente)
     if (initStorage) {
       try {
-        const storageAvailable = await setupStorage();
+        const storageAvailable = await setupStorage({ skipBucketCreation: true });
         console.log('Storage initialization complete, available:', storageAvailable);
       } catch (error) {
         console.error('Storage initialization error:', error);
