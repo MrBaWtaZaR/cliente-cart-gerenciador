@@ -71,3 +71,31 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Sincronização com o Banco de Dados
+
+### Corrigindo problemas de sincronização com o Supabase
+
+Se você estiver enfrentando problemas para visualizar envios salvos no seu aplicativo ou com a sincronização entre o aplicativo e o banco de dados Supabase, siga estas etapas:
+
+1. Verifique se todas as tabelas necessárias existem no Supabase:
+   - Acesse o painel administrativo do Supabase (https://app.supabase.com)
+   - Navegue até o seu projeto > SQL Editor
+   - Execute o script SQL localizado em `src/sql/check_tables.sql` para verificar e criar as tabelas necessárias
+
+2. Reinicie seu aplicativo e atualize a conexão com o Supabase:
+   - No aplicativo, navegue até a página de Envios
+   - Clique no botão "Atualizar dados" para forçar uma nova sincronização
+
+3. Verifique se as chaves de API do Supabase estão configuradas corretamente:
+   - As chaves do Supabase podem ser encontradas no painel do Supabase em "Configurações do Projeto" > "API"
+   - Certifique-se de que as chaves corretas estão definidas nas variáveis de ambiente do seu aplicativo
+
+### Estrutura do Banco de Dados
+
+O sistema utiliza duas tabelas principais para gerenciar envios:
+
+- `shipments`: Armazena informações básicas de cada envio (id, nome, data de criação)
+- `shipment_customers`: Armazena as associações entre envios e clientes
+
+Observação: O aplicativo agora filtra automaticamente a lista de clientes disponíveis para envio, mostrando apenas aqueles com pedidos pendentes.

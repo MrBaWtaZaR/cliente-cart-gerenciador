@@ -6,14 +6,16 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ShipmentTablePDF, ShipmentCardsPDF } from '@/components/ShipmentPDF';
-import { Plus, FileText, CreditCard, Calendar, Download, Eye, Trash2, Edit, Save } from 'lucide-react';
+import { Plus, FileText, CreditCard, Calendar, Download, Eye, Trash2, Edit, Save, RefreshCw, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useReactToPrint } from 'react-to-print';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { testSupabaseConnection } from '@/integrations/supabase/client';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export const ShipmentPage = () => {
-  const { customers, shipments, addShipment, getShipments, deleteShipment, updateShipment, refreshAll } = useDataStore();
+  const { customers, shipments, addShipment, getShipments, deleteShipment, updateShipment, refreshAll, forceRefreshShipments } = useDataStore();
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [isCreatingShipment, setIsCreatingShipment] = useState(false);
   const [isSelectingCustomers, setIsSelectingCustomers] = useState(false);
@@ -22,17 +24,41 @@ export const ShipmentPage = () => {
   const [showShipmentDetails, setShowShipmentDetails] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{ connected: boolean; error?: string }>({ connected: true });
+
+  // Filtrar apenas clientes com pelo menos um pedido pendente
+  const customersWithPendingOrders = customers.filter(customer => 
+    customer.orders && customer.orders.some(order => order.status === 'pending')
+  );
 
   const tableRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
+
+  // Verificar conexão com o Supabase
+  useEffect(() => {
+    const checkSupabaseConnection = async () => {
+      const result = await testSupabaseConnection();
+      setConnectionStatus({ 
+        connected: result.connected, 
+        error: result.connected ? undefined : (result.error || 'Erro ao conectar com Supabase')
+      });
+      
+      if (!result.connected) {
+        console.error('Falha na conexão com Supabase:', result);
+        toast.error('Problema na conexão com o servidor. Verifique o console para mais detalhes.');
+      }
+    };
+    
+    checkSupabaseConnection();
+  }, []);
 
   // Fetch shipments when component mounts or when dependencies change
   useEffect(() => {
     const fetchShipments = async () => {
       setIsLoading(true);
       try {
-        // Usar refreshAll em vez de apenas getShipments para garantir dados atualizados
-        await refreshAll();
+        // Usar forceRefreshShipments para garantir que os envios sejam atualizados corretamente
+        await forceRefreshShipments();
       } catch (error) {
         console.error("Error fetching shipments:", error);
         toast.error("Falha ao carregar envios. Por favor, recarregue a página.");
@@ -53,7 +79,7 @@ export const ShipmentPage = () => {
     return () => {
       window.removeEventListener('order-updated', handleOrderUpdate);
     };
-  }, [getShipments, refreshAll]);
+  }, [forceRefreshShipments]);
 
   const handlePrintTable = useReactToPrint({
     documentTitle: `Tabela_de_Envio_${format(new Date(), 'dd-MM-yyyy')}`,
@@ -101,8 +127,8 @@ export const ShipmentPage = () => {
       // Reset selection
       setSelectedCustomers([]);
       
-      // Fetch updated shipments with full refresh
-      await refreshAll();
+      // Atualizar explicitamente os envios
+      await forceRefreshShipments();
       toast.success('Envio criado com sucesso!');
     } catch (error) {
       console.error('Erro ao criar envio:', error);
@@ -131,8 +157,8 @@ export const ShipmentPage = () => {
       setShowDeleteConfirm(false);
       setShowShipmentDetails(false);
       
-      // Refresh all data after deletion
-      await refreshAll();
+      // Atualizar explicitamente os envios
+      await forceRefreshShipments();
       toast.success('Envio excluído com sucesso');
     } catch (error) {
       console.error('Erro ao excluir envio:', error);
@@ -167,8 +193,8 @@ export const ShipmentPage = () => {
       setIsEditing(false);
       setSelectedCustomers([]);
       
-      // Refresh all data after update
-      await refreshAll();
+      // Atualizar explicitamente os envios
+      await forceRefreshShipments();
       toast.success('Envio atualizado com sucesso!');
     } catch (error) {
       console.error('Erro ao atualizar envio:', error);
@@ -194,6 +220,31 @@ export const ShipmentPage = () => {
     setSelectedShipment(null);
   };
 
+  const handleRefreshConnection = async () => {
+    setIsLoading(true);
+    try {
+      // Verificar conexão
+      const result = await testSupabaseConnection();
+      setConnectionStatus({ 
+        connected: result.connected, 
+        error: result.connected ? undefined : (result.error || 'Erro ao conectar com Supabase')
+      });
+
+      if (result.connected) {
+        // Se estiver conectado, atualizar dados
+        await forceRefreshShipments();
+        toast.success('Dados atualizados com sucesso!');
+      } else {
+        toast.error('Não foi possível conectar ao servidor. Verifique sua conexão de internet.');
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar conexão:', error);
+      toast.error('Erro ao verificar conexão');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="container space-y-6">
       <div className="flex justify-between items-center">
@@ -207,6 +258,28 @@ export const ShipmentPage = () => {
         </Button>
       </div>
 
+      {/* Mostrar alerta se houver problema de conexão */}
+      {!connectionStatus.connected && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Problema de conexão detectado</AlertTitle>
+          <AlertDescription>
+            Não foi possível se conectar ao banco de dados. 
+            {connectionStatus.error && ` Erro: ${connectionStatus.error}`}
+            <div className="mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefreshConnection}
+                disabled={isLoading}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" /> Tentar reconectar
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Histórico de Envios com indicador de carregamento */}
       <section>
         <div className="flex justify-between items-center mb-4">
@@ -215,9 +288,13 @@ export const ShipmentPage = () => {
             variant="outline" 
             size="sm"
             disabled={isLoading}
-            onClick={() => refreshAll()}
+            onClick={handleRefreshConnection}
           >
-            {isLoading ? 'Atualizando...' : 'Atualizar dados'}
+            {isLoading ? 'Atualizando...' : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" /> Atualizar dados
+              </>
+            )}
           </Button>
         </div>
         
@@ -256,6 +333,9 @@ export const ShipmentPage = () => {
             ) : (
               <div className="col-span-full text-center py-12 text-muted-foreground">
                 <p>Nenhum envio encontrado. Crie um novo envio para começar.</p>
+                {!connectionStatus.connected && (
+                  <p className="mt-2 text-sm">Possível causa: problema na conexão com o banco de dados.</p>
+                )}
               </div>
             )}
           </div>
@@ -279,7 +359,7 @@ export const ShipmentPage = () => {
             <DialogDescription>
               {isEditing 
                 ? 'Modifique os clientes que deseja incluir neste envio.' 
-                : 'Selecione os clientes que deseja incluir neste envio.'}
+                : 'Selecione os clientes que deseja incluir neste envio. Somente clientes com pedidos pendentes são mostrados.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -289,12 +369,12 @@ export const ShipmentPage = () => {
               <Button
                 size="sm"
                 onClick={() => setSelectedCustomers(
-                  selectedCustomers.length === customers.length 
+                  selectedCustomers.length === customersWithPendingOrders.length 
                     ? [] 
-                    : customers.map(c => c.id)
+                    : customersWithPendingOrders.map(c => c.id)
                 )}
               >
-                {selectedCustomers.length === customers.length ? 'Desmarcar todos' : 'Selecionar todos'}
+                {selectedCustomers.length === customersWithPendingOrders.length ? 'Desmarcar todos' : 'Selecionar todos'}
               </Button>
             </div>
 
@@ -309,19 +389,27 @@ export const ShipmentPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {customers.map((customer) => (
-                    <tr key={customer.id} className="border-t">
-                      <td className="p-3">
-                        <Checkbox 
-                          checked={selectedCustomers.includes(customer.id)} 
-                          onCheckedChange={() => handleToggleCustomer(customer.id)}
-                        />
+                  {customersWithPendingOrders.length > 0 ? (
+                    customersWithPendingOrders.map((customer) => (
+                      <tr key={customer.id} className="border-t">
+                        <td className="p-3">
+                          <Checkbox 
+                            checked={selectedCustomers.includes(customer.id)} 
+                            onCheckedChange={() => handleToggleCustomer(customer.id)}
+                          />
+                        </td>
+                        <td className="p-3">{customer.name}</td>
+                        <td className="p-3">{customer.tourName || '-'}</td>
+                        <td className="p-3">{customer.tourSeatNumber || '-'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                        Nenhum cliente com pedidos pendentes encontrado
                       </td>
-                      <td className="p-3">{customer.name}</td>
-                      <td className="p-3">{customer.tourName || '-'}</td>
-                      <td className="p-3">{customer.tourSeatNumber || '-'}</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>

@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -64,6 +63,7 @@ interface DataStore {
   
   initializeData: () => Promise<void>;
   refreshAll: () => Promise<void>; // New function to refresh all data
+  forceRefreshShipments: () => Promise<void>; // Nova função para forçar a atualização de envios
   
   // Customer store functions
   addCustomer: typeof customerStore.addCustomer;
@@ -97,6 +97,30 @@ export const useDataStore = create<DataStore>((set, get) => {
     isInitialized: false,
     isLoading: false,
     
+    // Nova função para forçar a atualização apenas dos envios
+    forceRefreshShipments: async () => {
+      try {
+        console.log('Forçando atualização de envios do banco de dados');
+        set({ isLoading: true });
+        
+        // Buscar envios diretamente no Supabase
+        const shipments = await shipmentStore.getShipments();
+        
+        // Atualizar o estado com os envios recebidos
+        set(state => ({
+          ...state,
+          shipments,
+          isLoading: false
+        }));
+        
+        console.log('Envios atualizados com sucesso:', shipments);
+      } catch (error) {
+        console.error('Erro ao atualizar envios:', error);
+        set({ isLoading: false });
+        toast.error('Erro ao sincronizar envios com o servidor');
+      }
+    },
+    
     // Nova função para atualizar todos os dados
     refreshAll: async () => {
       try {
@@ -109,9 +133,16 @@ export const useDataStore = create<DataStore>((set, get) => {
         await productStore.loadProducts();
         
         // Recarregar shipments
-        await shipmentStore.getShipments();
+        const shipments = await shipmentStore.getShipments();
         
-        set({ isLoading: false });
+        // Atualizar explicitamente o estado com os envios
+        set(state => ({
+          ...state,
+          shipments,
+          isLoading: false
+        }));
+        
+        console.log('Todos os dados atualizados com sucesso:', { shipments });
       } catch (error) {
         console.error('Error refreshing all data:', error);
         set({ isLoading: false });
@@ -120,9 +151,6 @@ export const useDataStore = create<DataStore>((set, get) => {
     },
     
     initializeData: async () => {
-      // Don't initialize if already done or in progress
-      if (get().isInitialized || get().isLoading) return;
-      
       set({ isLoading: true });
       try {
         // Fetch customers from Supabase
@@ -182,6 +210,7 @@ export const useDataStore = create<DataStore>((set, get) => {
         let shipments: Shipment[] = [];
         try {
           shipments = await shipmentStore.getShipments();
+          console.log('Shipments loaded from Supabase:', shipments);
         } catch (error) {
           console.error('Error getting shipments:', error);
           // Continue with empty shipments array
