@@ -8,3 +8,4 @@ export type { Customer, Order, OrderProduct } from '../types/customers';
 export type { Product } from '../types/products';
 export type { Shipment } from '../types/shipments';
 export { SyncButton } from '@/components/ui/sync-button';
+export { setupStorage } from '@/integrations/supabase/storage';

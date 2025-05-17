@@ -1,3 +1,4 @@
+
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -19,6 +20,8 @@ import Index from "./pages/Index";
 import { safeCleanupDOM } from "./components/ShipmentSafeUnmount";
 import { AuthGuard } from "./components/AuthGuard";
 import { useAuthStore } from "./lib/auth";
+import { toast } from "sonner";
+import { initializeApp } from "./lib/init";
 
 // Create a React Query client with appropriate configurations
 const queryClient = new QueryClient({
@@ -154,6 +157,7 @@ const AppContent = () => {
   const { loadProducts } = useProductStore();
   const [routingReady, setRoutingReady] = useState(false);
   const { checkSession } = useAuthStore();
+  const [storageInitialized, setStorageInitialized] = useState(false);
   
   // Initialize data from Supabase when the app loads
   useEffect(() => {
@@ -166,6 +170,26 @@ const AppContent = () => {
     
     // Set flag to indicate routing initialization is complete
     setRoutingReady(true);
+    
+    // Initialize application with storage setup
+    const setupApp = async () => {
+      const result = await initializeApp({
+        initAuth: true,
+        initStorage: true,
+        checkConnection: true
+      });
+      
+      if (result) {
+        setStorageInitialized(true);
+        // Show a success toast if this is the first load after bucket creation
+        if (!sessionStorage.getItem('storage-initialized')) {
+          toast.success('Armazenamento configurado com sucesso');
+          sessionStorage.setItem('storage-initialized', 'true');
+        }
+      }
+    };
+    
+    setupApp();
     
     if (!isInitialized) {
       // Initialize customer data

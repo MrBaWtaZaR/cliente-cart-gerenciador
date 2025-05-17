@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { Product } from '../types/products';
@@ -55,12 +54,12 @@ export const useProductStore = create<ProductStore>((set, get) => {
       try {
         // Verificar disponibilidade de storage apenas uma vez por sessão
         if (!storageChecked) {
-          // Inicializa o storage para verificar se os buckets existem, sem criar
-          // e sem gerar logs excessivos
+          // Inicializa o storage para verificar se os buckets existem
+          // Após a criação dos buckets, não precisamos mais pular a criação
           storageAvailable = await setupStorage({ 
-            skipBucketCreation: true, 
+            skipBucketCreation: false, 
             skipExcessiveLogging: true,
-            noAttemptIfUnavailable: true
+            noAttemptIfUnavailable: false
           });
           storageChecked = true;
           set({ isStorageAvailable: storageAvailable });
@@ -215,15 +214,7 @@ export const useProductStore = create<ProductStore>((set, get) => {
           throw new Error('Expected file to be a File object');
         }
         
-        // If storage is not available or bucket doesn't exist, use local blob URL
-        if (!storageAvailable) {
-          console.log('Storage not available, using local blob URL');
-          const blobUrl = URL.createObjectURL(file);
-          toast.success('Imagem adicionada localmente');
-          return blobUrl;
-        }
-        
-        // Tenta fazer o upload para o Supabase Storage
+        // Agora que os buckets foram criados, tentamos usar o Supabase Storage primeiro
         try {
           const publicUrl = await uploadProductImage(productId, file);
           

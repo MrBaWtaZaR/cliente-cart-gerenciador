@@ -64,9 +64,9 @@ export const initializeApp = async (options: InitOptions = {}) => {
         // Verificar o cache apenas se tiver passado pelo menos 30 segundos da última verificação
         if (!storageCache.initialized || (now - storageCache.lastCheck > 30000)) {
           const storageAvailable = await setupStorage({ 
-            skipBucketCreation: true,
+            skipBucketCreation: false, // Agora podemos tentar usar os buckets criados
             skipExcessiveLogging: true,
-            noAttemptIfUnavailable: true
+            noAttemptIfUnavailable: false // Tentar acessar os buckets
           });
           
           storageCache.initialized = true;

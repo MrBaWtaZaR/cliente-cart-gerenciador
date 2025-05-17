@@ -1,4 +1,3 @@
-
 // Não modificar este arquivo diretamente, ele é somente para leitura
 
 import { supabase, getStorageUrl, checkBucketExists } from './client';
@@ -32,10 +31,11 @@ export const createStorageBucket = async (bucketName: string) => {
     bucketStatusCache[bucketName] = bucketExists;
     
     if (!bucketExists) {
-      console.log(`Bucket ${bucketName} não existe, mas não será criado automaticamente.`);
+      // Não vamos mais tentar criar buckets aqui, pois eles já foram criados
+      console.log(`Bucket ${bucketName} não existe ou não está acessível.`);
       return false;
     } else {
-      console.log(`Bucket ${bucketName} already exists.`);
+      console.log(`Bucket ${bucketName} existe e está acessível.`);
       return true;
     }
   } catch (err) {
@@ -81,7 +81,7 @@ export const setupStorage = async (options: SetupStorageOptions = {}): Promise<b
   let allBucketsAvailable = true;
   
   try {
-    // Apenas verifica os buckets, não tenta criá-los
+    // Verificar buckets
     for (const bucketName of BUCKET_NAMES) {
       // Limitar o número de tentativas de verificação por bucket
       if (bucketCheckAttempts[bucketName] > 2 && noAttemptIfUnavailable) {
@@ -104,14 +104,17 @@ export const setupStorage = async (options: SetupStorageOptions = {}): Promise<b
       
       if (!bucketExists) {
         allBucketsAvailable = false;
+        console.log(`Bucket ${bucketName} is not available.`);
+      } else {
+        console.log(`Bucket ${bucketName} is available.`);
       }
     }
     
     // Atualizar timestamp do cache
     bucketStatusCache.lastCheck = now;
     
-    if (!skipExcessiveLogging || !allBucketsAvailable) {
-      console.log('Storage setup complete. Using local storage fallback where needed.');
+    if (!skipExcessiveLogging) {
+      console.log('Storage setup complete. Buckets available:', allBucketsAvailable);
     }
     
     return allBucketsAvailable;
@@ -134,20 +137,15 @@ export const uploadProductImage = async (productId: string, file: File): Promise
   try {
     // Verificar rapidamente o status do bucket usando o cache
     const bucketName = 'products';
-    const shouldSkipUpload = bucketCheckAttempts[bucketName] > 2 || !bucketStatusCache[bucketName];
+    const skipUpload = bucketCheckAttempts[bucketName] > 2 && !bucketStatusCache[bucketName];
     
     // Se já tentamos verificar várias vezes e falhou, nem tenta fazer upload
-    if (shouldSkipUpload) {
+    if (skipUpload) {
       console.log('Products bucket not available (cached result), using local storage fallback');
       return URL.createObjectURL(file);
     }
     
-    // Verificamos o cache primeiro, e se for false, não tentamos mais verificar
-    if (!bucketStatusCache[bucketName]) {
-      console.log('Products bucket not available (cached status), using local storage fallback');
-      return URL.createObjectURL(file);
-    }
-    
+    // Os buckets agora devem existir, então tentamos fazer upload
     const fileName = `${productId}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
     
     // Upload the file to Storage
