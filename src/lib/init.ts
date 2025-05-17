@@ -10,7 +10,7 @@ interface InitOptions {
   checkConnection?: boolean;
 }
 
-// Cache para evitar checagens repetidas
+// Cache to avoid repeated checks
 const storageCache = {
   initialized: false,
   available: false,
@@ -57,16 +57,16 @@ export const initializeApp = async (options: InitOptions = {}) => {
       }
     }
     
-    // Initialize storage (com cache temporal)
+    // Initialize storage with improved error handling
     if (initStorage) {
       try {
         const now = Date.now();
-        // Verificar o cache apenas se tiver passado pelo menos 30 segundos da última verificação
+        // Only check if at least 30 seconds have passed since last check
         if (!storageCache.initialized || (now - storageCache.lastCheck > 30000)) {
           const storageAvailable = await setupStorage({ 
-            skipBucketCreation: false, // Agora podemos tentar usar os buckets criados
+            skipBucketCreation: true, // Don't try to create buckets, they already exist
             skipExcessiveLogging: true,
-            noAttemptIfUnavailable: false // Tentar acessar os buckets
+            noAttemptIfUnavailable: false // Try to access existing buckets
           });
           
           storageCache.initialized = true;
@@ -74,6 +74,12 @@ export const initializeApp = async (options: InitOptions = {}) => {
           storageCache.lastCheck = now;
           
           console.log('Storage initialization complete, available:', storageAvailable);
+          
+          // Show notification only if storage was previously unavailable
+          if (storageAvailable && !sessionStorage.getItem('storage-initialized')) {
+            toast.success('Armazenamento configurado com sucesso');
+            sessionStorage.setItem('storage-initialized', 'true');
+          }
         } else {
           // Use cached results
           console.log('Using cached storage setup results, available:', storageCache.available);
@@ -81,7 +87,7 @@ export const initializeApp = async (options: InitOptions = {}) => {
       } catch (error) {
         console.error('Storage initialization error:', error);
         
-        // Ainda define como inicializado para evitar novas tentativas
+        // Still mark as initialized to avoid repeated attempts
         storageCache.initialized = true;
         storageCache.available = false;
         storageCache.lastCheck = Date.now();

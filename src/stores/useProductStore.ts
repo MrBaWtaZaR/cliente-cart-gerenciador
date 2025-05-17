@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { Product } from '../types/products';
@@ -23,12 +24,12 @@ interface ProductStore {
   uploadProductImage: (productId: string, file: File | string) => Promise<string>;
 }
 
-// Cache local para evitar verificações repetidas de storage
+// Local cache to avoid repeated storage checks
 let storageChecked = false;
 let storageAvailable = false;
 
 export const useProductStore = create<ProductStore>((set, get) => {
-  // Inicializa produtos do localStorage como fallback
+  // Initialize products from localStorage as fallback
   const loadInitialProducts = (): Product[] => {
     try {
       const storedData = localStorage.getItem('products');
@@ -52,12 +53,11 @@ export const useProductStore = create<ProductStore>((set, get) => {
     loadProducts: async () => {
       set({ isLoading: true });
       try {
-        // Verificar disponibilidade de storage apenas uma vez por sessão
+        // Check storage availability only once per session
         if (!storageChecked) {
-          // Inicializa o storage para verificar se os buckets existem
-          // Após a criação dos buckets, não precisamos mais pular a criação
+          // Initialize storage - don't try to create buckets, assume they exist
           storageAvailable = await setupStorage({ 
-            skipBucketCreation: false, 
+            skipBucketCreation: true, 
             skipExcessiveLogging: true,
             noAttemptIfUnavailable: false
           });
@@ -65,20 +65,20 @@ export const useProductStore = create<ProductStore>((set, get) => {
           set({ isStorageAvailable: storageAvailable });
         }
         
-        // Busca produtos do banco de dados
+        // Fetch products from database
         const products = await fetchProductsFromDatabase();
         
-        // Fallback para localStorage se não conseguir carregar do banco
+        // Fall back to localStorage if database fetch returns nothing
         if (products.length === 0) {
           const localProducts = loadInitialProducts();
           set({ products: localProducts, isLoading: false });
           return;
         }
         
-        // Atualiza o estado com os produtos do banco
+        // Update state with products from database
         set({ products, isLoading: false });
         
-        // Atualiza também o localStorage como backup
+        // Also update localStorage as backup
         try {
           localStorage.setItem('products', JSON.stringify(products));
         } catch (storageError) {
