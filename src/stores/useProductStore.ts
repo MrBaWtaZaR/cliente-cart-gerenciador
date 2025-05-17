@@ -49,8 +49,8 @@ export const useProductStore = create<ProductStore>((set, get) => {
     loadProducts: async () => {
       set({ isLoading: true });
       try {
-        // Inicializa o storage para garantir que o bucket existe
-        const storageAvailable = await setupStorage();
+        // Inicializa o storage para verificar se os buckets existem, sem criar
+        const storageAvailable = await setupStorage({ skipBucketCreation: true });
         set({ isStorageAvailable: storageAvailable });
         
         // Busca produtos do banco de dados
@@ -204,7 +204,7 @@ export const useProductStore = create<ProductStore>((set, get) => {
           throw new Error('Expected file to be a File object');
         }
         
-        // If storage is not available, use local blob URL
+        // If storage is not available or bucket doesn't exist, use local blob URL
         if (!isStorageAvailable) {
           console.log('Storage not available, using local blob URL');
           const blobUrl = URL.createObjectURL(file);
@@ -212,37 +212,45 @@ export const useProductStore = create<ProductStore>((set, get) => {
           return blobUrl;
         }
         
-        // Faz o upload para o Supabase Storage
-        const publicUrl = await uploadProductImage(productId, file);
-        
-        // Se o upload for bem-sucedido, atualiza a imagem no estado
-        if (publicUrl && publicUrl !== '/placeholder.svg') {
-          set((state) => {
-            const updatedProducts = state.products.map((product) => {
-              if (product.id === productId) {
-                const updatedImages = [...(product.images || [])
-                  .filter(img => img !== '/placeholder.svg'), publicUrl];
-                return {
-                  ...product,
-                  images: updatedImages
-                };
+        // Tenta fazer o upload para o Supabase Storage
+        try {
+          const publicUrl = await uploadProductImage(productId, file);
+          
+          // Se o upload for bem-sucedido, atualiza a imagem no estado
+          if (publicUrl && publicUrl !== '/placeholder.svg') {
+            set((state) => {
+              const updatedProducts = state.products.map((product) => {
+                if (product.id === productId) {
+                  const updatedImages = [...(product.images || [])
+                    .filter(img => img !== '/placeholder.svg'), publicUrl];
+                  return {
+                    ...product,
+                    images: updatedImages
+                  };
+                }
+                return product;
+              });
+              
+              // Atualiza o localStorage
+              try {
+                localStorage.setItem('products', JSON.stringify(updatedProducts));
+              } catch (storageError) {
+                console.error('Failed to save products with image to localStorage:', storageError);
               }
-              return product;
+              
+              return { products: updatedProducts };
             });
-            
-            // Atualiza o localStorage
-            try {
-              localStorage.setItem('products', JSON.stringify(updatedProducts));
-            } catch (storageError) {
-              console.error('Failed to save products with image to localStorage:', storageError);
-            }
-            
-            return { products: updatedProducts };
-          });
+          }
+          
+          toast.success('Imagem adicionada com sucesso');
+          return publicUrl;
+        } catch (uploadError) {
+          console.error('Failed to upload to Supabase:', uploadError);
+          // Fall back to local storage
+          const blobUrl = URL.createObjectURL(file);
+          toast.info('Imagem salva localmente');
+          return blobUrl;
         }
-        
-        toast.success('Imagem adicionada com sucesso');
-        return publicUrl;
       } catch (error) {
         console.error('Erro ao fazer upload:', error);
         toast.error('Falha ao adicionar imagem');

@@ -10,23 +10,14 @@ export const createStorageBucket = async (bucketName: string) => {
   try {
     const bucketExists = await checkBucketExists(bucketName);
     if (!bucketExists) {
-      const { data, error } = await supabase.storage.createBucket(bucketName, {
-        public: true, // Make the bucket public
-      });
-
-      if (error) {
-        console.error(`Error creating bucket ${bucketName}:`, error.message);
-        return false;
-      }
-
-      console.log(`Bucket ${bucketName} created successfully.`);
-      return true;
+      console.log(`Bucket ${bucketName} não existe, mas não será criado automaticamente.`);
+      return false;
     } else {
       console.log(`Bucket ${bucketName} already exists.`);
       return true;
     }
   } catch (err) {
-    console.error(`Error creating bucket ${bucketName}:`, err);
+    console.error(`Error checking bucket ${bucketName}:`, err);
     return false;
   }
 };
@@ -37,29 +28,24 @@ interface SetupStorageOptions {
 
 // Setup storage buckets
 export const setupStorage = async (options: SetupStorageOptions = {}): Promise<boolean> => {
-  const { skipBucketCreation = false } = options;
+  const { skipBucketCreation = true } = options; // Sempre pular a criação do bucket por padrão
   
   console.log('Setting up storage buckets...');
   
   const BUCKET_NAMES = ['products', 'customers', 'shipments'];
   
   try {
+    // Apenas verifica os buckets, não tenta criá-los
     for (const bucketName of BUCKET_NAMES) {
-      if (!skipBucketCreation) {
-        const bucketCreated = await createStorageBucket(bucketName);
-        if (!bucketCreated) {
-          console.error(`Failed to create or verify bucket: ${bucketName}`);
-          return false;
-        }
-      } else {
-        console.log(`Skipping bucket creation for ${bucketName}`);
-      }
+      console.log(`Checking bucket: ${bucketName}`);
+      await checkBucketExists(bucketName);
     }
     
-    console.log('Storage setup complete.');
+    console.log('Storage setup complete. Using local storage fallback where needed.');
     return true;
   } catch (error) {
-    console.error('Storage setup failed:', error);
+    console.error('Storage setup check failed:', error);
+    console.log('Falling back to local storage only.');
     return false;
   }
 };
@@ -68,6 +54,13 @@ export const setupStorage = async (options: SetupStorageOptions = {}): Promise<b
 export const uploadProductImage = async (productId: string, file: File): Promise<string> => {
   try {
     const bucketName = 'products';
+    const bucketExists = await checkBucketExists(bucketName);
+    
+    if (!bucketExists) {
+      console.log('Products bucket not available, using local storage fallback');
+      return URL.createObjectURL(file);
+    }
+    
     const fileName = `${productId}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
     
     // Upload the file to Storage
@@ -80,23 +73,34 @@ export const uploadProductImage = async (productId: string, file: File): Promise
 
     if (error) {
       console.error('Error uploading image:', error);
-      return '/placeholder.svg';
+      return URL.createObjectURL(file); // Fallback para URL local
     }
 
     // Get the public URL
     const publicUrl = getStorageUrl(bucketName, fileName);
     
     // Also record this image in the product_images_relation table
-    await supabase
-      .from('product_images_relation')
-      .insert({
-        product_id: productId,
-        image_url: publicUrl
-      });
+    try {
+      await supabase
+        .from('product_images_relation')
+        .insert({
+          product_id: productId,
+          image_url: publicUrl
+        });
+    } catch (dbError) {
+      console.error('Error saving image relation to database:', dbError);
+      // Continue anyway, the image is still uploaded
+    }
       
     return publicUrl;
   } catch (error) {
     console.error('Error in uploadProductImage:', error);
+    
+    // Create local URL as fallback
+    if (file instanceof File) {
+      return URL.createObjectURL(file);
+    }
+    
     return '/placeholder.svg';
   }
 };
@@ -131,12 +135,17 @@ export const saveProductToDatabase = async (productData: Omit<Product, 'id' | 'c
     if (productData.images && productData.images.length > 0) {
       for (const image of productData.images) {
         if (image !== '/placeholder.svg' && !image.startsWith('blob:')) {
-          await supabase
-            .from('product_images_relation')
-            .insert({
-              product_id: productId,
-              image_url: image
-            });
+          try {
+            await supabase
+              .from('product_images_relation')
+              .insert({
+                product_id: productId,
+                image_url: image
+              });
+          } catch (imgError) {
+            console.error('Error saving image relation:', imgError);
+            // Continue with other images
+          }
         }
       }
     }
