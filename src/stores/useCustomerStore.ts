@@ -3,6 +3,13 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Customer, Order, OrderProduct } from '../types/customers';
 import { generateId } from '../utils/idGenerator';
+import { 
+  saveOrderToDatabase, 
+  updateOrderStatusInDatabase, 
+  updateOrderInDatabase, 
+  deleteOrderFromDatabase,
+  fetchOrdersFromDatabase
+} from '../integrations/supabase/orders';
 
 interface CustomerStore {
   customers: Customer[];
@@ -52,8 +59,9 @@ const loadInitialCustomers = (): Customer[] => {
 export const useCustomerStore = create<CustomerStore>((set, get) => ({
   customers: loadInitialCustomers(),
 
-  reloadCustomers: async () => {
+    reloadCustomers: async () => {
     try {
+      // Buscar clientes do banco de dados
       const { data: customerData, error } = await supabase
         .from('customers')
         .select('*')
@@ -63,16 +71,38 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
         throw error;
       }
       
+      // Buscar pedidos do banco de dados
+      const orders = await fetchOrdersFromDatabase();
+      
       const currentCustomers = get().customers;
       
+      // Mapear clientes do banco, manter os pedidos locais e adicionar pedidos do banco
       const updatedCustomers = customerData.map(customer => {
         const localCustomer = currentCustomers.find(c => 
           c.name?.toLowerCase() === customer.name?.toLowerCase() &&
           c.email?.toLowerCase() === customer.email?.toLowerCase()
         );
         
+        // Filtrar pedidos deste cliente (do banco de dados)
+        const customerOrders = orders.filter(order => order.customerId === customer.id);
+        
+        // Mesclar pedidos locais com pedidos do banco (priorizando os do banco)
+        const mergedOrders = [...(localCustomer?.orders || [])];
+        
+        // Adicionar pedidos do banco que ainda não existem localmente
+        customerOrders.forEach(dbOrder => {
+          const existingOrderIndex = mergedOrders.findIndex(o => o.id === dbOrder.id);
+          if (existingOrderIndex >= 0) {
+            // Atualizar pedido existente
+            mergedOrders[existingOrderIndex] = dbOrder;
+          } else {
+            // Adicionar novo pedido
+            mergedOrders.push(dbOrder);
+          }
+        });
+        
         return {
-          id: localCustomer?.id || generateId(),
+          id: localCustomer?.id || customer.id || generateId(),
           name: customer.name,
           email: customer.email,
           phone: customer.phone,
@@ -84,7 +114,7 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
           tourCity: customer.tour_city || undefined,
           tourState: customer.tour_state || undefined,
           tourDepartureTime: customer.tour_departure_time || undefined,
-          orders: localCustomer?.orders || []
+          orders: mergedOrders
         };
       });
       
@@ -92,7 +122,6 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       
       set({ customers: updatedCustomers });
       
-      return updatedCustomers;
     } catch (error) {
       console.error('Erro ao recarregar clientes:', error);
       toast.error('Erro ao atualizar lista de clientes');
@@ -230,6 +259,39 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
         createdAt: new Date()
       };
       
+      // Primeiro tenta salvar no banco de dados
+      saveOrderToDatabase({
+        customerId: orderData.customerId,
+        products: orderData.products,
+        status: orderData.status,
+        total: orderData.total
+      }).then(savedOrder => {
+        if (savedOrder) {
+          // Se foi salvo no banco de dados, atualiza o objeto na memória com o ID gerado pelo Supabase
+          set((currentState) => {
+            const updatedCustomersWithDbId = currentState.customers.map((customer) => {
+              if (customer.id === orderData.customerId) {
+                const updatedOrders = customer.orders.map(order => 
+                  order.id === newOrder.id ? savedOrder : order
+                );
+                return {
+                  ...customer,
+                  orders: updatedOrders
+                };
+              }
+              return customer;
+            });
+            
+            safeLocalStorageSave('customers', updatedCustomersWithDbId);
+            return { customers: updatedCustomersWithDbId };
+          });
+        }
+      }).catch(err => {
+        console.error('Erro ao salvar pedido no banco de dados:', err);
+        // Continua com a operação local mesmo se falhar no banco
+      });
+      
+      // Atualiza os dados localmente, enquanto a operação do banco acontece de forma assíncrona
       const updatedCustomers = state.customers.map((customer) => {
         if (customer.id === orderData.customerId) {
           return {
@@ -255,6 +317,18 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
   
   updateOrderStatus: (customerId, orderId, status) => set((state) => {
     try {
+      // Primeiro, tentamos atualizar no banco de dados
+      updateOrderStatusInDatabase(orderId, status)
+        .then(success => {
+          if (!success) {
+            console.error('Falha ao atualizar status do pedido no banco de dados');
+          }
+        })
+        .catch(err => {
+          console.error('Erro ao atualizar status do pedido no banco de dados:', err);
+        });
+      
+      // Atualiza localmente independente do resultado do banco
       const updatedCustomers = state.customers.map((customer) => {
         if (customer.id === customerId) {
           const updatedOrders = (customer.orders || []).map((order) => {
@@ -284,6 +358,18 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
   
   updateOrder: (customerId, orderId, orderData) => set((state) => {
     try {
+      // Primeiro, tentamos atualizar no banco de dados
+      updateOrderInDatabase(orderId, orderData)
+        .then(success => {
+          if (!success) {
+            console.error('Falha ao atualizar pedido no banco de dados');
+          }
+        })
+        .catch(err => {
+          console.error('Erro ao atualizar pedido no banco de dados:', err);
+        });
+      
+      // Atualiza localmente independente do resultado do banco
       const updatedCustomers = state.customers.map((customer) => {
         if (customer.id === customerId) {
           const updatedOrders = (customer.orders || []).map((order) => {
@@ -313,6 +399,18 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
   
   deleteOrder: (customerId, orderId) => set((state) => {
     try {
+      // Primeiro, tentamos excluir no banco de dados
+      deleteOrderFromDatabase(orderId)
+        .then(success => {
+          if (!success) {
+            console.error('Falha ao excluir pedido no banco de dados');
+          }
+        })
+        .catch(err => {
+          console.error('Erro ao excluir pedido no banco de dados:', err);
+        });
+      
+      // Atualiza localmente independente do resultado do banco
       const updatedCustomers = state.customers.map((customer) => {
         if (customer.id === customerId) {
           const updatedOrders = (customer.orders || []).filter((order) => order.id !== orderId);
@@ -332,5 +430,5 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       toast.error('Erro ao excluir pedido');
       return state;
     }
-  }),
+  })
 }));
