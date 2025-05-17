@@ -1,9 +1,15 @@
-
 // Não modificar este arquivo diretamente, ele é somente para leitura
 
 import { supabase, getStorageUrl, checkBucketExists } from './client';
 import { Product } from '@/types/products';
 import { generateId } from '@/utils/idGenerator';
+
+// Mapeamento para controle de tentativas de verificação de buckets
+const bucketCheckAttempts = {
+  products: 0,
+  customers: 0, 
+  shipments: 0
+};
 
 // Function to create a storage bucket if it doesn't exist
 export const createStorageBucket = async (bucketName: string) => {
@@ -24,25 +30,48 @@ export const createStorageBucket = async (bucketName: string) => {
 
 interface SetupStorageOptions {
   skipBucketCreation?: boolean;
+  skipExcessiveLogging?: boolean;
 }
 
 // Setup storage buckets
 export const setupStorage = async (options: SetupStorageOptions = {}): Promise<boolean> => {
-  const { skipBucketCreation = true } = options; // Sempre pular a criação do bucket por padrão
+  const { 
+    skipBucketCreation = true,
+    skipExcessiveLogging = false 
+  } = options;
   
-  console.log('Setting up storage buckets...');
+  if (!skipExcessiveLogging) {
+    console.log('Setting up storage buckets...');
+  }
   
   const BUCKET_NAMES = ['products', 'customers', 'shipments'];
+  let allBucketsAvailable = true;
   
   try {
     // Apenas verifica os buckets, não tenta criá-los
     for (const bucketName of BUCKET_NAMES) {
-      console.log(`Checking bucket: ${bucketName}`);
-      await checkBucketExists(bucketName);
+      // Limitar o número de tentativas de verificação por bucket
+      if (bucketCheckAttempts[bucketName] > 2) {
+        continue;
+      }
+      
+      bucketCheckAttempts[bucketName]++;
+      
+      if (!skipExcessiveLogging) {
+        console.log(`Checking bucket: ${bucketName}`);
+      }
+      
+      const bucketExists = await checkBucketExists(bucketName);
+      if (!bucketExists) {
+        allBucketsAvailable = false;
+      }
     }
     
-    console.log('Storage setup complete. Using local storage fallback where needed.');
-    return true;
+    if (!skipExcessiveLogging || !allBucketsAvailable) {
+      console.log('Storage setup complete. Using local storage fallback where needed.');
+    }
+    
+    return allBucketsAvailable;
   } catch (error) {
     console.error('Storage setup check failed:', error);
     console.log('Falling back to local storage only.');
@@ -53,7 +82,16 @@ export const setupStorage = async (options: SetupStorageOptions = {}): Promise<b
 // Function to upload a product image to storage
 export const uploadProductImage = async (productId: string, file: File): Promise<string> => {
   try {
+    // Primeiro verifica rapidamente se o bucket existe usando o cache
     const bucketName = 'products';
+    const shouldSkipUpload = bucketCheckAttempts[bucketName] > 2;
+    
+    // Se já tentamos verificar várias vezes e falhou, nem tenta fazer upload
+    if (shouldSkipUpload) {
+      console.log('Products bucket not available (cached result), using local storage fallback');
+      return URL.createObjectURL(file);
+    }
+    
     const bucketExists = await checkBucketExists(bucketName);
     
     if (!bucketExists) {

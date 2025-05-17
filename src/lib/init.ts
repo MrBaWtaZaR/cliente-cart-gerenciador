@@ -10,6 +10,12 @@ interface InitOptions {
   checkConnection?: boolean;
 }
 
+// Cache para evitar checagens repetidas
+const storageCache = {
+  initialized: false,
+  available: false
+};
+
 // Initialize core app services
 export const initializeApp = async (options: InitOptions = {}) => {
   const {
@@ -51,13 +57,26 @@ export const initializeApp = async (options: InitOptions = {}) => {
     }
     
     // Initialize storage (sem tentar criar buckets)
-    if (initStorage) {
+    if (initStorage && !storageCache.initialized) {
       try {
-        const storageAvailable = await setupStorage({ skipBucketCreation: true });
+        const storageAvailable = await setupStorage({ 
+          skipBucketCreation: true,
+          skipExcessiveLogging: true
+        });
+        
+        storageCache.initialized = true;
+        storageCache.available = storageAvailable;
+        
         console.log('Storage initialization complete, available:', storageAvailable);
       } catch (error) {
         console.error('Storage initialization error:', error);
+        
+        storageCache.initialized = true;
+        storageCache.available = false;
       }
+    } else if (initStorage) {
+      // Use cached results
+      console.log('Using cached storage setup results, available:', storageCache.available);
     }
     
     console.log('Application initialization complete');
