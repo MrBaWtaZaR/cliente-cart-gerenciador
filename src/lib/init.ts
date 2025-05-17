@@ -13,7 +13,8 @@ interface InitOptions {
 // Cache para evitar checagens repetidas
 const storageCache = {
   initialized: false,
-  available: false
+  available: false,
+  lastCheck: 0
 };
 
 // Initialize core app services
@@ -56,27 +57,35 @@ export const initializeApp = async (options: InitOptions = {}) => {
       }
     }
     
-    // Initialize storage (sem tentar criar buckets)
-    if (initStorage && !storageCache.initialized) {
+    // Initialize storage (com cache temporal)
+    if (initStorage) {
       try {
-        const storageAvailable = await setupStorage({ 
-          skipBucketCreation: true,
-          skipExcessiveLogging: true
-        });
-        
-        storageCache.initialized = true;
-        storageCache.available = storageAvailable;
-        
-        console.log('Storage initialization complete, available:', storageAvailable);
+        const now = Date.now();
+        // Verificar o cache apenas se tiver passado pelo menos 30 segundos da última verificação
+        if (!storageCache.initialized || (now - storageCache.lastCheck > 30000)) {
+          const storageAvailable = await setupStorage({ 
+            skipBucketCreation: true,
+            skipExcessiveLogging: true,
+            noAttemptIfUnavailable: true
+          });
+          
+          storageCache.initialized = true;
+          storageCache.available = storageAvailable;
+          storageCache.lastCheck = now;
+          
+          console.log('Storage initialization complete, available:', storageAvailable);
+        } else {
+          // Use cached results
+          console.log('Using cached storage setup results, available:', storageCache.available);
+        }
       } catch (error) {
         console.error('Storage initialization error:', error);
         
+        // Ainda define como inicializado para evitar novas tentativas
         storageCache.initialized = true;
         storageCache.available = false;
+        storageCache.lastCheck = Date.now();
       }
-    } else if (initStorage) {
-      // Use cached results
-      console.log('Using cached storage setup results, available:', storageCache.available);
     }
     
     console.log('Application initialization complete');

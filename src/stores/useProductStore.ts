@@ -24,6 +24,10 @@ interface ProductStore {
   uploadProductImage: (productId: string, file: File | string) => Promise<string>;
 }
 
+// Cache local para evitar verificações repetidas de storage
+let storageChecked = false;
+let storageAvailable = false;
+
 export const useProductStore = create<ProductStore>((set, get) => {
   // Inicializa produtos do localStorage como fallback
   const loadInitialProducts = (): Product[] => {
@@ -49,9 +53,18 @@ export const useProductStore = create<ProductStore>((set, get) => {
     loadProducts: async () => {
       set({ isLoading: true });
       try {
-        // Inicializa o storage para verificar se os buckets existem, sem criar
-        const storageAvailable = await setupStorage({ skipBucketCreation: true });
-        set({ isStorageAvailable: storageAvailable });
+        // Verificar disponibilidade de storage apenas uma vez por sessão
+        if (!storageChecked) {
+          // Inicializa o storage para verificar se os buckets existem, sem criar
+          // e sem gerar logs excessivos
+          storageAvailable = await setupStorage({ 
+            skipBucketCreation: true, 
+            skipExcessiveLogging: true,
+            noAttemptIfUnavailable: true
+          });
+          storageChecked = true;
+          set({ isStorageAvailable: storageAvailable });
+        }
         
         // Busca produtos do banco de dados
         const products = await fetchProductsFromDatabase();
@@ -192,8 +205,6 @@ export const useProductStore = create<ProductStore>((set, get) => {
     },
     
     uploadProductImage: async (productId: string, file: File | string) => {
-      const { isStorageAvailable } = get();
-      
       try {
         if (typeof file === 'string') {
           // Se já é uma URL, apenas retorna
@@ -205,7 +216,7 @@ export const useProductStore = create<ProductStore>((set, get) => {
         }
         
         // If storage is not available or bucket doesn't exist, use local blob URL
-        if (!isStorageAvailable) {
+        if (!storageAvailable) {
           console.log('Storage not available, using local blob URL');
           const blobUrl = URL.createObjectURL(file);
           toast.success('Imagem adicionada localmente');
