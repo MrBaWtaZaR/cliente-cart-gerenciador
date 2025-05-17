@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useDataStore } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Package, Plus, Trash } from 'lucide-react';
+import { executeRefreshCommand } from '@/utils/keyboardShortcuts';
 
 interface AddOrderFormProps {
   customerId: string;
@@ -80,6 +80,7 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
     });
 
     toast.success('Pedido adicionado com sucesso!');
+    executeRefreshCommand();
     onSuccess();
   };
 

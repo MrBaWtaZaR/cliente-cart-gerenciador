@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { Search, Plus, Users, X, UserPlus, Edit, Trash, Truck, Eye } from 'lucide-react';
 import { PhoneFormatter } from '@/components/PhoneFormatter';
 import { BrazilStateSelector } from '@/components/BrazilStateSelector';
+import { executeRefreshCommand } from '@/utils/keyboardShortcuts';
 
 export const CustomersPage = () => {
   const { customers, addCustomer, deleteCustomer } = useDataStore();
@@ -68,12 +69,14 @@ export const CustomersPage = () => {
       tourDepartureTime: '',
     });
     setIsAddingCustomer(false);
+    executeRefreshCommand();
   };
 
   const confirmDeleteCustomer = () => {
     if (customerToDelete) {
       deleteCustomer(customerToDelete.id);
       setCustomerToDelete(null);
+      executeRefreshCommand();
     }
   };
 
@@ -196,8 +199,17 @@ export const CustomersPage = () => {
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid grid-cols-2">
-              <TabsTrigger value="info">Informações Pessoais</TabsTrigger>
-              <TabsTrigger value="delivery" className="flex items-center">
+              <TabsTrigger 
+                value="info" 
+                onClick={() => executeRefreshCommand()}
+              >
+                Informações Pessoais
+              </TabsTrigger>
+              <TabsTrigger 
+                value="delivery" 
+                className="flex items-center"
+                onClick={() => executeRefreshCommand()}
+              >
                 <Truck className="h-4 w-4 mr-2" /> Entrega/Excursão
               </TabsTrigger>
             </TabsList>

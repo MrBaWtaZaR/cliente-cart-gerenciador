@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDataStore, Customer, Shipment } from '@/lib/data';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { testSupabaseConnection } from '@/integrations/supabase/client';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { executeRefreshCommand } from '@/utils/keyboardShortcuts';
 
 export const ShipmentPage = () => {
   const { customers, shipments, addShipment, getShipments, deleteShipment, updateShipment, refreshAll, forceRefreshShipments } = useDataStore();
@@ -130,6 +131,7 @@ export const ShipmentPage = () => {
       // Atualizar explicitamente os envios
       await forceRefreshShipments();
       toast.success('Envio criado com sucesso!');
+      executeRefreshCommand();
     } catch (error) {
       console.error('Erro ao criar envio:', error);
       toast.error('Erro ao criar envio. Por favor, tente novamente.');
@@ -160,6 +162,7 @@ export const ShipmentPage = () => {
       // Atualizar explicitamente os envios
       await forceRefreshShipments();
       toast.success('Envio excluído com sucesso');
+      executeRefreshCommand();
     } catch (error) {
       console.error('Erro ao excluir envio:', error);
       toast.error('Erro ao excluir envio');
@@ -196,6 +199,7 @@ export const ShipmentPage = () => {
       // Atualizar explicitamente os envios
       await forceRefreshShipments();
       toast.success('Envio atualizado com sucesso!');
+      executeRefreshCommand();
     } catch (error) {
       console.error('Erro ao atualizar envio:', error);
       toast.error('Erro ao atualizar envio. Por favor, tente novamente.');

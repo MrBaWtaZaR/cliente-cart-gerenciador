@@ -10,6 +10,7 @@ import {
   deleteOrderFromDatabase,
   fetchOrdersFromDatabase
 } from '../integrations/supabase/orders';
+import { executeRefreshCommand } from '@/utils/keyboardShortcuts';
 
 interface CustomerStore {
   customers: Customer[];
@@ -283,6 +284,7 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
             });
             
             safeLocalStorageSave('customers', updatedCustomersWithDbId);
+            executeRefreshCommand();
             return { customers: updatedCustomersWithDbId };
           });
         }
@@ -307,6 +309,7 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       window.dispatchEvent(new CustomEvent('order-updated'));
       
       toast.success('Pedido adicionado com sucesso');
+      executeRefreshCommand();
       return { customers: updatedCustomers };
     } catch (error) {
       console.error('Error adding order:', error);
@@ -348,6 +351,7 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       window.dispatchEvent(new CustomEvent('order-updated'));
       
       toast.success('Status do pedido atualizado');
+      executeRefreshCommand();
       return { customers: updatedCustomers };
     } catch (error) {
       console.error('Error updating order status:', error);
@@ -389,6 +393,7 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       window.dispatchEvent(new CustomEvent('order-updated'));
       
       toast.success('Pedido atualizado com sucesso');
+      executeRefreshCommand();
       return { customers: updatedCustomers };
     } catch (error) {
       console.error('Error updating order:', error);
@@ -424,6 +429,7 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       window.dispatchEvent(new CustomEvent('order-updated'));
       
       toast.success('Pedido excluído com sucesso');
+      executeRefreshCommand();
       return { customers: updatedCustomers };
     } catch (error) {
       console.error('Error deleting order:', error);

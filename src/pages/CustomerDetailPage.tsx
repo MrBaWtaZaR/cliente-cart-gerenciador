@@ -16,6 +16,7 @@ import { OrderCard } from '@/components/OrderCard';
 import { PhoneFormatter } from '@/components/PhoneFormatter';
 import { TimeFormatter } from '@/components/TimeFormatter';
 import { BrazilStateSelector } from '@/components/BrazilStateSelector';
+import { executeRefreshCommand } from '@/utils/keyboardShortcuts';
 
 export const CustomerDetailPage = () => {
   const { customerId } = useParams<{ customerId: string }>();
@@ -49,6 +50,7 @@ export const CustomerDetailPage = () => {
       updateCustomer(customerId, editedCustomer);
       setIsEditing(false);
       toast.success('Cliente atualizado com sucesso!');
+      executeRefreshCommand();
     }
   };
 
@@ -66,6 +68,7 @@ export const CustomerDetailPage = () => {
 
   const handleCloseAddOrderDialog = () => {
     setIsAddingOrder(false);
+    executeRefreshCommand();
   };
 
   const confirmDelete = () => {
@@ -74,6 +77,7 @@ export const CustomerDetailPage = () => {
       handleCloseDeleteDialog();
       navigate('/dashboard/customers');
       toast.success('Cliente excluído com sucesso!');
+      executeRefreshCommand();
     }
   };
 

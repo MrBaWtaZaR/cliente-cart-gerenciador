@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/lib/auth';
@@ -16,6 +15,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { executeRefreshCommand } from '@/utils/keyboardShortcuts';
 
 export const DashboardSidebar = () => {
   const location = useLocation();
@@ -109,7 +109,10 @@ export const DashboardSidebar = () => {
                       "flex items-center px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-white/10 transition-colors",
                       isActive ? "bg-white/15 shadow-inner" : ""
                     )}
-                    onClick={() => isMobile && setIsOpen(false)}
+                    onClick={() => {
+                      if (isMobile) setIsOpen(false);
+                      executeRefreshCommand();
+                    }}
                   >
                     {item.icon}
                     <span className="ml-3 font-medium">{item.label}</span>
@@ -123,7 +126,10 @@ export const DashboardSidebar = () => {
             <Button 
               variant="outline" 
               className="w-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white border-0"
-              onClick={logout}
+              onClick={() => {
+                logout();
+                executeRefreshCommand();
+              }}
             >
               <LogOut className="h-4 w-4 mr-2" />
               <span>Sair</span>

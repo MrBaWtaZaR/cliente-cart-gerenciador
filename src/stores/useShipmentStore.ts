@@ -1,9 +1,22 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
+import { Shipment } from '@/types/customers';
 import { supabase } from '@/integrations/supabase/client';
-import { Shipment } from '../types/shipments';
-import { Customer } from '../types/customers';
-import { generateId } from '../utils/idGenerator';
+import { executeRefreshCommand } from '@/utils/keyboardShortcuts';
+
+// Função utilitária para buscar clientes da store principal
+const getCustomersFromStore = async () => {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('*');
+    
+  if (error) {
+    console.error('Error fetching customers:', error);
+    return [];
+  }
+  
+  return data || [];
+};
 
 interface ShipmentStore {
   shipments: Shipment[];
@@ -12,20 +25,8 @@ interface ShipmentStore {
   updateShipment: (shipmentId: string, customerIds: string[]) => Promise<Shipment | null>;
   deleteShipment: (shipmentId: string) => Promise<void>;
   getShipments: () => Promise<Shipment[]>;
-  getShipmentCustomers: (shipmentId: string) => Promise<Customer[]>;
+  getShipmentCustomers: (shipmentId: string) => Promise<any[]>;
 }
-
-// Helper function to safely import useDataStore to avoid circular dependencies
-const getCustomersFromStore = async (): Promise<Customer[]> => {
-  try {
-    // Dynamically import to avoid circular dependency
-    const storesModule = await import('../stores');
-    return storesModule.useDataStore.getState().customers || [];
-  } catch (error) {
-    console.error('Error accessing data store:', error);
-    return [];
-  }
-};
 
 export const useShipmentStore = create<ShipmentStore>((set, get) => ({
   shipments: [],
@@ -150,6 +151,7 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
       await get().getShipments();
       
       toast.success('Envio criado com sucesso');
+      executeRefreshCommand();
       return newShipment;
     } catch (error) {
       console.error('Erro ao criar envio:', error);
@@ -270,6 +272,7 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
       set({ shipments });
       
       toast.success('Envio atualizado com sucesso');
+      executeRefreshCommand();
       return updatedShipment;
     } catch (error) {
       console.error('Erro ao atualizar envio:', error);
@@ -310,6 +313,7 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
       set({ shipments });
       
       toast.success('Envio excluído com sucesso');
+      executeRefreshCommand();
     } catch (error) {
       console.error('Erro ao excluir envio:', error);
       toast.error('Erro ao excluir envio');
@@ -319,110 +323,131 @@ export const useShipmentStore = create<ShipmentStore>((set, get) => ({
   
   getShipments: async () => {
     try {
+      // Try to get shipments from Supabase first
       const { data: shipmentData, error: shipmentError } = await supabase
         .from('shipments')
         .select('*')
         .order('created_at', { ascending: false });
         
       if (shipmentError) {
-        throw shipmentError;
+        console.error('Error fetching shipments:', shipmentError);
+        return [];
       }
-
-      // Transform the data to match our Shipment interface
-      const shipments: Shipment[] = await Promise.all(shipmentData.map(async (shipment) => {
-        // Get customers for this shipment
-        try {
-          const customers = await get().getShipmentCustomers(shipment.id);
+      
+      if (!shipmentData || shipmentData.length === 0) {
+        return [];
+      }
+      
+      // Get all shipment-customer associations
+      const { data: associationsData, error: associationsError } = await supabase
+        .from('shipment_customers')
+        .select('shipment_id, customer_id');
+        
+      if (associationsError) {
+        console.error('Error fetching shipment-customer associations:', associationsError);
+        return [];
+      }
+      
+      // Get all customers
+      const { data: customersData, error: customersError } = await supabase
+        .from('customers')
+        .select('*');
+        
+      if (customersError) {
+        console.error('Error fetching customers:', customersError);
+        return [];
+      }
+      
+      // Transform database data to application structure
+      const shipments: Shipment[] = shipmentData.map(shipment => {
+        // Find all associations for this shipment
+        const shipmentAssociations = associationsData
+          .filter(assoc => assoc.shipment_id === shipment.id)
+          .map(assoc => assoc.customer_id);
           
-          return {
-            id: shipment.id,
-            name: shipment.name,
-            createdAt: new Date(shipment.created_at),
-            customers: customers
-          };
-        } catch (error) {
-          console.error(`Error getting customers for shipment ${shipment.id}:`, error);
-          return {
-            id: shipment.id,
-            name: shipment.name,
-            createdAt: new Date(shipment.created_at),
-            customers: []
-          };
-        }
-      }));
+        // Find all customers for these associations
+        const shipmentCustomers = customersData
+          .filter(customer => shipmentAssociations.includes(customer.id))
+          .map(customer => ({
+            id: customer.id,
+            name: customer.name,
+            email: customer.email || '',
+            phone: customer.phone || '',
+            address: customer.address || '',
+            tourName: customer.tour_name || '',
+            tourSector: customer.tour_sector || '',
+            tourSeatNumber: customer.tour_seat_number || '',
+            tourCity: customer.tour_city || '',
+            tourState: customer.tour_state || '',
+            tourDepartureTime: customer.tour_departure_time || '',
+            orders: [],
+            createdAt: new Date(customer.created_at)
+          }));
+          
+        return {
+          id: shipment.id,
+          name: shipment.name,
+          createdAt: new Date(shipment.created_at),
+          customers: shipmentCustomers
+        };
+      });
       
       set({ shipments });
-      
       return shipments;
     } catch (error) {
-      console.error('Erro ao carregar envios:', error);
-      toast.error('Erro ao carregar histórico de envios');
+      console.error('Error getting shipments:', error);
       return [];
     }
   },
   
   getShipmentCustomers: async (shipmentId) => {
     try {
-      // Get the customer IDs associated with this shipment
-      const { data: associations, error: associationError } = await supabase
+      // First, get all customer IDs for this shipment
+      const { data: associationsData, error: associationsError } = await supabase
         .from('shipment_customers')
         .select('customer_id')
         .eq('shipment_id', shipmentId);
         
-      if (associationError) {
-        throw associationError;
-      }
-      
-      if (!associations || associations.length === 0) {
+      if (associationsError) {
+        console.error('Error fetching shipment-customer associations:', associationsError);
         return [];
       }
       
-      // Get the customer data for those IDs
-      const customerIds = associations.map(assoc => assoc.customer_id);
-      const { data: customerData, error: customerError } = await supabase
+      if (!associationsData || associationsData.length === 0) {
+        return [];
+      }
+      
+      const customerIds = associationsData.map(assoc => assoc.customer_id);
+      
+      // Then get all customers
+      const { data: customersData, error: customersError } = await supabase
         .from('customers')
         .select('*')
         .in('id', customerIds);
         
-      if (customerError) {
-        throw customerError;
-      }
-      
-      if (!customerData) {
+      if (customersError) {
+        console.error('Error fetching customers:', customersError);
         return [];
       }
-
-      // Get customers from store using our safe helper function
-      const localCustomers = await getCustomersFromStore();
-
-      // Map the customers with their orders from local store
-      const mappedCustomers: Customer[] = customerData.map(customer => {
-        const localCustomer = localCustomers.find(c => 
-          c.name?.toLowerCase() === customer.name?.toLowerCase() &&
-          c.email?.toLowerCase() === customer.email?.toLowerCase()
-        );
-        
-        return {
-          id: localCustomer?.id || generateId(),
-          name: customer.name,
-          email: customer.email,
-          phone: customer.phone,
-          address: customer.address || undefined,
-          createdAt: new Date(customer.created_at || new Date()),
-          tourName: customer.tour_name || undefined,
-          tourSector: customer.tour_sector || undefined,
-          tourSeatNumber: customer.tour_seat_number || undefined,
-          tourCity: customer.tour_city || undefined,
-          tourState: customer.tour_state || undefined,
-          tourDepartureTime: customer.tour_departure_time || undefined,
-          orders: localCustomer?.orders || []
-        };
-      });
       
-      return mappedCustomers;
+      // Transform to application structure
+      return customersData.map(customer => ({
+        id: customer.id,
+        name: customer.name,
+        email: customer.email || '',
+        phone: customer.phone || '',
+        address: customer.address || '',
+        tourName: customer.tour_name || '',
+        tourSector: customer.tour_sector || '',
+        tourSeatNumber: customer.tour_seat_number || '',
+        tourCity: customer.tour_city || '',
+        tourState: customer.tour_state || '',
+        tourDepartureTime: customer.tour_departure_time || '',
+        orders: [],
+        createdAt: new Date(customer.created_at)
+      }));
     } catch (error) {
-      console.error('Erro ao carregar clientes do envio:', error);
-      toast.error('Erro ao carregar detalhes do envio');
+      console.error('Error getting shipment customers:', error);
       return [];
     }
   }

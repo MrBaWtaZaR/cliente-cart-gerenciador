@@ -22,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { executeRefreshCommand } from '@/utils/keyboardShortcuts';
 
 export const OrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -88,10 +89,14 @@ export const OrdersPage = () => {
   const handleUpdateOrderStatus = (customerId: string, orderId: string, newStatus: 'pending' | 'completed' | 'cancelled') => {
     updateOrderStatus(customerId, orderId, newStatus);
     
-    // Update status in current view if it's open
-    if (viewingOrder && viewingOrder.id === orderId && isMounted.current) {
-      setViewingOrder({ ...viewingOrder, status: newStatus });
+    if (viewingOrder && viewingOrder.id === orderId) {
+      setViewingOrder({
+        ...viewingOrder,
+        status: newStatus
+      });
     }
+    
+    executeRefreshCommand();
   };
 
   // Improved view order function
