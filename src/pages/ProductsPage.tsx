@@ -447,7 +447,7 @@ export const ProductsPage = () => {
               />
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="price">Preço *</Label>
                 <Input
@@ -456,6 +456,7 @@ export const ProductsPage = () => {
                   placeholder="R$ 0,00"
                   value={formatPriceDisplay(newProduct.price)}
                   onChange={handleInputChange}
+                  className="border-2 border-blue-400"
                 />
               </div>
               
@@ -597,7 +598,7 @@ export const ProductsPage = () => {
               />
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-price">Preço *</Label>
                 <Input
@@ -606,6 +607,7 @@ export const ProductsPage = () => {
                   placeholder="R$ 0,00"
                   value={formatPriceDisplay(newProduct.price)}
                   onChange={handleInputChange}
+                  className="border-2 border-blue-400"
                 />
               </div>
               
