@@ -456,7 +456,6 @@ export const ProductsPage = () => {
                   placeholder="R$ 0,00"
                   value={formatPriceDisplay(newProduct.price)}
                   onChange={handleInputChange}
-                  className="border-2 border-blue-400"
                 />
               </div>
               
@@ -607,7 +606,6 @@ export const ProductsPage = () => {
                   placeholder="R$ 0,00"
                   value={formatPriceDisplay(newProduct.price)}
                   onChange={handleInputChange}
-                  className="border-2 border-blue-400"
                 />
               </div>
               
