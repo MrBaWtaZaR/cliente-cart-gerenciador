@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useDataStore } from '@/lib/data';
 import { Button } from '@/components/ui/button';
@@ -53,7 +54,8 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
   const getItemPrice = (item: typeof orderItems[number]) => {
     const product = products.find(p => p.id === item.productId);
     if (!product) return 0;
-    if (product.price === 0 && item.manualPrice && !isNaN(Number(item.manualPrice.replace(',', '.')))) {
+    // Verifique se o preço é zero ou muito próximo de zero (para evitar problemas com arredondamento)
+    if ((product.price === 0 || product.price < 0.01) && item.manualPrice && !isNaN(Number(item.manualPrice.replace(',', '.')))) {
       return Number(item.manualPrice.replace(',', '.'));
     }
     return product.price;
@@ -73,7 +75,7 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
     }
     for (const item of orderItems) {
       const product = products.find(p => p.id === item.productId);
-      if (product && product.price === 0) {
+      if (product && (product.price === 0 || product.price < 0.01)) {
         if (!item.manualPrice || isNaN(Number(item.manualPrice.replace(',', '.')))) {
           toast.error('Informe um valor válido para produtos com preço 0,00');
           return;
@@ -106,7 +108,11 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
       <div className="space-y-4">
         {orderItems.map((item, index) => {
           const product = products.find(p => p.id === item.productId);
-          const showManualPrice = product && Number(product.price) === 0;
+          // Modificamos esta linha para garantir que produtos com preço igual a 0 mostrem o campo de valor manual
+          const showManualPrice = product && (product.price === 0 || product.price < 0.01);
+          
+          console.log(`Item ${index}, Product: ${product?.name}, Price: ${product?.price}, Show Manual Price: ${showManualPrice}`);
+          
           return (
             <div key={index} className="flex flex-col space-y-2 p-3 border rounded-md">
               <div className="flex justify-between items-center">
@@ -157,13 +163,12 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
                 </div>
               </div>
               {showManualPrice && (
-                <div>
+                <div className="my-2">
                   <Label htmlFor={`manualPrice-${index}`}>Valor do Produto (R$)</Label>
                   <Input
                     id={`manualPrice-${index}`}
-                    type="number"
-                    min="0.01"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="Digite o valor"
                     value={item.manualPrice}
                     onChange={e => handleManualPriceChange(index, e.target.value)}
@@ -213,3 +218,4 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
     </form>
   );
 };
+
