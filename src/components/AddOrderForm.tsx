@@ -106,7 +106,7 @@ export const AddOrderForm = ({ customerId, onSuccess }: AddOrderFormProps) => {
       <div className="space-y-4">
         {orderItems.map((item, index) => {
           const product = products.find(p => p.id === item.productId);
-          const showManualPrice = product && product.price === 0;
+          const showManualPrice = product && Number(product.price) === 0;
           return (
             <div key={index} className="flex flex-col space-y-2 p-3 border rounded-md">
               <div className="flex justify-between items-center">
