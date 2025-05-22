@@ -187,7 +187,7 @@ O sistema utiliza uma arquitetura de componentes com foco em reusabilidade, segu
 - Integração com sistemas de pagamento
 - Aplicativo mobile para acompanhamento em tempo real
 - Melhorias de performance para grandes volumes de dados
-- Expansão das funcionalidades de análise de dados
+- Expansão das funcionalidades de análise de dados.
 
 ## Suporte e Contato
 
