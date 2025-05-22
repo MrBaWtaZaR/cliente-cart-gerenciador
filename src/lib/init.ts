@@ -1,6 +1,4 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { setupStorage } from '@/integrations/supabase/storage';
 import { useAuthStore } from '@/lib/auth';
 import { toast } from 'sonner';
 
@@ -58,41 +56,8 @@ export const initializeApp = async (options: InitOptions = {}) => {
     }
     
     // Initialize storage with improved error handling
-    if (initStorage) {
-      try {
-        const now = Date.now();
-        // Only check if at least 30 seconds have passed since last check
-        if (!storageCache.initialized || (now - storageCache.lastCheck > 30000)) {
-          const storageAvailable = await setupStorage({ 
-            skipBucketCreation: true, // Don't try to create buckets, they already exist
-            skipExcessiveLogging: true,
-            noAttemptIfUnavailable: false // Try to access existing buckets
-          });
-          
-          storageCache.initialized = true;
-          storageCache.available = storageAvailable;
-          storageCache.lastCheck = now;
-          
-          console.log('Storage initialization complete, available:', storageAvailable);
-          
-          // Show notification only if storage was previously unavailable
-          if (storageAvailable && !sessionStorage.getItem('storage-initialized')) {
-            toast.success('Armazenamento configurado com sucesso');
-            sessionStorage.setItem('storage-initialized', 'true');
-          }
-        } else {
-          // Use cached results
-          console.log('Using cached storage setup results, available:', storageCache.available);
-        }
-      } catch (error) {
-        console.error('Storage initialization error:', error);
-        
-        // Still mark as initialized to avoid repeated attempts
-        storageCache.initialized = true;
-        storageCache.available = false;
-        storageCache.lastCheck = Date.now();
-      }
-    }
+    // Removido: setupStorage não existe mais
+    // ... existing code ...
     
     console.log('Application initialization complete');
     return true;

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useDataStore } from '@/lib/data';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -15,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useShipmentSafeUnmount } from '@/components/ShipmentSafeUnmount';
 import { Customer, Shipment } from '@/types/shipments';
 import { PrintablePDFRef } from '@/components/PrintablePDF';
+import { useGlobalEventListener } from '@/hooks/useGlobalEventListener';
 
 export const ShipmentPage = () => {
   const { customers, shipments, addShipment, getShipments, deleteShipment, updateShipment } = useDataStore();
@@ -38,7 +38,6 @@ export const ShipmentPage = () => {
 
   // Filter customers with pending orders only - improved to be more reliable
   const customersWithPendingOrders = useMemo(() => {
-    console.log("Recalculating customers with pending orders...");
     return customers.filter(customer => {
       // Check if customer has at least one pending order
       return customer.orders && customer.orders.some(order => {
@@ -65,14 +64,10 @@ export const ShipmentPage = () => {
     const fetchShipments = async () => {
       // If we're already updating or component has unmounted, don't proceed
       if (isUpdatingRef.current || !isMounted()) return;
-      
       isUpdatingRef.current = true;
       if (isMounted()) setIsLoading(true);
-      
       try {
-        console.log("Fetching shipments on mount...");
         const fetchedShipments = await getShipments();
-        console.log("Retrieved", fetchedShipments?.length || 0, "shipments");
       } catch (error) {
         console.error("Error fetching shipments:", error);
         if (isMounted()) {
@@ -88,91 +83,52 @@ export const ShipmentPage = () => {
         }, 300);
       }
     };
-    
     fetchShipments();
   }, [getShipments, isMounted]);
 
+  // Handlers globais para eventos
+  const updateTimer = useRef<ReturnType<typeof setTimeout>>();
+  const orderStatusUpdateTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleOrderUpdate = () => {
+    // Clear any pending update
+    if (updateTimer.current) clearTimeout(updateTimer.current);
+    // If we're already updating ou o componente desmontou, não faz nada
+    if (isUpdatingRef.current || !isMounted()) return;
+    // Debounce
+    updateTimer.current = setTimeout(async () => {
+      isUpdatingRef.current = true;
+      if (isMounted()) setIsLoading(true);
+      try {
+        await getShipments();
+      } catch (error) {
+        console.error("Error refreshing shipments on update:", error);
+      } finally {
+        if (isMounted()) setIsLoading(false);
+        setTimeout(() => { isUpdatingRef.current = false; }, 300);
+      }
+    }, 500);
+  };
+
+  const handleOrderStatusChange = () => {
+    if (orderStatusUpdateTimer.current) clearTimeout(orderStatusUpdateTimer.current);
+    if (isUpdatingRef.current || !isMounted()) return;
+    orderStatusUpdateTimer.current = setTimeout(async () => {
+      isUpdatingRef.current = true;
+      try {
+        await useDataStore.getState().refreshAll();
+      } catch (error) {
+        console.error("Error refreshing data after status change:", error);
+      } finally {
+        setTimeout(() => { isUpdatingRef.current = false; }, 300);
+      }
+    }, 250);
+  };
+
   // Improved event listeners for data updates
-  useEffect(() => {
-    let updateTimer: ReturnType<typeof setTimeout>;
-    let orderStatusUpdateTimer: ReturnType<typeof setTimeout>;
-    
-    // Generic order update handler
-    const handleOrderUpdate = () => {
-      // Clear any pending update
-      clearTimeout(updateTimer);
-      
-      // If we're already updating or the component has unmounted, don't proceed
-      if (isUpdatingRef.current || !isMounted()) return;
-      
-      // Debounce the updates with a timeout
-      updateTimer = setTimeout(async () => {
-        console.log("Handling data update event...");
-        
-        isUpdatingRef.current = true;
-        if (isMounted()) setIsLoading(true);
-        
-        try {
-          await getShipments();
-        } catch (error) {
-          console.error("Error refreshing shipments on update:", error);
-        } finally {
-          if (isMounted()) {
-            setIsLoading(false);
-          }
-          
-          // Add a delay before allowing updates again
-          setTimeout(() => {
-            isUpdatingRef.current = false;
-          }, 300);
-        }
-      }, 500); // Add significant debounce time
-    };
-    
-    // Specific handler for order status changes
-    const handleOrderStatusChange = () => {
-      // Clear any pending status update
-      clearTimeout(orderStatusUpdateTimer);
-      
-      // If we're already updating or the component has unmounted, don't proceed
-      if (isUpdatingRef.current || !isMounted()) return;
-      
-      console.log("Order status changed, refreshing data...");
-      
-      // Use a shorter debounce for status changes to make it feel more responsive
-      orderStatusUpdateTimer = setTimeout(async () => {
-        isUpdatingRef.current = true;
-        
-        try {
-          // Request a full data refresh
-          await useDataStore.getState().refreshAll();
-        } catch (error) {
-          console.error("Error refreshing data after status change:", error);
-        } finally {
-          // Release the update lock after a short delay
-          setTimeout(() => {
-            isUpdatingRef.current = false;
-          }, 300);
-        }
-      }, 250);
-    };
-    
-    // Listen for general order updates
-    window.addEventListener('order-updated', handleOrderUpdate);
-    window.addEventListener('data-updated', handleOrderUpdate);
-    
-    // Listen specifically for order status changes
-    window.addEventListener('order-status-changed', handleOrderStatusChange);
-    
-    return () => {
-      // Clean up all timers and event listeners
-      clearTimeout(updateTimer);
-      clearTimeout(orderStatusUpdateTimer);
-      window.removeEventListener('order-updated', handleOrderUpdate);
-      window.removeEventListener('data-updated', handleOrderUpdate);
-      window.removeEventListener('order-status-changed', handleOrderStatusChange);
-    };
-  }, [getShipments, isMounted]);
+  useGlobalEventListener('order-updated', handleOrderUpdate);
+  useGlobalEventListener('data-updated', handleOrderUpdate);
+  useGlobalEventListener('order-status-changed', handleOrderStatusChange);
 
   // Fix react-to-print implementation
   const handlePrintTable = useReactToPrint({
@@ -225,34 +181,26 @@ export const ShipmentPage = () => {
       toast.error('Selecione pelo menos um cliente para criar um envio');
       return;
     }
-
     if (isMounted()) setIsLoading(true);
-    
     try {
       const shipment = await addShipment(selectedCustomers);
       if (!shipment) {
         throw new Error("Falha ao criar envio");
       }
-      
       if (isMounted()) {
         setSelectedShipment(shipment);
         setIsSelectingCustomers(false);
         setIsCreatingShipment(true);
-        
         // Reset selection
         setSelectedCustomers([]);
       }
-      
       // Explicitly fetch updated shipments to ensure UI is up to date
       await getShipments();
-      console.log("Shipment created and shipments refreshed");
-      
       if (isMounted()) {
         toast.success('Envio criado com sucesso!');
       }
     } catch (error) {
       console.error('Erro ao criar envio:', error);
-      
       if (isMounted()) {
         toast.error('Erro ao criar envio. Por favor, tente novamente.');
       }
@@ -279,37 +227,27 @@ export const ShipmentPage = () => {
 
   const handleDeleteShipment = async () => {
     if (!selectedShipment) return;
-    
     if (isMounted()) {
       setIsDeletingShipment(true);
       setShowDeleteConfirm(false);
     }
-    
     try {
-      console.log("Iniciando processo de exclusão do envio:", selectedShipment.id);
-      
       // Wait for the deletion to complete
       await deleteShipment(selectedShipment.id);
-      
       // Close the details modal only if deletion was successful
       if (isMounted()) {
         setShowShipmentDetails(false);
         setSelectedShipment(null);
       }
-      
       // Explicitly refresh
       await getShipments();
-      
       // Reset state after successful deletion
       if (isMounted()) {
         setIsDeletingShipment(false);
         toast.success('Envio excluído com sucesso');
       }
-      
-      console.log("Processo de exclusão concluído com sucesso");
     } catch (error) {
       console.error('Erro ao excluir envio:', error);
-      
       if (isMounted()) {
         toast.error('Erro ao excluir envio');
         setIsDeletingShipment(false);
@@ -334,28 +272,21 @@ export const ShipmentPage = () => {
       toast.error('Selecione pelo menos um cliente para atualizar o envio');
       return;
     }
-
     if (isMounted()) setIsLoading(true);
-    
     try {
       await updateShipment(selectedShipment.id, selectedCustomers);
-      
       if (isMounted()) {
         setIsSelectingCustomers(false);
         setIsEditing(false);
         setSelectedCustomers([]);
       }
-      
       // Explicitly refresh
       await getShipments();
-      console.log("Shipment updated and shipments refreshed");
-      
       if (isMounted()) {
         toast.success('Envio atualizado com sucesso!');
       }
     } catch (error) {
       console.error('Erro ao atualizar envio:', error);
-      
       if (isMounted()) {
         toast.error('Erro ao atualizar envio. Por favor, tente novamente.');
       }
@@ -389,26 +320,18 @@ export const ShipmentPage = () => {
   const handleManualRefresh = async () => {
     // If we're already updating, don't proceed
     if (isUpdatingRef.current || !isMounted()) return;
-    
     isUpdatingRef.current = true;
     if (isMounted()) setIsLoading(true);
-    
     try {
-      console.log("Manual refresh requested...");
-      
       // Use the full data refresh to ensure everything is up to date
       await useDataStore.getState().refreshAll();
-      
       // Then specifically refresh shipments
       const fetchedShipments = await getShipments();
-      console.log("Manual refresh completed, found", fetchedShipments?.length || 0, "shipments");
-      
       if (isMounted()) {
         toast.success('Dados atualizados com sucesso');
       }
     } catch (error) {
       console.error("Error during manual refresh:", error);
-      
       if (isMounted()) {
         toast.error("Falha ao atualizar dados");
       }
@@ -416,19 +339,12 @@ export const ShipmentPage = () => {
       if (isMounted()) {
         setIsLoading(false);
       }
-      
       // Add a delay before allowing updates again
       setTimeout(() => {
         isUpdatingRef.current = false;
       }, 300);
     }
   };
-
-  // Debug logging for monitoring customers and their order status
-  useEffect(() => {
-    console.log("Current pending customers count:", customersWithPendingOrders.length);
-    console.log("Total customers count:", customers.length);
-  }, [customersWithPendingOrders, customers]);
 
   // Calculate if "new shipment" button should be disabled
   const isNewShipmentButtonDisabled = isLoading;

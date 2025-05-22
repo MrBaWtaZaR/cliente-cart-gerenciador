@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { Product } from '../types/products';
@@ -8,8 +7,7 @@ import {
   saveProductToDatabase, 
   fetchProductsFromDatabase,
   updateProductInDatabase,
-  deleteProductFromDatabase,
-  setupStorage
+  deleteProductFromDatabase
 } from '../integrations/supabase/storage';
 
 interface ProductStore {
@@ -23,10 +21,6 @@ interface ProductStore {
   deleteProduct: (id: string) => Promise<void>;
   uploadProductImage: (productId: string, file: File | string) => Promise<string>;
 }
-
-// Local cache to avoid repeated storage checks
-let storageChecked = false;
-let storageAvailable = false;
 
 export const useProductStore = create<ProductStore>((set, get) => {
   // Initialize products from localStorage as fallback
@@ -53,31 +47,16 @@ export const useProductStore = create<ProductStore>((set, get) => {
     loadProducts: async () => {
       set({ isLoading: true });
       try {
-        // Check storage availability only once per session
-        if (!storageChecked) {
-          // Initialize storage - don't try to create buckets, assume they exist
-          storageAvailable = await setupStorage({ 
-            skipBucketCreation: true, 
-            skipExcessiveLogging: true,
-            noAttemptIfUnavailable: false
-          });
-          storageChecked = true;
-          set({ isStorageAvailable: storageAvailable });
-        }
-        
         // Fetch products from database
         const products = await fetchProductsFromDatabase();
-        
         // Fall back to localStorage if database fetch returns nothing
         if (products.length === 0) {
           const localProducts = loadInitialProducts();
           set({ products: localProducts, isLoading: false });
           return;
         }
-        
         // Update state with products from database
         set({ products, isLoading: false });
-        
         // Also update localStorage as backup
         try {
           localStorage.setItem('products', JSON.stringify(products));
@@ -209,22 +188,18 @@ export const useProductStore = create<ProductStore>((set, get) => {
           // Se já é uma URL, apenas retorna
           return file;
         }
-        
         if (!(file instanceof File)) {
           throw new Error('Expected file to be a File object');
         }
-        
         // Agora que os buckets foram criados, tentamos usar o Supabase Storage primeiro
         try {
-          const publicUrl = await uploadProductImage(productId, file);
-          
+          const publicUrl = await uploadProductImage(file, productId);
           // Se o upload for bem-sucedido, atualiza a imagem no estado
           if (publicUrl && publicUrl !== '/placeholder.svg') {
             set((state) => {
               const updatedProducts = state.products.map((product) => {
                 if (product.id === productId) {
-                  const updatedImages = [...(product.images || [])
-                    .filter(img => img !== '/placeholder.svg'), publicUrl];
+                  const updatedImages = [...(product.images || []).filter(img => img !== '/placeholder.svg'), publicUrl];
                   return {
                     ...product,
                     images: updatedImages
@@ -232,18 +207,15 @@ export const useProductStore = create<ProductStore>((set, get) => {
                 }
                 return product;
               });
-              
               // Atualiza o localStorage
               try {
                 localStorage.setItem('products', JSON.stringify(updatedProducts));
               } catch (storageError) {
                 console.error('Failed to save products with image to localStorage:', storageError);
               }
-              
               return { products: updatedProducts };
             });
           }
-          
           toast.success('Imagem adicionada com sucesso');
           return publicUrl;
         } catch (uploadError) {
@@ -254,16 +226,8 @@ export const useProductStore = create<ProductStore>((set, get) => {
           return blobUrl;
         }
       } catch (error) {
-        console.error('Erro ao fazer upload:', error);
-        toast.error('Falha ao adicionar imagem');
-        
-        // Create a local blob URL as fallback
-        if (file instanceof File) {
-          const blobUrl = URL.createObjectURL(file);
-          return blobUrl;
-        }
-        
-        // Return placeholder in case of error
+        console.error('Error uploading product image:', error);
+        toast.error('Erro ao enviar imagem do produto');
         return '/placeholder.svg';
       }
     },

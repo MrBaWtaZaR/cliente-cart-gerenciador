@@ -1,193 +1,27 @@
 // Não modificar este arquivo diretamente, ele é somente para leitura
 
-import { supabase, getStorageUrl, checkBucketExists } from './client';
+import { supabase, getStorageUrl } from './client';
 import { Product } from '@/types/products';
 import { generateId } from '@/utils/idGenerator';
 
-// Mapeamento para controle de tentativas de verificação de buckets
-const bucketCheckAttempts = {
-  products: 0,
-  customers: 0, 
-  shipments: 0
+// Função para obter a URL de uma imagem de produto
+export const getProductImageUrl = (path: string) => {
+  return getStorageUrl('product-images', path);
 };
 
-// Cache global para status dos buckets
-const bucketStatusCache = {
-  products: false,
-  customers: false,
-  shipments: false,
-  lastCheck: 0
+// Função para upload de imagem de produto
+export const uploadProductImage = async (file: File, productId: string) => {
+  const filePath = `${productId}/${file.name}`;
+  const { data, error } = await supabase.storage.from('product-images').upload(filePath, file);
+  if (error) throw error;
+  // Retorna a URL pública da imagem
+  return getStorageUrl('product-images', filePath);
 };
 
-// Function to create a storage bucket if it doesn't exist
-export const createStorageBucket = async (bucketName: string) => {
-  try {
-    // Verificar cache primeiro
-    if (bucketStatusCache[bucketName] === true) {
-      return true;
-    }
-    
-    const bucketExists = await checkBucketExists(bucketName);
-    bucketStatusCache[bucketName] = bucketExists;
-    
-    if (!bucketExists) {
-      // Não vamos mais tentar criar buckets aqui, pois eles já foram criados
-      console.log(`Bucket ${bucketName} não existe ou não está acessível.`);
-      return false;
-    } else {
-      console.log(`Bucket ${bucketName} existe e está acessível.`);
-      return true;
-    }
-  } catch (err) {
-    console.error(`Error checking bucket ${bucketName}:`, err);
-    return false;
-  }
-};
-
-interface SetupStorageOptions {
-  skipBucketCreation?: boolean;
-  skipExcessiveLogging?: boolean;
-  noAttemptIfUnavailable?: boolean;
-}
-
-// Setup storage buckets
-export const setupStorage = async (options: SetupStorageOptions = {}): Promise<boolean> => {
-  const { 
-    skipBucketCreation = true,
-    skipExcessiveLogging = false,
-    noAttemptIfUnavailable = false
-  } = options;
-  
-  // Verificar cache temporal para evitar múltiplas chamadas
-  const now = Date.now();
-  if (now - bucketStatusCache.lastCheck < 30000) {
-    // Usar cache se a última verificação foi há menos de 30 segundos
-    if (!skipExcessiveLogging) {
-      console.log('Using cached bucket status');
-    }
-    
-    const allBucketsAvailable = bucketStatusCache.products && 
-                              bucketStatusCache.customers && 
-                              bucketStatusCache.shipments;
-    
-    return allBucketsAvailable;
-  }
-  
-  if (!skipExcessiveLogging) {
-    console.log('Setting up storage buckets...');
-  }
-  
-  const BUCKET_NAMES = ['products', 'customers', 'shipments'];
-  let allBucketsAvailable = true;
-  
-  try {
-    // Verificar buckets
-    for (const bucketName of BUCKET_NAMES) {
-      // Limitar o número de tentativas de verificação por bucket
-      if (bucketCheckAttempts[bucketName] > 2 && noAttemptIfUnavailable) {
-        if (!skipExcessiveLogging) {
-          console.log(`Skipping check for bucket ${bucketName} - previous attempts failed`);
-        }
-        allBucketsAvailable = false;
-        bucketStatusCache[bucketName] = false;
-        continue;
-      }
-      
-      bucketCheckAttempts[bucketName]++;
-      
-      if (!skipExcessiveLogging) {
-        console.log(`Checking bucket: ${bucketName}`);
-      }
-      
-      const bucketExists = await checkBucketExists(bucketName);
-      bucketStatusCache[bucketName] = bucketExists;
-      
-      if (!bucketExists) {
-        allBucketsAvailable = false;
-        console.log(`Bucket ${bucketName} is not available.`);
-      } else {
-        console.log(`Bucket ${bucketName} is available.`);
-      }
-    }
-    
-    // Atualizar timestamp do cache
-    bucketStatusCache.lastCheck = now;
-    
-    if (!skipExcessiveLogging) {
-      console.log('Storage setup complete. Buckets available:', allBucketsAvailable);
-    }
-    
-    return allBucketsAvailable;
-  } catch (error) {
-    console.error('Storage setup check failed:', error);
-    
-    // Resetar o cache em caso de erro
-    BUCKET_NAMES.forEach(name => {
-      bucketStatusCache[name] = false;
-    });
-    bucketStatusCache.lastCheck = now;
-    
-    console.log('Falling back to local storage only.');
-    return false;
-  }
-};
-
-// Function to upload a product image to storage
-export const uploadProductImage = async (productId: string, file: File): Promise<string> => {
-  try {
-    // Verificar rapidamente o status do bucket usando o cache
-    const bucketName = 'products';
-    const skipUpload = bucketCheckAttempts[bucketName] > 2 && !bucketStatusCache[bucketName];
-    
-    // Se já tentamos verificar várias vezes e falhou, nem tenta fazer upload
-    if (skipUpload) {
-      console.log('Products bucket not available (cached result), using local storage fallback');
-      return URL.createObjectURL(file);
-    }
-    
-    // Os buckets agora devem existir, então tentamos fazer upload
-    const fileName = `${productId}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
-    
-    // Upload the file to Storage
-    const { error } = await supabase.storage
-      .from(bucketName)
-      .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: true
-      });
-
-    if (error) {
-      console.error('Error uploading image:', error);
-      return URL.createObjectURL(file); // Fallback para URL local
-    }
-
-    // Get the public URL
-    const publicUrl = getStorageUrl(bucketName, fileName);
-    
-    // Also record this image in the product_images_relation table
-    try {
-      await supabase
-        .from('product_images_relation')
-        .insert({
-          product_id: productId,
-          image_url: publicUrl
-        });
-    } catch (dbError) {
-      console.error('Error saving image relation to database:', dbError);
-      // Continue anyway, the image is still uploaded
-    }
-      
-    return publicUrl;
-  } catch (error) {
-    console.error('Error in uploadProductImage:', error);
-    
-    // Create local URL as fallback
-    if (file instanceof File) {
-      return URL.createObjectURL(file);
-    }
-    
-    return '/placeholder.svg';
-  }
+// Função para deletar imagem de produto
+export const deleteProductImage = async (filePath: string) => {
+  const { error } = await supabase.storage.from('product-images').remove([filePath]);
+  if (error) throw error;
 };
 
 // Function to save a new product to the database
@@ -372,5 +206,3 @@ export const deleteProductFromDatabase = async (id: string): Promise<boolean> =>
     return false;
   }
 };
-
-export { getStorageUrl, checkBucketExists };

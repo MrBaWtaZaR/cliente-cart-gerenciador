@@ -95,6 +95,18 @@ let lastRefreshTime = 0;
 // Improved debounce timer
 let refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+// Utilitário para disparar eventos globais de forma segura
+const dispatchGlobalEvent = (() => {
+  const lastEvents: Record<string, number> = {};
+  return (eventName: string, minInterval = 100) => {
+    const now = Date.now();
+    if (!lastEvents[eventName] || now - lastEvents[eventName] > minInterval) {
+      window.dispatchEvent(new CustomEvent(eventName));
+      lastEvents[eventName] = now;
+    }
+  };
+})();
+
 export const useDataStore = create<DataStore>((set, get) => {
   // Create base store
   const dataStore = {
@@ -151,39 +163,26 @@ export const useDataStore = create<DataStore>((set, get) => {
       }
       
       try {
-        console.log("Iniciando atualização de todos os dados");
         isRefreshInProgress = true;
         lastRefreshTime = now;
         set({ isLoading: true });
-        
         // Reload customer data - this is critical for pending order status
-        console.log("Recarregando dados de clientes");
         await customerStore.reloadCustomers();
-        
         // Reload product data
-        console.log("Recarregando dados de produtos");
         await productStore.loadProducts();
-        
         // Reload shipments
-        console.log("Recarregando dados de envios");
         const updatedShipments = await shipmentStore.getShipments();
-        
         // Update the main store with new data - Use getState() to get the latest data
         const customers = useCustomerStore.getState().customers;
         const products = useProductStore.getState().products;
-        
         set({ 
           customers,
           products,
           shipments: updatedShipments,
           isLoading: false 
         });
-        
         // Trigger UI updates - but only once
-        console.log("Disparando evento de atualização de dados");
-        window.dispatchEvent(new CustomEvent('data-updated'));
-        
-        console.log("Dados atualizados com sucesso");
+        dispatchGlobalEvent('data-updated');
       } catch (error) {
         console.error('Error refreshing all data:', error);
         set({ isLoading: false });
@@ -265,8 +264,6 @@ export const useDataStore = create<DataStore>((set, get) => {
                   customer.orders = localCustomer.orders;
                 }
               }
-            } else {
-              console.log(`Skipping order fetch for customer with invalid UUID: ${customer.id}`);
             }
           } catch (error) {
             console.error(`Error loading orders for customer ${customer.id}:`, error);

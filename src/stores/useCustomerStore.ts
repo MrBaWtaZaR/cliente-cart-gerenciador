@@ -50,15 +50,24 @@ const loadInitialCustomers = (): Customer[] => {
   return [];
 };
 
+// Utilitário para disparar eventos globais de forma segura
+const dispatchGlobalEvent = (() => {
+  const lastEvents: Record<string, number> = {};
+  return (eventName: string, minInterval = 100) => {
+    const now = Date.now();
+    if (!lastEvents[eventName] || now - lastEvents[eventName] > minInterval) {
+      window.dispatchEvent(new CustomEvent(eventName));
+      lastEvents[eventName] = now;
+    }
+  };
+})();
+
 // Improved function to trigger order status updates
 const notifyOrderStatusChange = () => {
-  console.log("Order status changed, notifying components...");
-  // Use a more specific event for order status changes
-  window.dispatchEvent(new CustomEvent('order-status-changed'));
-  // Also trigger the general update event
-  window.dispatchEvent(new CustomEvent('order-updated'));
-  // General data update event
-  window.dispatchEvent(new CustomEvent('data-updated'));
+  // Use eventos globais centralizados
+  dispatchGlobalEvent('order-status-changed');
+  dispatchGlobalEvent('order-updated');
+  dispatchGlobalEvent('data-updated');
 };
 
 // Helper function to save an order to Supabase - making it non-blocking
@@ -621,7 +630,6 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       saveOrderToSupabase(newOrder, customerEmail)
         .then(success => {
           if (!success) {
-            console.warn('Order saved locally but failed to sync with Supabase');
             toast.warning('Pedido salvo localmente, mas não sincronizado com o servidor');
           }
         })
@@ -716,7 +724,6 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
         updateOrderInSupabase(updatedOrder)
           .then(success => {
             if (!success) {
-              console.warn('Order updated locally but failed to sync with Supabase');
               toast.warning('Pedido atualizado localmente, mas não sincronizado com o servidor');
             }
           })
@@ -754,7 +761,6 @@ export const useCustomerStore = create<CustomerStore>((set, get) => ({
       deleteOrderFromSupabase(orderId)
         .then(success => {
           if (!success) {
-            console.warn('Order deleted locally but failed to sync with Supabase');
             toast.warning('Pedido excluído localmente, mas não sincronizado com o servidor');
           }
         })

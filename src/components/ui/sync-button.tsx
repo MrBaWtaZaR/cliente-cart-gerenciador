@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button, ButtonProps } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -9,6 +8,18 @@ interface SyncButtonProps extends ButtonProps {
   syncType?: 'all' | 'orders';
   children?: React.ReactNode;
 }
+
+// Utilitário para disparar eventos globais de forma segura
+const dispatchGlobalEvent = (() => {
+  const lastEvents: Record<string, number> = {};
+  return (eventName: string, minInterval = 100) => {
+    const now = Date.now();
+    if (!lastEvents[eventName] || now - lastEvents[eventName] > minInterval) {
+      window.dispatchEvent(new CustomEvent(eventName));
+      lastEvents[eventName] = now;
+    }
+  };
+})();
 
 export function SyncButton({ syncType = 'all', children, ...props }: SyncButtonProps) {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -28,7 +39,7 @@ export function SyncButton({ syncType = 'all', children, ...props }: SyncButtonP
       }
       
       // Trigger UI updates
-      window.dispatchEvent(new CustomEvent('data-updated'));
+      dispatchGlobalEvent('data-updated');
     } catch (error) {
       console.error('Sync error:', error);
       toast.error('Erro na sincronização');
