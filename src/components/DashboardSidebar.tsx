@@ -76,18 +76,28 @@ export const DashboardSidebar = () => {
 
   return (
     <>
+      {/* Mobile Menu Toggle Button - Fixed position to ensure it's always visible */}
       <Button
         variant="ghost"
         size="icon"
         onClick={toggleSidebar}
-        className="md:hidden fixed top-4 left-4 z-50"
+        className="md:hidden fixed top-4 left-4 z-50 bg-sidebar/80 text-white hover:bg-sidebar/90"
       >
         {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </Button>
       
+      {/* Mobile Overlay - Show when sidebar is open on mobile */}
+      {isMobile && isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+      
+      {/* Sidebar */}
       <aside
         className={cn(
-          "bg-sidebar h-full fixed left-0 top-0 bottom-0 w-64 shadow-xl transition-transform duration-300 ease-in-out z-40",
+          "bg-sidebar h-full fixed left-0 top-0 bottom-0 w-64 shadow-xl transition-all duration-300 ease-in-out z-40",
           isMobile && !isOpen ? "-translate-x-full" : "translate-x-0"
         )}
         style={{ width: '16rem' }}
@@ -100,7 +110,7 @@ export const DashboardSidebar = () => {
             </p>
           </div>
 
-          <nav className="flex-1 p-4">
+          <nav className="flex-1 p-4 overflow-y-auto">
             <ul className="space-y-1">
               {navItems.map((item) => (
                 <li key={item.path}>
@@ -132,11 +142,6 @@ export const DashboardSidebar = () => {
           </div>
         </div>
       </aside>
-      
-      {/* Add a placeholder div when on mobile to prevent content from being hidden behind toggle button */}
-      {isMobile && (
-        <div className="h-16 md:hidden"></div>
-      )}
     </>
   );
 };
