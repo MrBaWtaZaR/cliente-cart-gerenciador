@@ -1,12 +1,14 @@
-
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Customer } from '@/lib/data';
 import { PrintablePDF, PrintablePDFRef } from './PrintablePDF';
 import { PDFStyles } from './pdf/PDFStyles';
-import { PDFHeader } from './pdf/PDFHeader';
-import { PDFFooter } from './pdf/PDFFooter';
+import { ModernPDFStyles } from './pdf/ModernPDFStyles';
+import { ModernPDFHeader } from './pdf/ModernPDFHeader';
+import { ModernPDFFooter } from './pdf/ModernPDFFooter';
+import { ShipmentInfo } from './pdf/ShipmentInfo';
+import { PDFTable } from './pdf/PDFTable';
 import { calculateServiceFee, formatCurrency, formatPhone } from '@/utils/pdfHelpers';
 
 interface ShipmentPDFProps {
@@ -36,60 +38,22 @@ export const ShipmentTablePDF = React.forwardRef<PrintablePDFRef, ShipmentPDFPro
 
     return (
       <PrintablePDF ref={ref}>
-        <PDFStyles />
-        <div className="print-page-container bg-white text-black font-[Poppins] flex flex-col min-h-[297mm]">
-          <PDFHeader />
+        <ModernPDFStyles />
+        <div className="modern-print-container">
+          <ModernPDFHeader />
           
-          <div className="flex-grow p-4 overflow-hidden">
-            <table className="shipment-table w-full">
-              <thead>
-                <tr>
-                  <th style={{ width: '40%' }}>Nome</th>
-                  <th style={{ width: '15%' }} className="text-right">Compra</th>
-                  <th style={{ width: '15%' }} className="text-right">Serviço</th>
-                  <th style={{ width: '15%' }} className="text-right">Emb.</th>
-                  <th style={{ width: '15%' }} className="text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shipmentCustomers.length > 0 ? shipmentCustomers.map((customer, idx) => {
-                  const latestOrder = customer.orders?.reduce((latest, current) =>
-                    new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-                  );
-                  const orderTotal = latestOrder?.total || 0;
-                  const serviceFee = calculateServiceFee(orderTotal);
-                  const total = orderTotal + serviceFee;
-
-                  return (
-                    <tr key={idx} className={idx % 2 === 1 ? "bg-gray-100" : ""}>
-                      <td>{`${idx + 1}. ${customer.name}`}</td>
-                      <td className="text-right">{formatCurrency(orderTotal)}</td>
-                      <td className="text-right">{formatCurrency(serviceFee)}</td>
-                      <td className="text-right"></td>
-                      <td className="text-right font-semibold">{formatCurrency(total)}</td>
-                    </tr>
-                  );
-                }) : (
-                  <tr>
-                    <td colSpan={5} className="py-6 text-center text-gray-500">
-                      Nenhum cliente para exibir.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-              <tfoot>
-                <tr className="total-row bg-gray-200">
-                  <td className="font-bold text-center">TOTAIS:</td>
-                  <td className="text-right font-bold">{formatCurrency(totalOrderAmount)}</td>
-                  <td className="text-right font-bold">{formatCurrency(totalServiceFeeAmount)}</td>
-                  <td className="text-right font-bold">-</td>
-                  <td className="text-right font-bold">{formatCurrency(grandTotal)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+          <ShipmentInfo 
+            date={date}
+            customerCount={shipmentCustomers.length}
+            totalAmount={grandTotal}
+          />
           
-          <PDFFooter date={footerDate} />
+          <PDFTable customers={shipmentCustomers} />
+          
+          <ModernPDFFooter 
+            date={footerDate}
+            customerCount={shipmentCustomers.length}
+          />
         </div>
       </PrintablePDF>
     );
