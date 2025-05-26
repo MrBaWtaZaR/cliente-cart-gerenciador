@@ -75,9 +75,9 @@ export const PDFTable = ({ customers }: PDFTableProps) => {
         <tfoot>
           <tr className="table-footer-summary">
             <td colSpan={3} className="summary-label">RESUMO GERAL</td>
-            <td className="summary-amount">{formatCurrency(totalOrderAmount)}</td>
-            <td className="summary-service">{formatCurrency(totalServiceFeeAmount)}</td>
-            <td className="summary-total">{formatCurrency(grandTotal)}</td>
+            <td className="table-cell-amount summary-amount">{formatCurrency(totalOrderAmount)}</td>
+            <td className="table-cell-service summary-service">{formatCurrency(totalServiceFeeAmount)}</td>
+            <td className="table-cell-total summary-total">{formatCurrency(grandTotal)}</td>
           </tr>
         </tfoot>
       </table>
