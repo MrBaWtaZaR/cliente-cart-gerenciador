@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 
 export const ModernPDFStyles = () => {
   useEffect(() => {
-    // Criar elemento style único para este componente
     const styleId = 'modern-pdf-styles-unique';
     let styleElement = document.getElementById(styleId) as HTMLStyleElement | null;
     
@@ -14,7 +13,6 @@ export const ModernPDFStyles = () => {
       document.head.appendChild(styleElement);
     }
 
-    // Aplicar os estilos diretamente no head
     styleElement.innerHTML = `
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
       
@@ -30,7 +28,7 @@ export const ModernPDFStyles = () => {
           -webkit-print-color-adjust: exact !important;
           color-adjust: exact !important;
           font-size: 11pt;
-          line-height: 1.4;
+          line-height: 1.3;
           color: #1a1a1a;
         }
         
@@ -38,7 +36,7 @@ export const ModernPDFStyles = () => {
           width: 210mm !important;
           min-height: 297mm !important;
           margin: 0 !important;
-          padding: 15mm 12mm !important;
+          padding: 12mm !important;
           background: white !important;
           display: flex !important;
           flex-direction: column !important;
@@ -48,56 +46,57 @@ export const ModernPDFStyles = () => {
         .modern-header {
           background: linear-gradient(135deg, #1C3553 0%, #2563eb 100%) !important;
           color: white !important;
-          padding: 20px 24px !important;
-          border-radius: 8px 8px 0 0 !important;
+          padding: 16px 20px !important;
+          border-radius: 6px 6px 0 0 !important;
           margin-bottom: 0 !important;
           text-align: center !important;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.1) !important;
         }
 
         .modern-header h1 {
-          font-size: 28pt !important;
+          font-size: 24pt !important;
           font-weight: 700 !important;
           letter-spacing: 0.5px !important;
-          margin-bottom: 4px !important;
+          margin-bottom: 2px !important;
         }
 
         .modern-header p {
-          font-size: 12pt !important;
+          font-size: 11pt !important;
           font-weight: 500 !important;
           opacity: 0.9 !important;
-          letter-spacing: 2px !important;
+          letter-spacing: 1.5px !important;
           text-transform: uppercase !important;
         }
 
         .shipment-info {
           background: #f8fafc !important;
-          padding: 16px 24px !important;
-          border-left: 4px solid #1C3553 !important;
-          margin: 20px 0 !important;
-          border-radius: 0 6px 6px 0 !important;
+          padding: 12px 20px !important;
+          border-left: 3px solid #1C3553 !important;
+          margin: 15px 0 !important;
+          border-radius: 0 4px 4px 0 !important;
         }
 
         .shipment-info h2 {
-          font-size: 14pt !important;
+          font-size: 13pt !important;
           font-weight: 600 !important;
           color: #1C3553 !important;
-          margin-bottom: 8px !important;
+          margin-bottom: 6px !important;
         }
 
         .shipment-info p {
-          font-size: 10pt !important;
+          font-size: 9pt !important;
           color: #64748b !important;
-          margin-bottom: 4px !important;
+          margin-bottom: 3px !important;
         }
 
         .modern-table-container {
           background: white !important;
-          border-radius: 0 0 8px 8px !important;
+          border-radius: 0 0 6px 6px !important;
           overflow: hidden !important;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+          box-shadow: 0 3px 10px rgba(0,0,0,0.08) !important;
           border: 1px solid #e2e8f0 !important;
           border-top: none !important;
+          flex-grow: 1 !important;
         }
 
         .modern-shipment-table {
@@ -114,31 +113,41 @@ export const ModernPDFStyles = () => {
         .modern-shipment-table th {
           color: white !important;
           font-weight: 600 !important;
-          font-size: 9.5pt !important;
-          padding: 14px 12px !important;
+          font-size: 9pt !important;
+          padding: 10px 8px !important;
           text-align: left !important;
           border: none !important;
-          letter-spacing: 0.3px !important;
+          letter-spacing: 0.2px !important;
           text-transform: uppercase !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
         }
 
         .table-header-index {
-          width: 8% !important;
+          width: 6% !important;
           text-align: center !important;
         }
 
         .table-header-name {
-          width: 28% !important;
+          width: 32% !important;
         }
 
         .table-header-tour {
-          width: 24% !important;
+          width: 26% !important;
         }
 
-        .table-header-amount,
-        .table-header-service,
+        .table-header-amount {
+          width: 12% !important;
+          text-align: right !important;
+        }
+
+        .table-header-service {
+          width: 12% !important;
+          text-align: right !important;
+        }
+
         .table-header-total {
-          width: 13.33% !important;
+          width: 12% !important;
           text-align: right !important;
         }
 
@@ -155,45 +164,48 @@ export const ModernPDFStyles = () => {
         }
 
         .modern-shipment-table td {
-          padding: 12px !important;
-          font-size: 9pt !important;
+          padding: 8px !important;
+          font-size: 8.5pt !important;
           vertical-align: top !important;
           border: none !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
         }
 
         .table-cell-index {
           text-align: center !important;
           font-weight: 600 !important;
-          font-size: 10pt !important;
+          font-size: 9pt !important;
           color: #64748b !important;
         }
 
         .customer-name {
           font-weight: 600 !important;
           color: #1a1a1a !important;
-          font-size: 9.5pt !important;
-          margin-bottom: 2px !important;
+          font-size: 9pt !important;
+          margin-bottom: 1px !important;
         }
 
         .customer-phone {
-          font-size: 8.5pt !important;
+          font-size: 7.5pt !important;
           color: #64748b !important;
           font-weight: 400 !important;
         }
 
         .tour-info {
-          line-height: 1.3 !important;
+          line-height: 1.2 !important;
         }
 
         .tour-name {
           font-weight: 500 !important;
           color: #1a1a1a !important;
-          font-size: 9pt !important;
-          margin-bottom: 2px !important;
+          font-size: 8.5pt !important;
+          margin-bottom: 1px !important;
         }
 
         .tour-seat {
-          font-size: 8.5pt !important;
+          font-size: 7.5pt !important;
           color: #64748b !important;
           font-weight: 400 !important;
         }
@@ -203,7 +215,7 @@ export const ModernPDFStyles = () => {
         .table-cell-total {
           text-align: right !important;
           font-weight: 500 !important;
-          font-size: 9.5pt !important;
+          font-size: 8.5pt !important;
         }
 
         .table-cell-total {
@@ -217,16 +229,16 @@ export const ModernPDFStyles = () => {
         }
 
         .table-footer-summary td {
-          padding: 16px 12px !important;
+          padding: 12px 8px !important;
           font-weight: 600 !important;
-          font-size: 10pt !important;
+          font-size: 9pt !important;
           color: #1C3553 !important;
         }
 
         .summary-label {
           text-transform: uppercase !important;
-          letter-spacing: 0.5px !important;
-          font-size: 10.5pt !important;
+          letter-spacing: 0.4px !important;
+          font-size: 9.5pt !important;
         }
 
         .summary-amount,
@@ -236,47 +248,56 @@ export const ModernPDFStyles = () => {
         }
 
         .summary-total {
-          font-size: 11pt !important;
+          font-size: 10pt !important;
           background: #1C3553 !important;
           color: white !important;
-          border-radius: 4px !important;
+          border-radius: 3px !important;
         }
 
+        /* FOOTER CORRIGIDO - EM LINHA HORIZONTAL */
         .modern-footer {
-          margin-top: auto !important;
+          margin-top: 15px !important;
           background: linear-gradient(135deg, #1C3553 0%, #2563eb 100%) !important;
           color: white !important;
-          padding: 16px 24px !important;
-          border-radius: 0 0 8px 8px !important;
+          padding: 10px 16px !important;
+          border-radius: 0 0 6px 6px !important;
           text-align: center !important;
           display: flex !important;
+          flex-direction: row !important;
           justify-content: space-between !important;
           align-items: center !important;
-          flex-wrap: wrap !important;
+          flex-wrap: nowrap !important;
+          min-height: auto !important;
         }
 
         .footer-section {
           flex: 1 !important;
           text-align: center !important;
-          padding: 0 12px !important;
+          padding: 0 6px !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          justify-content: center !important;
         }
 
         .footer-icon {
-          font-size: 14pt !important;
-          margin-bottom: 4px !important;
+          font-size: 10pt !important;
+          margin-bottom: 2px !important;
           display: block !important;
         }
 
         .footer-text {
-          font-size: 8.5pt !important;
+          font-size: 7pt !important;
           font-weight: 500 !important;
           opacity: 0.95 !important;
+          line-height: 1.1 !important;
         }
 
         .footer-contact {
-          font-size: 8pt !important;
+          font-size: 6.5pt !important;
           opacity: 0.9 !important;
-          margin-top: 2px !important;
+          margin-top: 1px !important;
+          line-height: 1.1 !important;
         }
 
         @page {
@@ -290,7 +311,6 @@ export const ModernPDFStyles = () => {
       }
     `;
 
-    // Cleanup ao desmontar
     return () => {
       const existingStyleElement = document.getElementById(styleId);
       if (existingStyleElement) {
@@ -299,6 +319,5 @@ export const ModernPDFStyles = () => {
     };
   }, []);
 
-  // Não renderizar nada visualmente
   return null;
 };
