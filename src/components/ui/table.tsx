@@ -1,16 +1,23 @@
 
 import * as React from "react"
-
 import { cn } from "@/lib/utils"
 
 const Table = React.forwardRef<
   HTMLTableElement,
-  React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => (
+  React.HTMLAttributes<HTMLTableElement> & {
+    striped?: boolean;
+    hover?: boolean;
+  }
+>(({ className, striped = false, hover = true, ...props }, ref) => (
   <div className="relative w-full overflow-auto">
     <table
       ref={ref}
-      className={cn("w-full caption-bottom text-sm", className)}
+      className={cn(
+        "w-full caption-bottom text-sm",
+        striped && "[&_tbody_tr:nth-child(even)]:bg-muted/50",
+        hover && "[&_tbody_tr]:hover:bg-muted/50",
+        className
+      )}
       {...props}
     />
   </div>
@@ -54,12 +61,15 @@ TableFooter.displayName = "TableFooter"
 
 const TableRow = React.forwardRef<
   HTMLTableRowElement,
-  React.HTMLAttributes<HTMLTableRowElement>
->(({ className, ...props }, ref) => (
+  React.HTMLAttributes<HTMLTableRowElement> & {
+    selected?: boolean;
+  }
+>(({ className, selected = false, ...props }, ref) => (
   <tr
     ref={ref}
     className={cn(
-      "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+      "border-b transition-colors hover:bg-muted/50",
+      selected && "bg-muted",
       className
     )}
     {...props}
@@ -69,12 +79,15 @@ TableRow.displayName = "TableRow"
 
 const TableHead = React.forwardRef<
   HTMLTableCellElement,
-  React.ThHTMLAttributes<HTMLTableCellElement>
->(({ className, ...props }, ref) => (
+  React.ThHTMLAttributes<HTMLTableCellElement> & {
+    sortable?: boolean;
+  }
+>(({ className, sortable = false, ...props }, ref) => (
   <th
     ref={ref}
     className={cn(
       "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+      sortable && "cursor-pointer hover:bg-muted/50",
       className
     )}
     {...props}

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -17,66 +17,55 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const navItems = [
+  { 
+    path: '/dashboard', 
+    icon: LayoutDashboard, 
+    label: 'Dashboard',
+  },
+  { 
+    path: '/dashboard/customers', 
+    icon: Users, 
+    label: 'Clientes',
+  },
+  { 
+    path: '/dashboard/products', 
+    icon: Package, 
+    label: 'Produtos',
+  },
+  { 
+    path: '/dashboard/orders', 
+    icon: ShoppingCart, 
+    label: 'Pedidos',
+  },
+  { 
+    path: '/dashboard/shipments', 
+    icon: Calendar, 
+    label: 'Preparando Envio',
+  },
+  { 
+    path: '/dashboard/settings', 
+    icon: Settings, 
+    label: 'Configurações',
+  },
+];
+
 export const DashboardSidebar = () => {
-  const location = useLocation();
   const logout = useAuthStore((state) => state.logout);
   const user = useAuthStore((state) => state.user);
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(!isMobile);
 
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 768) {
-        setIsOpen(true);
-      } else {
-        setIsOpen(false);
-      }
-    };
+    setIsOpen(!isMobile);
+  }, [isMobile]);
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const toggleSidebar = () => {
-    setIsOpen(!isOpen);
-  };
-
-  const navItems = [
-    { 
-      path: '/dashboard', 
-      icon: <LayoutDashboard className="h-5 w-5" />, 
-      label: 'Dashboard',
-    },
-    { 
-      path: '/dashboard/customers', 
-      icon: <Users className="h-5 w-5" />, 
-      label: 'Clientes',
-    },
-    { 
-      path: '/dashboard/products', 
-      icon: <Package className="h-5 w-5" />, 
-      label: 'Produtos',
-    },
-    { 
-      path: '/dashboard/orders', 
-      icon: <ShoppingCart className="h-5 w-5" />, 
-      label: 'Pedidos',
-    },
-    { 
-      path: '/dashboard/shipments', 
-      icon: <Calendar className="h-5 w-5" />, 
-      label: 'Preparando Envio',
-    },
-    { 
-      path: '/dashboard/settings', 
-      icon: <Settings className="h-5 w-5" />, 
-      label: 'Configurações',
-    },
-  ];
+  const toggleSidebar = () => setIsOpen(!isOpen);
+  const closeSidebar = () => setIsOpen(false);
 
   return (
     <>
-      {/* Mobile Menu Toggle Button - Fixed position to ensure it's always visible */}
+      {/* Mobile Toggle Button */}
       <Button
         variant="ghost"
         size="icon"
@@ -86,11 +75,11 @@ export const DashboardSidebar = () => {
         {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </Button>
       
-      {/* Mobile Overlay - Show when sidebar is open on mobile */}
+      {/* Mobile Overlay */}
       {isMobile && isOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-30"
-          onClick={() => setIsOpen(false)}
+          onClick={closeSidebar}
         />
       )}
       
@@ -103,6 +92,7 @@ export const DashboardSidebar = () => {
         style={{ width: '16rem' }}
       >
         <div className="flex flex-col h-full">
+          {/* Header */}
           <div className="p-6 border-b border-sidebar-border">
             <h1 className="text-2xl font-bold text-white">A&F Consultoria</h1>
             <p className="text-sm text-sidebar-foreground/80 mt-1">
@@ -110,26 +100,31 @@ export const DashboardSidebar = () => {
             </p>
           </div>
 
+          {/* Navigation */}
           <nav className="flex-1 p-4 overflow-y-auto">
             <ul className="space-y-1">
-              {navItems.map((item) => (
-                <li key={item.path}>
-                  <NavLink
-                    to={item.path}
-                    className={({ isActive }) => cn(
-                      "flex items-center px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-white/10 transition-colors",
-                      isActive ? "bg-white/15 shadow-inner" : ""
-                    )}
-                    onClick={() => isMobile && setIsOpen(false)}
-                  >
-                    {item.icon}
-                    <span className="ml-3 font-medium">{item.label}</span>
-                  </NavLink>
-                </li>
-              ))}
+              {navItems.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <li key={item.path}>
+                    <NavLink
+                      to={item.path}
+                      className={({ isActive }) => cn(
+                        "flex items-center px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-white/10 transition-colors",
+                        isActive ? "bg-white/15 shadow-inner" : ""
+                      )}
+                      onClick={() => isMobile && closeSidebar()}
+                    >
+                      <IconComponent className="h-5 w-5" />
+                      <span className="ml-3 font-medium">{item.label}</span>
+                    </NavLink>
+                  </li>
+                );
+              })}
             </ul>
           </nav>
 
+          {/* Footer */}
           <div className="p-4 border-t border-sidebar-border mt-auto">
             <Button 
               variant="outline" 
