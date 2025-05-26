@@ -9,6 +9,7 @@ import { ModernPDFHeader } from './pdf/ModernPDFHeader';
 import { ModernPDFFooter } from './pdf/ModernPDFFooter';
 import { ShipmentInfo } from './pdf/ShipmentInfo';
 import { PDFTable } from './pdf/PDFTable';
+import { PDFStyles } from './pdf/PDFStyles';
 import { calculateServiceFee, formatCurrency, formatPhone } from '@/utils/pdfHelpers';
 
 interface ShipmentPDFProps {
