@@ -1,9 +1,9 @@
+
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Customer } from '@/lib/data';
 import { PrintablePDF, PrintablePDFRef } from './PrintablePDF';
-import { PDFStyles } from './pdf/PDFStyles';
 import { ModernPDFStyles } from './pdf/ModernPDFStyles';
 import { ModernPDFHeader } from './pdf/ModernPDFHeader';
 import { ModernPDFFooter } from './pdf/ModernPDFFooter';
